@@ -25,8 +25,8 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         {naverMapClientId && (
           <Script
-            src={`https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${naverMapClientId}`}
-            strategy="beforeInteractive"
+            src={`https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${naverMapClientId}`}
+            strategy="afterInteractive"
           />
         )}
         {children}

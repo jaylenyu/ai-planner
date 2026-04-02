@@ -12,6 +12,14 @@ export class PlanService {
     private readonly aiService: AiService,
   ) {}
 
+  async list(userId: string) {
+    return this.prisma.plan.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      include: { items: { orderBy: { order: 'asc' } } },
+    });
+  }
+
   async generate(userId: string, dto: GeneratePlanDto) {
     const result = await this.aiService.runPipeline(dto.rawInput, dto.mode);
 

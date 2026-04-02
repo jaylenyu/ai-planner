@@ -12,15 +12,20 @@ declare global {
   interface Window {
     naver: {
       maps: {
-        Map: new (el: HTMLElement, opts: object) => NaverMap;
+        Map: new (el: HTMLElement | string, opts: object) => NaverMap;
         LatLng: new (lat: number, lng: number) => NaverLatLng;
-        Marker: new (opts: object) => void;
+        Marker: new (opts: object) => NaverMarker;
         Polyline: new (opts: object) => void;
+        InfoWindow: new (opts: object) => NaverInfoWindow;
         Size: new (w: number, h: number) => object;
         Point: new (x: number, y: number) => object;
         MarkerImage: new (url: string, size: object, opts?: object) => object;
+        Event: {
+          addListener: (target: object, event: string, handler: () => void) => void;
+        };
       };
     };
+    navermap_authFailure: () => void;
   }
 }
 
@@ -31,6 +36,14 @@ interface NaverMap {
 interface NaverLatLng {
   lat(): number;
   lng(): number;
+}
+interface NaverMarker {
+  getPosition(): NaverLatLng;
+}
+interface NaverInfoWindow {
+  open(map: NaverMap, marker: NaverMarker): void;
+  close(): void;
+  getMap(): NaverMap | null;
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -46,21 +59,32 @@ export function MapView({ items, polyline }: MapViewProps) {
   const mapInstanceRef = useRef<NaverMap | null>(null);
 
   useEffect(() => {
+    // 인증 실패 핸들러 (문서 권장)
+    window.navermap_authFailure = () => {
+      console.error('Naver Maps 인증 실패: ncpKeyId와 웹 서비스 URL을 확인하세요.');
+    };
+  }, []);
+
+  useEffect(() => {
     if (!mapRef.current || items.length === 0) return;
 
     const initMap = () => {
       if (!window.naver?.maps || !mapRef.current) return;
 
       const center = new window.naver.maps.LatLng(items[0].lat, items[0].lng);
+      // 문서 기준: 컨테이너 element와 옵션 객체 전달
       const map = new window.naver.maps.Map(mapRef.current, {
         center,
         zoom: 15,
       });
       mapInstanceRef.current = map;
 
+      // InfoWindow (공유 인스턴스 — 하나만 열림)
+      const infoWindow = new window.naver.maps.InfoWindow({ anchorSkew: true });
+
       // 마커 생성
       items.forEach((item) => {
-        const content = `
+        const markerContent = `
           <div style="
             background: ${TYPE_COLORS[item.type] ?? '#6366f1'};
             color: white;
@@ -78,11 +102,28 @@ export function MapView({ items, polyline }: MapViewProps) {
           ">${item.order}</div>
         `;
 
-        new window.naver.maps.Marker({
+        const infoContent = `
+          <div style="padding:10px 14px;min-width:160px;font-family:sans-serif;">
+            <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#1e1e2e;">${item.name}</p>
+            <p style="margin:0 0 2px;font-size:12px;color:#6366f1;">${item.time}</p>
+            <p style="margin:0;font-size:11px;color:#888;">${item.address}</p>
+          </div>
+        `;
+
+        const marker = new window.naver.maps.Marker({
           position: new window.naver.maps.LatLng(item.lat, item.lng),
           map,
-          icon: { content, anchor: new window.naver.maps.Point(16, 16) },
+          icon: { content: markerContent, anchor: new window.naver.maps.Point(16, 16) },
           title: item.name,
+        });
+
+        window.naver.maps.Event.addListener(marker, 'click', () => {
+          if (infoWindow.getMap()) {
+            infoWindow.close();
+          } else {
+            (infoWindow as unknown as { setContent: (c: string) => void }).setContent(infoContent);
+            infoWindow.open(map, marker);
+          }
         });
       });
 

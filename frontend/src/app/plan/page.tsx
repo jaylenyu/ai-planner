@@ -4,20 +4,24 @@ import { useState } from 'react';
 import { PlanInputForm } from '../../components/plan/PlanInputForm';
 import { ScheduleList } from '../../components/plan/ScheduleList';
 import { MapView } from '../../components/plan/MapView';
+import { PlanHistory } from '../../components/plan/PlanHistory';
 import { Spinner } from '../../components/ui/Spinner';
 import { usePlanGenerate } from '../../hooks/usePlanGenerate';
+import { usePlanList } from '../../hooks/usePlanList';
 import { useAuth } from '../../hooks/useAuth';
 import Link from 'next/link';
 
 export default function PlanPage() {
   const { generate, status, result, error } = usePlanGenerate();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, logout } = useAuth();
+  const { plans, loading: plansLoading, refetch } = usePlanList();
   const [hasSubmitted, setHasSubmitted] = useState(false);
 
   const handleSubmit = async (rawInput: string, mode: 'date' | 'trip') => {
     if (!isLoggedIn) return;
     setHasSubmitted(true);
     await generate(rawInput, mode);
+    refetch();
   };
 
   return (
@@ -31,7 +35,12 @@ export default function PlanPage() {
           </div>
           <div className="flex gap-2">
             {isLoggedIn ? (
-              <span className="text-xs text-zinc-500">로그인됨</span>
+              <button
+                onClick={() => { logout(); window.location.href = '/login'; }}
+                className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 transition-colors"
+              >
+                로그아웃
+              </button>
             ) : (
               <div className="flex gap-2">
                 <Link href="/login" className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 transition-colors">
@@ -96,10 +105,17 @@ export default function PlanPage() {
 
         {/* 초기 상태 */}
         {!hasSubmitted && status === 'idle' && (
-          <div className="flex flex-col items-center gap-3 py-16 text-center">
+          <div className="flex flex-col items-center gap-3 py-12 text-center">
             <div className="text-4xl">🗓</div>
             <p className="text-sm font-medium text-zinc-600">위에 원하는 일정을 입력해보세요</p>
             <p className="text-xs text-zinc-400">데이트 코스, 당일치기 여행 모두 지원합니다</p>
+          </div>
+        )}
+
+        {/* 이전 플랜 히스토리 */}
+        {isLoggedIn && (
+          <div className="mt-6">
+            <PlanHistory plans={plans} loading={plansLoading} />
           </div>
         )}
       </main>

@@ -1,13 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
-import { setToken, removeToken, isLoggedIn } from '../lib/auth';
+import { setToken, removeToken, getToken } from '../lib/auth';
 import { AuthResponse } from '../lib/types';
 
 export function useAuth() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    setIsLoggedIn(!!getToken());
+  }, []);
 
   const register = async (email: string, password: string) => {
     setLoading(true);
@@ -15,6 +20,7 @@ export function useAuth() {
     try {
       const res = await api.post<AuthResponse>('/auth/register', { email, password });
       setToken(res.access_token);
+      setIsLoggedIn(true);
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : '회원가입 실패');
@@ -30,6 +36,7 @@ export function useAuth() {
     try {
       const res = await api.post<AuthResponse>('/auth/login', { email, password });
       setToken(res.access_token);
+      setIsLoggedIn(true);
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : '로그인 실패');
@@ -39,7 +46,10 @@ export function useAuth() {
     }
   };
 
-  const logout = () => removeToken();
+  const logout = () => {
+    removeToken();
+    setIsLoggedIn(false);
+  };
 
-  return { login, register, logout, loading, error, isLoggedIn: isLoggedIn() };
+  return { login, register, logout, loading, error, isLoggedIn };
 }
