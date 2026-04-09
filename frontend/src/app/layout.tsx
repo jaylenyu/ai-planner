@@ -9,8 +9,8 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "AI 일정 플래너",
-  description: "자연어로 입력하면 AI가 최적 동선을 생성합니다",
+  title: "Dayplan — AI 일정 플래너",
+  description: "자연어 한마디로 완벽한 데이트 코스와 여행 일정을 만들어보세요",
 };
 
 export default function RootLayout({

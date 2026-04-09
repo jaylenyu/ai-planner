@@ -25,29 +25,44 @@ export default function PlanPage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50">
-      {/* 헤더 */}
-      <header className="border-b border-zinc-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-          <div>
-            <h1 className="text-xl font-bold text-zinc-900">AI 일정 플래너</h1>
-            <p className="text-xs text-zinc-400">자연어로 입력하면 AI가 최적 동선을 생성합니다</p>
-          </div>
-          <div className="flex gap-2">
+    <div className="min-h-screen bg-[var(--background)]">
+      {/* Header */}
+      <header className="sticky top-0 z-50 glass border-b border-stone-200/60">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 sm:px-6 py-4">
+          <Link href="/plan" className="flex items-center gap-2.5 group">
+            <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-gradient-to-br from-orange-500 to-pink-500 shadow-md shadow-orange-500/20 group-hover:shadow-lg group-hover:shadow-orange-500/30 transition-all duration-300">
+              <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-stone-900 tracking-tight">Dayplan</h1>
+              <p className="text-[11px] text-stone-400 -mt-0.5 font-medium">AI 일정 플래너</p>
+            </div>
+          </Link>
+
+          <div className="flex items-center gap-2">
             {isLoggedIn ? (
               <button
                 onClick={() => { logout(); window.location.href = '/login'; }}
-                className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 transition-colors"
+                className="rounded-xl border border-stone-200 px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50 hover:border-stone-300 transition-all duration-200 cursor-pointer"
               >
                 로그아웃
               </button>
             ) : (
               <div className="flex gap-2">
-                <Link href="/login" className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 transition-colors">
+                <Link
+                  href="/login"
+                  className="rounded-xl border border-stone-200 px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50 hover:border-stone-300 transition-all duration-200"
+                >
                   로그인
                 </Link>
-                <Link href="/register" className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 transition-colors">
-                  회원가입
+                <Link
+                  href="/register"
+                  className="rounded-xl bg-gradient-to-r from-orange-500 to-pink-500 px-4 py-2 text-sm font-medium text-white shadow-md shadow-orange-500/20 hover:shadow-lg hover:shadow-orange-500/30 hover:brightness-110 transition-all duration-200"
+                >
+                  시작하기
                 </Link>
               </div>
             )}
@@ -55,70 +70,139 @@ export default function PlanPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-8">
-        {/* 입력 폼 */}
-        <div className="rounded-2xl bg-white p-6 shadow-sm border border-zinc-100 mb-6">
-          {!isLoggedIn && (
-            <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
-              일정을 생성하려면 <Link href="/login" className="font-semibold underline">로그인</Link>이 필요합니다.
+      <main className="mx-auto max-w-6xl px-4 sm:px-6">
+        {/* Hero input section */}
+        <section className="relative py-8 sm:py-12">
+          <div className="hero-pattern rounded-3xl p-6 sm:p-10 border border-stone-100 bg-white/60">
+            {/* Title area */}
+            <div className="text-center mb-8">
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">
+                오늘 하루,{' '}
+                <span className="text-gradient">어디로 갈까요?</span>
+              </h2>
+              <p className="mt-2 text-sm sm:text-base text-stone-500">
+                자연어 한마디면 AI가 완벽한 일정을 만들어드려요
+              </p>
             </div>
-          )}
-          <PlanInputForm onSubmit={handleSubmit} loading={status === 'loading'} />
-        </div>
 
-        {/* 로딩 */}
+            {!isLoggedIn && (
+              <div className="mb-6 rounded-2xl bg-amber-50 border border-amber-200 px-5 py-4 text-sm text-amber-700 flex items-center gap-3 animate-fade-in">
+                <span className="text-xl">🔒</span>
+                <span>
+                  일정을 생성하려면{' '}
+                  <Link href="/login" className="font-bold underline underline-offset-2 hover:text-amber-800 transition-colors">
+                    로그인
+                  </Link>
+                  이 필요합니다.
+                </span>
+              </div>
+            )}
+
+            <PlanInputForm onSubmit={handleSubmit} loading={status === 'loading'} />
+          </div>
+        </section>
+
+        {/* Loading state */}
         {status === 'loading' && (
-          <div className="flex flex-col items-center gap-4 py-16">
-            <Spinner size="lg" />
+          <section className="flex flex-col items-center gap-5 py-16 animate-fade-in">
+            <div className="relative">
+              <Spinner size="lg" />
+              <div className="absolute inset-0 rounded-full bg-orange-500/10 animate-ping" />
+            </div>
             <div className="text-center">
-              <p className="text-sm font-medium text-zinc-700">AI가 최적 일정을 생성하고 있습니다</p>
-              <p className="text-xs text-zinc-400 mt-1">장소 검색 → 동선 최적화 → 시간표 생성</p>
+              <p className="text-base font-semibold text-stone-700">AI가 최적 일정을 설계하고 있어요</p>
+              <div className="flex items-center justify-center gap-3 mt-3">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-3 py-1.5 text-xs text-stone-500 animate-pulse-soft">
+                  📍 장소 탐색 중
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-3 py-1.5 text-xs text-stone-500 animate-pulse-soft" style={{ animationDelay: '0.5s' }}>
+                  🗺 동선 최적화
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-3 py-1.5 text-xs text-stone-500 animate-pulse-soft" style={{ animationDelay: '1s' }}>
+                  ⏰ 시간표 생성
+                </span>
+              </div>
             </div>
-          </div>
+          </section>
         )}
 
-        {/* 에러 */}
+        {/* Error */}
         {status === 'error' && error && (
-          <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-            <span className="font-semibold">오류:</span> {error}
-          </div>
+          <section className="py-4 animate-fade-in">
+            <div className="rounded-2xl bg-red-50 border border-red-200 px-5 py-4 text-sm text-red-700 flex items-center gap-3">
+              <span className="text-xl">⚠️</span>
+              <div>
+                <p className="font-semibold">오류가 발생했어요</p>
+                <p className="text-red-600 mt-0.5">{error}</p>
+              </div>
+            </div>
+          </section>
         )}
 
-        {/* 결과 */}
+        {/* Results */}
         {status === 'success' && result && (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <div className="rounded-2xl bg-white p-6 shadow-sm border border-zinc-100">
-              <h2 className="mb-4 text-base font-semibold text-zinc-800">📋 일정</h2>
-              <ScheduleList
-                items={result.items}
-                summary={result.summary}
-                totalDurationMin={result.totalDurationMin}
-              />
+          <section className="pb-8 animate-fade-in-up">
+            <div className="flex items-center gap-2 mb-5">
+              <div className="flex items-center justify-center h-8 w-8 rounded-full bg-gradient-to-br from-orange-500 to-pink-500">
+                <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h2 className="text-lg font-bold text-stone-800">일정이 완성됐어요!</h2>
             </div>
 
-            <div className="rounded-2xl bg-white p-6 shadow-sm border border-zinc-100">
-              <h2 className="mb-4 text-base font-semibold text-zinc-800">🗺 지도</h2>
-              <MapView items={result.items} polyline={result.polyline} />
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              {/* Schedule */}
+              <div className="rounded-2xl bg-white p-6 shadow-sm border border-stone-200 order-2 lg:order-1">
+                <div className="flex items-center gap-2 mb-5">
+                  <span className="text-lg">📋</span>
+                  <h3 className="text-base font-bold text-stone-800">일정 상세</h3>
+                </div>
+                <ScheduleList
+                  items={result.items}
+                  summary={result.summary}
+                  totalDurationMin={result.totalDurationMin}
+                />
+              </div>
+
+              {/* Map */}
+              <div className="rounded-2xl bg-white p-6 shadow-sm border border-stone-200 order-1 lg:order-2 lg:sticky lg:top-24 lg:self-start">
+                <div className="flex items-center gap-2 mb-5">
+                  <span className="text-lg">🗺</span>
+                  <h3 className="text-base font-bold text-stone-800">경로 지도</h3>
+                </div>
+                <MapView items={result.items} polyline={result.polyline} />
+              </div>
             </div>
-          </div>
+          </section>
         )}
 
-        {/* 초기 상태 */}
+        {/* Empty state */}
         {!hasSubmitted && status === 'idle' && (
-          <div className="flex flex-col items-center gap-3 py-12 text-center">
-            <div className="text-4xl">🗓</div>
-            <p className="text-sm font-medium text-zinc-600">위에 원하는 일정을 입력해보세요</p>
-            <p className="text-xs text-zinc-400">데이트 코스, 당일치기 여행 모두 지원합니다</p>
-          </div>
+          <section className="flex flex-col items-center gap-4 py-16 text-center animate-fade-in">
+            <div className="text-6xl animate-float">🗓</div>
+            <div>
+              <p className="text-base font-semibold text-stone-600">원하는 일정을 입력해보세요</p>
+              <p className="text-sm text-stone-400 mt-1">데이트 코스부터 당일치기 여행까지 AI가 설계해드려요</p>
+            </div>
+          </section>
         )}
 
-        {/* 이전 플랜 히스토리 */}
+        {/* History */}
         {isLoggedIn && (
-          <div className="mt-6">
+          <section className="py-8 border-t border-stone-100">
             <PlanHistory plans={plans} loading={plansLoading} />
-          </div>
+          </section>
         )}
       </main>
+
+      {/* Footer */}
+      <footer className="mt-auto border-t border-stone-100 py-6">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 flex items-center justify-between">
+          <p className="text-xs text-stone-400">Dayplan &copy; 2026</p>
+          <p className="text-xs text-stone-400">Powered by AI</p>
+        </div>
+      </footer>
     </div>
   );
 }

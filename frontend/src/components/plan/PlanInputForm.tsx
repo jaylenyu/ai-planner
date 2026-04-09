@@ -9,6 +9,19 @@ interface PlanInputFormProps {
   loading: boolean;
 }
 
+const MODE_CONFIG: { mode: PlanMode; emoji: string; label: string; desc: string }[] = [
+  { mode: 'date', emoji: '💑', label: '데이트 코스', desc: '저녁 중심 · 3~4곳 · 짧은 동선' },
+  { mode: 'trip', emoji: '🧳', label: '당일치기 여행', desc: '하루 일정 · 4~6곳 · 알찬 동선' },
+];
+
+const EXAMPLES = [
+  { text: '강남에서 저녁에 파스타 먹고 영화 보고 싶어', emoji: '🍝' },
+  { text: '홍대에서 친구들이랑 하루 일정 짜줘', emoji: '🎸' },
+  { text: '이태원에서 데이트 코스 추천해줘', emoji: '💕' },
+  { text: '성수동 카페 투어하고 맛집도 가고 싶어', emoji: '☕' },
+  { text: '여의도 벚꽃 보고 맛있는 거 먹자', emoji: '🌸' },
+];
+
 export function PlanInputForm({ onSubmit, loading }: PlanInputFormProps) {
   const [rawInput, setRawInput] = useState('');
   const [mode, setMode] = useState<PlanMode>('date');
@@ -19,68 +32,75 @@ export function PlanInputForm({ onSubmit, loading }: PlanInputFormProps) {
     onSubmit(rawInput.trim(), mode);
   };
 
-  const examples = [
-    '강남에서 저녁에 파스타 먹고 영화 보고 싶어',
-    '홍대에서 친구들이랑 하루 일정 짜줘',
-    '이태원에서 데이트 코스 추천해줘',
-  ];
-
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+      {/* Textarea */}
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-zinc-700">어떤 일정을 원하세요?</label>
         <textarea
           value={rawInput}
           onChange={(e) => setRawInput(e.target.value)}
-          placeholder="예: 강남에서 저녁에 파스타 먹고 영화 보고 싶어"
-          rows={3}
-          className="w-full resize-none rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-800 placeholder-zinc-400 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
+          placeholder="어디서 무엇을 하고 싶은지 자유롭게 적어주세요..."
+          rows={4}
+          className="w-full resize-none rounded-2xl border border-stone-200 bg-white px-5 py-4 text-base text-stone-800 placeholder-stone-400 outline-none focus:border-orange-300 focus:ring-4 focus:ring-orange-100 transition-all duration-300"
           disabled={loading}
         />
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {examples.map((ex) => (
+      {/* Example pills */}
+      <div className="flex gap-2 overflow-x-auto pill-scroll pb-1 -mb-1">
+        {EXAMPLES.map(({ text, emoji }) => (
           <button
-            key={ex}
+            key={text}
             type="button"
-            onClick={() => setRawInput(ex)}
-            className="rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-600 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+            onClick={() => setRawInput(text)}
+            className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-full bg-stone-50 border border-stone-200 px-4 py-2 text-sm text-stone-600 hover:bg-orange-50 hover:border-orange-200 hover:text-orange-700 transition-all duration-200 cursor-pointer"
           >
-            {ex}
+            <span>{emoji}</span>
+            <span className="whitespace-nowrap">{text}</span>
           </button>
         ))}
       </div>
 
-      <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-zinc-700">모드 선택</label>
-        <div className="flex gap-3">
-          {(['date', 'trip'] as PlanMode[]).map((m) => (
-            <label key={m} className="flex cursor-pointer items-center gap-2">
-              <input
-                type="radio"
-                name="mode"
-                value={m}
-                checked={mode === m}
-                onChange={() => setMode(m)}
-                className="accent-indigo-600"
-                disabled={loading}
-              />
-              <span className="text-sm text-zinc-700">
-                {m === 'date' ? '💑 데이트 코스' : '🗺 당일치기 여행'}
-              </span>
-            </label>
-          ))}
-        </div>
-        <p className="text-xs text-zinc-400">
-          {mode === 'date'
-            ? '저녁 중심 · 3~4개 장소 · 이동거리 최소화'
-            : '하루 일정 · 4~6개 장소 · 효율적 동선'}
-        </p>
+      {/* Mode toggle cards */}
+      <div className="grid grid-cols-2 gap-3">
+        {MODE_CONFIG.map(({ mode: m, emoji, label, desc }) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => setMode(m)}
+            disabled={loading}
+            className={`
+              relative flex flex-col items-center gap-2 rounded-2xl border-2 p-5 text-center transition-all duration-300 cursor-pointer
+              ${
+                mode === m
+                  ? 'border-orange-400 bg-orange-50 shadow-md shadow-orange-100'
+                  : 'border-stone-200 bg-white hover:border-stone-300 hover:bg-stone-50'
+              }
+            `}
+          >
+            {mode === m && (
+              <div className="absolute top-3 right-3">
+                <div className="h-5 w-5 rounded-full bg-orange-500 flex items-center justify-center">
+                  <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              </div>
+            )}
+            <span className="text-3xl">{emoji}</span>
+            <span className={`text-sm font-semibold ${mode === m ? 'text-orange-700' : 'text-stone-700'}`}>
+              {label}
+            </span>
+            <span className={`text-xs ${mode === m ? 'text-orange-500' : 'text-stone-400'}`}>
+              {desc}
+            </span>
+          </button>
+        ))}
       </div>
 
-      <Button type="submit" loading={loading} disabled={!rawInput.trim()} className="self-end w-full sm:w-auto">
-        {loading ? 'AI가 일정을 생성중...' : '일정 생성하기 →'}
+      {/* Submit */}
+      <Button type="submit" loading={loading} disabled={!rawInput.trim()} className="w-full py-4 text-base">
+        {loading ? 'AI가 최적 일정을 짜는 중...' : '일정 만들기'}
       </Button>
     </form>
   );
