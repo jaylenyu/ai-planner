@@ -18,6 +18,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NODE_OPTIONS="--max-old-space-size=128"
 
+RUN apk add --no-cache openssl
+
 # Copy only production dependencies
 COPY --from=deps /app/node_modules ./node_modules
 
