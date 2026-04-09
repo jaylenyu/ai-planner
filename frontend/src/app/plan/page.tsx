@@ -1,14 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { PlanInputForm } from '../../components/plan/PlanInputForm';
-import { ScheduleList } from '../../components/plan/ScheduleList';
-import { MapView } from '../../components/plan/MapView';
-import { PlanHistory } from '../../components/plan/PlanHistory';
-import { Spinner } from '../../components/ui/Spinner';
-import { usePlanGenerate } from '../../hooks/usePlanGenerate';
-import { usePlanList } from '../../hooks/usePlanList';
-import { useAuth } from '../../hooks/useAuth';
+import { PlanInputForm } from '@/components/plan/PlanInputForm';
+import { ScheduleList } from '@/components/plan/ScheduleList';
+import { MapView } from '@/components/plan/MapView';
+import { PlanHistory } from '@/components/plan/PlanHistory';
+import { Spinner } from '@/components/ui/Spinner';
+import { usePlanGenerate } from '@/hooks/usePlanGenerate';
+import { usePlanList } from '@/hooks/usePlanList';
+import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
 
 export default function PlanPage() {
