@@ -20,26 +20,23 @@ ENV NEXT_PUBLIC_POSTHOG_KEY=$NEXT_PUBLIC_POSTHOG_KEY
 ENV NEXT_PUBLIC_POSTHOG_HOST=$NEXT_PUBLIC_POSTHOG_HOST
 RUN npm run build
 
-# Stage 3: Production runner - Use nginx for better performance
-FROM nginx:alpine
+# Stage 3: Production runner
+FROM node:22-alpine AS runner
 WORKDIR /app
+ENV NODE_ENV=production
+ENV HOSTNAME="0.0.0.0"
 
-# Copy built Next.js static files
-COPY --from=builder /app/.next/standalone/.next/static /usr/share/nginx/html/_next/static
-COPY --from=builder /app/.next/standalone/public /usr/share/nginx/html/public
-COPY --from=builder /app/out /usr/share/nginx/html
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
 
-# Copy custom nginx configuration
-COPY nginx.conf /etc/nginx/nginx.conf
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001 && \
+    chown -R nextjs:nodejs /app
+USER nextjs
 
-# Create non-root user
-RUN addgroup -g 1001 -S app && \
-    adduser -S app -u 1001 && \
-    chown -R app:app /usr/share/nginx/html
-USER app
-
-EXPOSE 80
+EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["node", "server.js"]
