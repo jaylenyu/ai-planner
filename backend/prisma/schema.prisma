@@ -37,3 +37,17 @@ model PlanItem {
   type   String
   time   String
 }
+
+model ApiUsage {
+  id        String   @id @default(uuid())
+  userId    String   @default("anonymous")
+  ipAddress String
+  userAgent String
+  endpoint  String
+  cost      Float    @default(0.0)
+  timestamp DateTime @default(now())
+
+  @@index([userId])
+  @@index([ipAddress])
+  @@index([timestamp])
+}

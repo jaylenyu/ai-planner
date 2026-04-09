@@ -15,6 +15,14 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.production
+.env.production.*
+
+# Backup files
+backups/
+*.sql
+*.sql.gz
+*.dump
 
 # Prisma
 backend/prisma/migrations/
@@ -33,3 +41,4 @@ Thumbs.db
 
 # TypeScript
 *.tsbuildinfo
+awscliv2.zip
