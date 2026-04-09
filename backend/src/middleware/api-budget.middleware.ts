@@ -15,7 +15,8 @@ export class ApiBudgetMiddleware implements NestMiddleware {
     }
 
     const userId = (req as any).user?.id || 'anonymous';
-    const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    const rawIp = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    const ipAddress = (Array.isArray(rawIp) ? rawIp[0] : rawIp) ?? 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
 
     try {

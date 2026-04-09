@@ -1,6 +1,6 @@
 import { Controller, Get, UseGuards, Request } from '@nestjs/common';
 import { ApiBudgetService } from '../../services/api-budget.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../auth/auth.guard';
 
 @Controller('api/budget')
 export class ApiBudgetController {
