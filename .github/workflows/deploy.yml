@@ -1,0 +1,77 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Pull latest code on EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          timeout: 30s
+          script: |
+            set -e
+            cd ~/ai-planner
+            git fetch origin main
+            git reset --hard origin/main
+            echo "Deployed: $(git rev-parse --short HEAD)"
+
+      - name: Build and restart containers
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          timeout: 900s
+          command_timeout: 900s
+          script: |
+            set -e
+            cd ~/ai-planner
+            docker compose up -d --build
+            docker image prune -f
+
+      - name: Health check
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          timeout: 120s
+          script: |
+            set -e
+            MAX_RETRY=12
+            COUNT=0
+            until docker inspect --format='{{.State.Health.Status}}' ai-planner-backend 2>/dev/null | grep -q "healthy"; do
+              COUNT=$((COUNT + 1))
+              [ "$COUNT" -ge "$MAX_RETRY" ] && docker logs --tail 30 ai-planner-backend && exit 1
+              echo "Waiting for backend... ($COUNT/$MAX_RETRY)"
+              sleep 10
+            done
+            echo "Backend healthy!"
+
+            COUNT=0
+            until docker inspect --format='{{.State.Health.Status}}' ai-planner-frontend 2>/dev/null | grep -q "healthy"; do
+              COUNT=$((COUNT + 1))
+              [ "$COUNT" -ge "$MAX_RETRY" ] && docker logs --tail 30 ai-planner-frontend && exit 1
+              echo "Waiting for frontend... ($COUNT/$MAX_RETRY)"
+              sleep 10
+            done
+            echo "Frontend healthy!"
+            docker compose -f ~/ai-planner/docker-compose.yml ps
