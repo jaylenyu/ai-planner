@@ -30,7 +30,7 @@ export default function PlanPage() {
       <header className="sticky top-0 z-50 glass border-b border-stone-200/60">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 sm:px-6 py-4">
           <Link href="/plan" className="flex items-center gap-2.5 group">
-            <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-gradient-to-br from-orange-500 to-pink-500 shadow-md shadow-orange-500/20 group-hover:shadow-lg group-hover:shadow-orange-500/30 transition-all duration-300">
+             <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-orange-500 shadow-md shadow-orange-500/20 group-hover:shadow-lg group-hover:shadow-orange-500/30 transition-all duration-300">
               <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -60,7 +60,7 @@ export default function PlanPage() {
                 </Link>
                 <Link
                   href="/register"
-                  className="rounded-xl bg-gradient-to-r from-orange-500 to-pink-500 px-4 py-2 text-sm font-medium text-white shadow-md shadow-orange-500/20 hover:shadow-lg hover:shadow-orange-500/30 hover:brightness-110 transition-all duration-200"
+                  className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-medium text-white shadow-md hover:bg-orange-600 transition-all duration-200"
                 >
                   시작하기
                 </Link>
@@ -143,7 +143,7 @@ export default function PlanPage() {
         {status === 'success' && result && (
           <section className="pb-8 animate-fade-in-up">
             <div className="flex items-center gap-2 mb-5">
-              <div className="flex items-center justify-center h-8 w-8 rounded-full bg-gradient-to-br from-orange-500 to-pink-500">
+              <div className="flex items-center justify-center h-8 w-8 rounded-full bg-orange-500">
                 <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
