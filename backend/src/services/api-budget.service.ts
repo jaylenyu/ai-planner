@@ -191,7 +191,7 @@ export class ApiBudgetService implements OnModuleInit {
 
     const whereClause = userId ? { userId } : {};
 
-    const [dailyCount, monthlyCount, totalCount] = await Promise.all([
+    const [dailyCount, _monthlyCount, totalCount] = await Promise.all([
       this.prisma.apiUsage.count({
         where: {
           ...whereClause,
