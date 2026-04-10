@@ -55,6 +55,7 @@ jobs:
         working-directory: backend
         run: |
           npm ci
+          npx prisma generate
           npx tsc -p tsconfig.build.json --noEmit
           npm run lint
 

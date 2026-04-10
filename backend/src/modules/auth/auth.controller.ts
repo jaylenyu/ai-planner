@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
-import { Response } from 'express';
+import type { Response, Request } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -70,7 +70,7 @@ export class AuthController {
 
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
-  async googleCallback(@Req() req: { user: { id: string; email: string } }, @Res() res: Response) {
+  async googleCallback(@Req() req: Request & { user: { id: string; email: string } }, @Res() res: Response) {
     const tokens = await this.authService.googleLogin(req.user);
     const frontendUrl = this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
     res.redirect(

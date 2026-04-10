@@ -27,7 +27,7 @@ export class AuthService {
   private async generateTokenPair(userId: string, email: string) {
     const access_token = this.jwtService.sign(
       { sub: userId, email },
-      { expiresIn: this.config.get<string>('JWT_EXPIRES_IN') ?? '15m' },
+      { expiresIn: (this.config.get<string>('JWT_EXPIRES_IN') ?? '15m') as any },
     );
 
     const rawRefresh = crypto.randomBytes(40).toString('hex');

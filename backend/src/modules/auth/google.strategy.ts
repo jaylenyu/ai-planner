@@ -38,7 +38,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
         });
       } else {
         user = await this.prisma.user.create({
-          data: { email, googleId, password: null },
+          data: { email, googleId },
         });
       }
     }
