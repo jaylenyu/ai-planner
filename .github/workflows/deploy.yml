@@ -55,7 +55,7 @@ jobs:
         working-directory: backend
         run: |
           npm ci
-          npx tsc --noEmit
+          npx tsc -p tsconfig.build.json --noEmit
           npm run lint
 
       - name: Frontend — install, typecheck, lint
