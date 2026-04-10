@@ -154,6 +154,9 @@ jobs:
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker pull ${{ env.IMAGE_BACKEND }}:latest
             docker pull ${{ env.IMAGE_FRONTEND }}:latest
+            # 기존 컨테이너 안전하게 중지 후 새 compose로 전환
+            docker stop ai-planner-backend ai-planner-frontend 2>/dev/null || true
+            docker rm -f ai-planner-backend ai-planner-frontend 2>/dev/null || true
             GITHUB_REPOSITORY_OWNER=${{ github.repository_owner }} \
             docker compose \
               -p ai-planner \
