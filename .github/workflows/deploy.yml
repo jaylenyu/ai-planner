@@ -3,6 +3,12 @@ name: Deploy to Production
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Force build and deploy all services'
+        type: boolean
+        default: true
 
 env:
   REGISTRY: ghcr.io
@@ -14,8 +20,8 @@ jobs:
     name: Detect Changed Paths
     runs-on: ubuntu-latest
     outputs:
-      frontend: ${{ steps.filter.outputs.frontend }}
-      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend || inputs.force_deploy }}
+      backend: ${{ steps.filter.outputs.backend || inputs.force_deploy }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
