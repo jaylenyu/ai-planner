@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { PipelineContext } from '../interfaces/pipeline-result.interface';
-import { ActivityIntent, IntentPayload } from '../interfaces/intent.interface';
+import { ActivityIntent } from '../interfaces/intent.interface';
 
 const LOCATION_COORDS: Record<string, { lat: number; lng: number }> = {
   '강남역': { lat: 37.4979, lng: 127.0276 },
