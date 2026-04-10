@@ -1,53 +1,142 @@
-name: Deploy to EC2
+name: Deploy to Production
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
 
-concurrency:
-  group: deploy-production
-  cancel-in-progress: false
+env:
+  REGISTRY: ghcr.io
+  IMAGE_BACKEND: ghcr.io/${{ github.repository_owner }}/ai-planner-backend
+  IMAGE_FRONTEND: ghcr.io/${{ github.repository_owner }}/ai-planner-frontend
 
 jobs:
+  changes:
+    name: Detect Changed Paths
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+            backend:
+              - 'backend/**'
+
+  lint-and-typecheck:
+    name: Lint & Typecheck
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.backend == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Backend — install, typecheck, lint
+        if: needs.changes.outputs.backend == 'true'
+        working-directory: backend
+        run: |
+          npm ci
+          npx tsc --noEmit
+          npm run lint
+
+      - name: Frontend — install, typecheck, lint
+        if: needs.changes.outputs.frontend == 'true'
+        working-directory: frontend
+        run: |
+          npm ci
+          npx tsc --noEmit
+          npm run lint
+
+  build-backend:
+    name: Build & Push Backend Image
+    runs-on: ubuntu-latest
+    needs: [changes, lint-and-typecheck]
+    if: needs.changes.outputs.backend == 'true'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ env.IMAGE_BACKEND }}:latest,${{ env.IMAGE_BACKEND }}:${{ github.sha }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+
+  build-frontend:
+    name: Build & Push Frontend Image
+    runs-on: ubuntu-latest
+    needs: [changes, lint-and-typecheck]
+    if: needs.changes.outputs.frontend == 'true'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: ${{ env.IMAGE_FRONTEND }}:latest,${{ env.IMAGE_FRONTEND }}:${{ github.sha }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_NAVER_MAP_CLIENT_ID=${{ secrets.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID }}
+            NEXT_PUBLIC_POSTHOG_KEY=${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}
+            NEXT_PUBLIC_POSTHOG_HOST=${{ secrets.NEXT_PUBLIC_POSTHOG_HOST }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,scope=frontend,mode=max
+
   deploy:
     name: Deploy to EC2
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-
+    needs: [changes, build-backend, build-frontend]
+    if: |
+      always() &&
+      !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled') &&
+      (needs.changes.outputs.frontend == 'true' || needs.changes.outputs.backend == 'true')
     steps:
-      - name: Pull latest code on EC2
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          port: 22
-          timeout: 30s
-          script: |
-            set -e
-            cd ~/ai-planner
-            git fetch origin main
-            git reset --hard origin/main
-            echo "Deployed: $(git rev-parse --short HEAD)"
-
-      - name: Build and restart containers
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          port: 22
-          timeout: 900s
-          command_timeout: 900s
-          script: |
-            set -e
-            cd ~/ai-planner
-            docker compose up -d --build
-            docker image prune -f
-
-      - name: Health check
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Pull images and restart containers
+        uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
@@ -56,11 +145,36 @@ jobs:
           timeout: 120s
           script: |
             set -e
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker pull ${{ env.IMAGE_BACKEND }}:latest
+            docker pull ${{ env.IMAGE_FRONTEND }}:latest
+            GITHUB_REPOSITORY_OWNER=${{ github.repository_owner }} \
+            docker compose \
+              -p ai-planner \
+              -f ~/infra/docker-compose.ai-planner.prod.yml \
+              --env-file ~/ai-planner/.env \
+              up -d --no-build
+            docker image prune -f
+
+      - name: Health check
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          timeout: 180s
+          script: |
+            set -e
             MAX_RETRY=12
             COUNT=0
             until docker inspect --format='{{.State.Health.Status}}' ai-planner-backend 2>/dev/null | grep -q "healthy"; do
               COUNT=$((COUNT + 1))
-              [ "$COUNT" -ge "$MAX_RETRY" ] && docker logs --tail 30 ai-planner-backend && exit 1
+              if [ "$COUNT" -ge "$MAX_RETRY" ]; then
+                echo "Backend failed to become healthy"
+                docker logs --tail 30 ai-planner-backend
+                exit 1
+              fi
               echo "Waiting for backend... ($COUNT/$MAX_RETRY)"
               sleep 10
             done
@@ -69,9 +183,14 @@ jobs:
             COUNT=0
             until docker inspect --format='{{.State.Health.Status}}' ai-planner-frontend 2>/dev/null | grep -q "healthy"; do
               COUNT=$((COUNT + 1))
-              [ "$COUNT" -ge "$MAX_RETRY" ] && docker logs --tail 30 ai-planner-frontend && exit 1
+              if [ "$COUNT" -ge "$MAX_RETRY" ]; then
+                echo "Frontend failed to become healthy"
+                docker logs --tail 30 ai-planner-frontend
+                exit 1
+              fi
               echo "Waiting for frontend... ($COUNT/$MAX_RETRY)"
               sleep 10
             done
             echo "Frontend healthy!"
-            docker compose -f ~/ai-planner/docker-compose.yml ps
+            echo "Deploy complete!"
+            docker compose -p ai-planner -f ~/infra/docker-compose.ai-planner.prod.yml ps
