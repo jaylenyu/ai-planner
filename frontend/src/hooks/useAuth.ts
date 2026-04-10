@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
-import { setToken, removeToken, getToken } from '../lib/auth';
+import { setToken, setRefreshToken, getRefreshToken, clearAllTokens, getToken } from '../lib/auth';
 import { AuthResponse } from '../lib/types';
 
 export function useAuth() {
@@ -20,6 +20,7 @@ export function useAuth() {
     try {
       const res = await api.post<AuthResponse>('/auth/register', { email, password });
       setToken(res.access_token);
+      setRefreshToken(res.refresh_token);
       setIsLoggedIn(true);
       return true;
     } catch (err) {
@@ -36,6 +37,7 @@ export function useAuth() {
     try {
       const res = await api.post<AuthResponse>('/auth/login', { email, password });
       setToken(res.access_token);
+      setRefreshToken(res.refresh_token);
       setIsLoggedIn(true);
       return true;
     } catch (err) {
@@ -46,9 +48,18 @@ export function useAuth() {
     }
   };
 
-  const logout = () => {
-    removeToken();
-    setIsLoggedIn(false);
+  const logout = async () => {
+    try {
+      const refreshToken = getRefreshToken();
+      if (refreshToken) {
+        await api.post('/auth/logout', { refresh_token: refreshToken });
+      }
+    } catch {
+      // 로그아웃 실패해도 로컬 토큰은 삭제
+    } finally {
+      clearAllTokens();
+      setIsLoggedIn(false);
+    }
   };
 
   return { login, register, logout, loading, error, isLoggedIn };

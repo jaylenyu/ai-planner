@@ -19,6 +19,7 @@ export interface PlanResult {
 
 export interface AuthResponse {
   access_token: string;
+  refresh_token: string;
 }
 
 export type PlanMode = 'date' | 'trip';
