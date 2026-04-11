@@ -6,7 +6,7 @@ import {
   clearAllTokens,
 } from './auth';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+const BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000') + '/api';
 
 async function tryRefresh(): Promise<boolean> {
   const refreshToken = getRefreshToken();
