@@ -26,6 +26,14 @@ export class AuthController {
     private readonly config: ConfigService,
   ) {}
 
+  private async handleOAuthRedirect(res: Response, user: { id: string; email: string }) {
+    const tokens = await this.authService.oauthLogin(user);
+    const frontendUrl = this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
+    res.redirect(
+      `${frontendUrl}/auth/callback?access_token=${tokens.access_token}&refresh_token=${tokens.refresh_token}`,
+    );
+  }
+
   @Post('register')
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
@@ -71,10 +79,27 @@ export class AuthController {
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
   async googleCallback(@Req() req: Request & { user: { id: string; email: string } }, @Res() res: Response) {
-    const tokens = await this.authService.googleLogin(req.user);
-    const frontendUrl = this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
-    res.redirect(
-      `${frontendUrl}/auth/callback?access_token=${tokens.access_token}&refresh_token=${tokens.refresh_token}`,
-    );
+    await this.handleOAuthRedirect(res, req.user);
   }
+
+  @Get('kakao')
+  @UseGuards(AuthGuard('kakao'))
+  kakaoAuth() {}
+
+  @Get('kakao/callback')
+  @UseGuards(AuthGuard('kakao'))
+  async kakaoCallback(@Req() req: Request & { user: { id: string; email: string } }, @Res() res: Response) {
+    await this.handleOAuthRedirect(res, req.user);
+  }
+
+  @Get('naver')
+  @UseGuards(AuthGuard('naver'))
+  naverAuth() {}
+
+  @Get('naver/callback')
+  @UseGuards(AuthGuard('naver'))
+  async naverCallback(@Req() req: Request & { user: { id: string; email: string } }, @Res() res: Response) {
+    await this.handleOAuthRedirect(res, req.user);
+  }
+
 }

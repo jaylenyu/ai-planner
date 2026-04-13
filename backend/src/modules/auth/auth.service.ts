@@ -67,7 +67,7 @@ export class AuthService {
     return this.generateTokenPair(user.id, user.email);
   }
 
-  async googleLogin(user: { id: string; email: string }) {
+  async oauthLogin(user: { id: string; email: string }) {
     return this.generateTokenPair(user.id, user.email);
   }
 
