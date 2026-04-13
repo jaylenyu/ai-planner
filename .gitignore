@@ -20,12 +20,12 @@ build/
 
 # Backup files
 backups/
-*.sql
 *.sql.gz
 *.dump
 
-# Prisma
-backend/prisma/migrations/
+# DB backup sql files (but not prisma migrations)
+/backend/backups/*.sql
+
 
 # Logs
 *.log
