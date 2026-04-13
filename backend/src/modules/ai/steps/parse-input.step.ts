@@ -1,8 +1,32 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import OpenAI from 'openai';
 import { ConfigService } from '@nestjs/config';
 import { PipelineContext } from '../interfaces/pipeline-result.interface';
 import { ParsedInput } from '../interfaces/intent.interface';
+
+// 알려진 지역명 (폴백용)
+const KNOWN_LOCATIONS = [
+  '강남','홍대','이태원','명동','여의도','신촌','건대','성수동','잠실','종로',
+  '인사동','압구정','청담','합정','망원','용산','동대문','서울',
+  '부산','해운대','광안리','제주','전주','대구','광주','수원','인천','대전',
+  '춘천','강릉','속초','경주','여수','통영','울산','청주',
+];
+
+const LOCATION_ALIAS: Record<string, string> = {
+  연남동: '홍대', 망리단길: '홍대', 익선동: '종로',
+  해방촌: '이태원', 경리단길: '이태원', 성수: '성수동', 뚝섬: '성수동',
+};
+
+/** 사용자 입력에서 지역명을 간단히 추출 (GPT 폴백용) */
+function extractLocationFallback(input: string): string {
+  for (const [alias, canonical] of Object.entries(LOCATION_ALIAS)) {
+    if (input.includes(alias)) return canonical;
+  }
+  for (const loc of KNOWN_LOCATIONS) {
+    if (input.includes(loc)) return loc;
+  }
+  return '서울';
+}
 
 @Injectable()
 export class ParseInputStep {
@@ -23,113 +47,68 @@ export class ParseInputStep {
   }
 
   async execute(ctx: PipelineContext): Promise<void> {
-    const systemPrompt = `사용자의 여행/데이트/나들이 요청을 분석하여 JSON으로 변환하세요.
-반드시 다음 형식으로만 응답하세요 (다른 텍스트 없이):
-{
-  "location": "장소명",
-  "activities": ["활동1", "활동2", "활동3"],
-  "timeOfDay": "morning 또는 afternoon 또는 evening 또는 full-day",
-  "preferences": ["선호도1"]
-}
+    // 짧은 프롬프트로 토큰 절약
+    const systemPrompt = `여행/데이트 요청을 JSON으로 변환. 반드시 아래 형식만 출력:
+{"location":"지역명","activities":["활동1","활동2"],"timeOfDay":"morning|afternoon|evening|full-day","preferences":[]}
 
-## 장소(location) 규칙
-- 반드시 한국의 구체적인 지역명으로 변환 (역명 포함)
-- "강남", "홍대", "이태원" 등 대표 지역명으로 정규화
-- 지방도시: 부산, 제주, 전주, 대구, 광주, 수원, 인천 등 그대로 사용
-- 세부 동네: 연남동→홍대, 망리단길→홍대, 익선동→종로, 해방촌→이태원, 경리단길→이태원, 성수→성수동, 뚝섬→성수동
-- 위치 언급이 없으면 "서울" 사용
+location: 한국 지역명. 연남동→홍대, 익선동→종로, 해방촌/경리단길→이태원, 성수/뚝섬→성수동. 없으면 "서울".
+activities 2~4개 (목록에서만): 한식 일식 중식 양식 고기 해산물 치킨 브런치 맛집 저녁 점심 카페 디저트 영화 볼링 쇼핑 노래방 방탈출 클라이밍 전시 박물관 뮤지컬 산책 공원 한강
+매핑: 오마카세/초밥→일식, 삼겹살/갈비→고기, 치맥→치킨, 바/이자카야→저녁, 카페투어→카페, 야경→산책, 미술관/갤러리→전시
+timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening, 그외→full-day`;
 
-## 활동(activities) 규칙
-반드시 아래 목록에서만 선택하고, 2~4개 추출:
-음식류: 한식, 일식, 중식, 양식, 파스타, 고기, 해산물, 치킨, 피자, 브런치, 맛집, 저녁, 점심
-카페류: 카페, 커피, 디저트
-액티비티: 영화, 볼링, 쇼핑, 노래방, 방탈출, 클라이밍
-문화: 전시, 박물관, 뮤지컬
-휴식: 산책, 공원, 한강
-
-## 자연어 → 활동 매핑 예시
-- 오마카세, 스시, 초밥 → 일식
-- 삼겹살, 갈비, 고기집 → 고기
-- 치맥, 치킨 → 치킨
-- 피자, 파스타, 이탈리안 → 파스타 (또는 양식)
-- 해물, 조개, 횟집 → 해산물
-- 커피숍, 카페투어 → 카페
-- 디저트카페, 케이크 → 디저트
-- 야경, 드라이브 → 산책
-- 한강공원, 뚝섬유원지 → 한강
-- 노래, 코인노래방 → 노래방
-- 방탈출카페 → 방탈출
-- 볼더링, 암벽 → 클라이밍
-- 뮤지컬, 연극, 공연 → 뮤지컬
-- 미술관, 갤러리 → 전시
-- 박물관, 역사관 → 박물관
-
-## 시간대(timeOfDay) 규칙
-- morning: 아침, 오전, 브런치
-- afternoon: 점심, 오후, 낮
-- evening: 저녁, 밤, 야간, 야경
-- full-day: 하루, 종일, 아침부터, 당일치기, 시간대 언급 없을 때
-
-## 입력 예시
-입력: "홍대에서 친구들이랑 하루 일정"
-출력: {"location":"홍대","activities":["카페","맛집","쇼핑"],"timeOfDay":"full-day","preferences":["친구"]}
-
-입력: "강남에서 저녁에 오마카세 먹고 바 가고 싶어"
-출력: {"location":"강남","activities":["일식","술"],"timeOfDay":"evening","preferences":["고급"]}
-
-입력: "성수동 카페투어하고 맛집"
-출력: {"location":"성수동","activities":["카페","맛집"],"timeOfDay":"full-day","preferences":[]}
-
-입력: "이태원에서 데이트 코스"
-출력: {"location":"이태원","activities":["맛집","카페","산책"],"timeOfDay":"evening","preferences":["데이트"]}
-
-입력: "한강에서 치맥"
-출력: {"location":"여의도","activities":["한강","치킨"],"timeOfDay":"evening","preferences":[]}
-
-입력: "부산 여행 하루 코스"
-출력: {"location":"부산","activities":["맛집","전시","산책"],"timeOfDay":"full-day","preferences":["여행"]}`;
+    let parsed: ParsedInput | null = null;
 
     try {
       const response = await this.openai.chat.completions.create({
         model: 'openai/gpt-5-mini',
-        temperature: 0.2,
+        temperature: 0.1,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: ctx.rawInput },
         ],
-        max_tokens: 500,
+        max_tokens: 200,
       });
 
       const choice = response.choices[0];
       const content = choice?.message?.content;
 
       if (!content) {
-        this.logger.error(
-          `빈 응답: finish_reason=${choice?.finish_reason}, model=${response.model}, ` +
-          `choices=${JSON.stringify(response.choices?.map((c) => ({ finish_reason: c.finish_reason, content: c.message?.content })))}`,
+        this.logger.warn(
+          `빈 응답 (finish_reason=${choice?.finish_reason}) — 폴백 사용`,
         );
-        throw new Error('OpenAI 응답이 비어있습니다.');
+      } else {
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+          this.logger.warn(`JSON 블록 없음 (원본: ${content.slice(0, 80)}) — 폴백 사용`);
+        } else {
+          const candidate = JSON.parse(jsonMatch[0]) as ParsedInput;
+          if (candidate.location && candidate.activities?.length) {
+            parsed = candidate;
+          }
+        }
       }
-
-      // response_format 미지원 모델 대비: 응답에서 JSON 블록만 추출
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        this.logger.error(`JSON 블록 없음. 원본 응답: ${content}`);
-        throw new SyntaxError('JSON 블록을 찾을 수 없습니다.');
-      }
-
-      const parsed = JSON.parse(jsonMatch[0]) as ParsedInput;
-      if (!parsed.location || !parsed.activities?.length) {
-        throw new Error('파싱 결과에 필수 필드가 없습니다.');
-      }
-
-      ctx.parsed = parsed;
-      this.logger.log(`파싱 완료: ${JSON.stringify(parsed)}`);
     } catch (err) {
-      if (err instanceof SyntaxError) {
-        throw new BadRequestException('AI 응답 파싱 실패: JSON 형식 오류');
-      }
-      throw err;
+      this.logger.warn(`GPT 호출 실패: ${(err as Error).message} — 폴백 사용`);
     }
+
+    // GPT 실패 시 키워드 기반 폴백
+    if (!parsed) {
+      const location = extractLocationFallback(ctx.rawInput);
+      const activities =
+        ctx.mode === 'date' ? ['맛집', '카페'] : ['맛집', '산책', '전시'];
+      const timeOfDay = ctx.rawInput.match(/저녁|밤|야간/)
+        ? 'evening'
+        : ctx.rawInput.match(/아침|오전|브런치/)
+        ? 'morning'
+        : ctx.rawInput.match(/점심|낮|오후/)
+        ? 'afternoon'
+        : 'full-day';
+
+      parsed = { location, activities, timeOfDay, preferences: [] };
+      this.logger.warn(`폴백 파싱 결과: ${JSON.stringify(parsed)}`);
+    }
+
+    ctx.parsed = parsed;
+    this.logger.log(`파싱 완료: ${JSON.stringify(parsed)}`);
   }
 }

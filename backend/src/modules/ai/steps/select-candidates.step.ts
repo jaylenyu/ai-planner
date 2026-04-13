@@ -50,16 +50,17 @@ export class SelectCandidatesStep {
           haversine(intent.lat, intent.lng, b.lat, b.lng),
       );
 
-      ctx.candidates[type] = sorted[0];
-      const dist = haversine(
-        intent.lat,
-        intent.lng,
-        sorted[0].lat,
-        sorted[0].lng,
-      );
-      this.logger.log(
-        `[${type}] 선택: ${sorted[0].name} (${dist.toFixed(2)}km)`,
-      );
+      // 이미 선택된 장소명과 중복되지 않는 첫 번째 후보 선택
+      const usedNames = new Set(Object.values(ctx.candidates).map((p) => p.name));
+      const pick = sorted.find((p) => !usedNames.has(p.name));
+      if (!pick) {
+        this.logger.warn(`[${type}] 중복 제외 후 후보 없음 — 활동 제외`);
+        continue;
+      }
+
+      ctx.candidates[type] = pick;
+      const dist = haversine(intent.lat, intent.lng, pick.lat, pick.lng);
+      this.logger.log(`[${type}] 선택: ${pick.name} (${dist.toFixed(2)}km)`);
     }
   }
 }
