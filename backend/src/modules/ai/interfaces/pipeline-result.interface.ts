@@ -18,7 +18,7 @@ export interface PipelineContext {
   parsed?: ParsedInput;
   intent?: IntentPayload;
   rawPlaces?: Record<string, PlaceResult[]>;
-  candidates?: Record<string, PlaceResult>;
+  candidates?: Record<string, PlaceResult[]>;
   orderedPlaces?: OrderedPlace[];
   scheduleItems?: ScheduleItem[];
   polyline?: [number, number][];

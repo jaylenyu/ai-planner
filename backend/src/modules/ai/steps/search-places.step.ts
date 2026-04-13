@@ -42,7 +42,11 @@ export class SearchPlacesStep {
         }
       }
 
-      ctx.rawPlaces[activity.type] = places;
+      // 같은 type이 여러 activities에 있을 때 결과를 누적 (덮어쓰지 않음)
+      ctx.rawPlaces[activity.type] = [
+        ...(ctx.rawPlaces[activity.type] ?? []),
+        ...places,
+      ];
       this.logger.log(
         `[${activity.type}] ${places.length}개 검색됨: ${activity.naverQuery}\n` +
         places.map((p, i) => `  ${i + 1}. ${p.name} (${p.address})`).join('\n'),

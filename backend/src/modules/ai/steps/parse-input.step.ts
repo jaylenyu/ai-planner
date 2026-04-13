@@ -74,7 +74,7 @@ export class ParseInputStep {
     const systemPrompt = `여행/데이트 요청을 JSON으로 변환. 반드시 아래 형식만 출력:
 {"location":"지역명","activities":["활동1","활동2"],"timeOfDay":"morning|afternoon|evening|full-day","preferences":[]}
 
-location: 한국 지역명. 연남동→홍대, 익선동→종로, 해방촌/경리단길→이태원, 성수/뚝섬→성수동. 없으면 "서울".
+location: 입력에서 지역명을 그대로 추출. 연남동→홍대, 익선동→종로, 해방촌/경리단길→이태원, 성수/뚝섬→성수동. 그 외 지역은 입력 그대로(부산, 양양, 청도군, 제주 등). 지역명이 없으면 "서울".
 activities 2~4개 (목록에서만): 한식 일식 중식 양식 고기 해산물 치킨 브런치 맛집 저녁 점심 카페 디저트 영화 볼링 쇼핑 노래방 방탈출 클라이밍 전시 박물관 뮤지컬 산책 공원 한강
 매핑: 오마카세/초밥→일식, 삼겹살/갈비→고기, 치맥→치킨, 바/이자카야→저녁, 카페투어→카페, 야경→산책, 미술관/갤러리→전시
 timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening, 그외→full-day`;
@@ -107,6 +107,14 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
           const candidate = JSON.parse(jsonMatch[0]) as ParsedInput;
           if (candidate.location && candidate.activities?.length) {
             parsed = candidate;
+            // GPT가 "서울"을 반환했는데 입력에 서울이 없으면 폴백으로 교정
+            if (parsed.location === '서울' && !ctx.rawInput.includes('서울')) {
+              const fallbackLoc = extractLocationFallback(ctx.rawInput);
+              if (fallbackLoc !== '서울') {
+                this.logger.warn(`GPT location 교정: "서울" → "${fallbackLoc}"`);
+                parsed.location = fallbackLoc;
+              }
+            }
           }
         }
       }

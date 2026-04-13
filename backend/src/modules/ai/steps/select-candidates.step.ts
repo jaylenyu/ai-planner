@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PipelineContext } from '../interfaces/pipeline-result.interface';
+import { PlaceResult } from '../interfaces/place.interface';
 
 function haversine(
   lat1: number,
@@ -27,47 +28,67 @@ export class SelectCandidatesStep {
     const rawPlaces = ctx.rawPlaces!;
     ctx.candidates = {};
 
+    // type별 필요 개수 계산 (food가 2개 activities면 2개 선택)
+    const typeCounts: Record<string, number> = {};
+    for (const a of intent.activities) {
+      typeCounts[a.type] = (typeCounts[a.type] ?? 0) + 1;
+    }
+
+    // 전체 중복 방지용 이름 집합
+    const usedNames = new Set<string>();
+
     for (const [type, places] of Object.entries(rawPlaces)) {
       if (!places.length) continue;
 
-      // 반경을 3km → 5km → 10km 순으로 확장 시도 (서울 같은 광역 도시 대응)
+      const needed = typeCounts[type] ?? 1;
+
+      // 반경을 3km → 5km → 10km 순으로 확장 시도
       const RADIUS_STEPS = [3, 5, 10];
-      let filtered: typeof places = [];
+      let filtered: PlaceResult[] = [];
       let usedRadius = RADIUS_STEPS[0];
       for (const radius of RADIUS_STEPS) {
-        filtered = places.filter((p) => haversine(intent.lat, intent.lng, p.lat, p.lng) <= radius);
+        filtered = places.filter(
+          (p) => haversine(intent.lat, intent.lng, p.lat, p.lng) <= radius,
+        );
         usedRadius = radius;
         if (filtered.length > 0) break;
       }
 
       if (filtered.length === 0) {
-        this.logger.warn(
-          `[${type}] 반경 ${usedRadius}km 내 후보 없음 — 활동 제외`,
-        );
+        this.logger.warn(`[${type}] 반경 ${usedRadius}km 내 후보 없음 — 활동 제외`);
         continue;
       }
       if (usedRadius > 3) {
         this.logger.warn(`[${type}] 반경 ${usedRadius}km로 확장하여 후보 검색`);
       }
 
-      // 기준점에서 거리 오름차순 정렬 → 가장 가까운 곳 선택
+      // 기준점에서 거리 오름차순 정렬
       const sorted = [...filtered].sort(
         (a, b) =>
           haversine(intent.lat, intent.lng, a.lat, a.lng) -
           haversine(intent.lat, intent.lng, b.lat, b.lng),
       );
 
-      // 이미 선택된 장소명과 중복되지 않는 첫 번째 후보 선택
-      const usedNames = new Set(Object.values(ctx.candidates).map((p) => p.name));
-      const pick = sorted.find((p) => !usedNames.has(p.name));
-      if (!pick) {
+      // 중복 없이 needed개 선택
+      const picks: PlaceResult[] = [];
+      for (const p of sorted) {
+        if (picks.length >= needed) break;
+        if (!usedNames.has(p.name)) {
+          picks.push(p);
+          usedNames.add(p.name);
+        }
+      }
+
+      if (picks.length === 0) {
         this.logger.warn(`[${type}] 중복 제외 후 후보 없음 — 활동 제외`);
         continue;
       }
 
-      ctx.candidates[type] = pick;
-      const dist = haversine(intent.lat, intent.lng, pick.lat, pick.lng);
-      this.logger.log(`[${type}] 선택: ${pick.name} (${dist.toFixed(2)}km)`);
+      ctx.candidates[type] = picks;
+      picks.forEach((pick) => {
+        const dist = haversine(intent.lat, intent.lng, pick.lat, pick.lng);
+        this.logger.log(`[${type}] 선택: ${pick.name} (${dist.toFixed(2)}km)`);
+      });
     }
   }
 }

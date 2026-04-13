@@ -27,16 +27,19 @@ export class OptimizeRouteStep {
     const intent = ctx.intent!;
     const candidates = ctx.candidates!;
 
-    // 활동 순서(intent.activities)에서 type별 후보 매핑
+    // 활동 순서(intent.activities)에서 type별 후보 매핑 (같은 type은 인덱스 기반으로 다른 장소 할당)
+    const typeIndex: Record<string, number> = {};
     const places = intent.activities
       .map((activity) => {
-        const place = candidates[activity.type];
+        const list = candidates[activity.type];
+        if (!list?.length) return null;
+        const idx = typeIndex[activity.type] ?? 0;
+        typeIndex[activity.type] = idx + 1;
+        const place = list[idx];
         if (!place) return null;
         return { ...place, type: activity.type };
       })
-      .filter(
-        (p): p is (typeof candidates)[string] & { type: string } => p !== null,
-      );
+      .filter((p): p is NonNullable<typeof p> => p !== null);
 
     if (places.length === 0) {
       ctx.orderedPlaces = [];
