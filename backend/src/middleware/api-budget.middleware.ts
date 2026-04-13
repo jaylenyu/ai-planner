@@ -1,4 +1,10 @@
-import { Injectable, NestMiddleware, Logger, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  Injectable,
+  NestMiddleware,
+  Logger,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import { ApiBudgetService } from '../services/api-budget.service';
 
@@ -15,15 +21,21 @@ export class ApiBudgetMiddleware implements NestMiddleware {
     }
 
     const userId = (req as any).user?.id || 'anonymous';
-    const rawIp = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    const rawIp =
+      req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
     const ipAddress = (Array.isArray(rawIp) ? rawIp[0] : rawIp) ?? 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
 
     try {
       // Check if user has exceeded daily limit
-      const dailyLimit = await this.apiBudgetService.checkDailyLimit(userId, ipAddress);
+      const dailyLimit = await this.apiBudgetService.checkDailyLimit(
+        userId,
+        ipAddress,
+      );
       if (!dailyLimit.allowed) {
-        this.logger.warn(`Daily limit exceeded for user ${userId} from IP ${ipAddress}`);
+        this.logger.warn(
+          `Daily limit exceeded for user ${userId} from IP ${ipAddress}`,
+        );
         throw new HttpException(
           {
             message: 'Daily AI request limit reached',
@@ -38,10 +50,13 @@ export class ApiBudgetMiddleware implements NestMiddleware {
       // Check monthly budget
       const monthlyBudget = await this.apiBudgetService.checkMonthlyBudget();
       if (!monthlyBudget.withinBudget) {
-        this.logger.warn(`Monthly API budget exceeded: $${monthlyBudget.used}/${monthlyBudget.budget}`);
+        this.logger.warn(
+          `Monthly API budget exceeded: $${monthlyBudget.used}/${monthlyBudget.budget}`,
+        );
         throw new HttpException(
           {
-            message: 'Monthly API budget exhausted. Service will resume next month.',
+            message:
+              'Monthly API budget exhausted. Service will resume next month.',
             budget: monthlyBudget.budget,
             used: monthlyBudget.used,
             remaining: monthlyBudget.remaining,
@@ -52,9 +67,14 @@ export class ApiBudgetMiddleware implements NestMiddleware {
 
       // Estimate API cost for this request
       const estimatedCost = this.estimateRequestCost(req);
-      
+
       // Track the request
-      await this.apiBudgetService.trackRequest(userId, ipAddress, userAgent, estimatedCost);
+      await this.apiBudgetService.trackRequest(
+        userId,
+        ipAddress,
+        userAgent,
+        estimatedCost,
+      );
 
       // Add budget headers to response
       res.setHeader('X-API-Daily-Limit', dailyLimit.limit);
@@ -62,7 +82,10 @@ export class ApiBudgetMiddleware implements NestMiddleware {
       res.setHeader('X-API-Daily-Reset', dailyLimit.resetTime.toISOString());
       res.setHeader('X-API-Monthly-Budget', monthlyBudget.budget.toFixed(2));
       res.setHeader('X-API-Monthly-Used', monthlyBudget.used.toFixed(2));
-      res.setHeader('X-API-Monthly-Remaining', monthlyBudget.remaining.toFixed(2));
+      res.setHeader(
+        'X-API-Monthly-Remaining',
+        monthlyBudget.remaining.toFixed(2),
+      );
 
       next();
     } catch (error) {
@@ -78,7 +101,7 @@ export class ApiBudgetMiddleware implements NestMiddleware {
   private estimateRequestCost(req: Request): number {
     // Estimate cost based on request characteristics
     // OpenRouter pricing: ~$0.0001 per 1K tokens for gemma-2b
-    
+
     if (req.path.includes('/api/plan') && req.method === 'POST') {
       // Plan creation: more expensive
       return 0.01; // ~$0.01 per plan creation
@@ -86,7 +109,7 @@ export class ApiBudgetMiddleware implements NestMiddleware {
       // Direct AI calls: less expensive
       return 0.005; // ~$0.005 per AI call
     }
-    
+
     return 0.001; // Default small cost
   }
 }

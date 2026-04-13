@@ -32,7 +32,7 @@ export class ApiBudgetService implements OnModuleInit {
   private monthlyBudget: number;
   private currentMonthUsage: number = 0;
   private currentMonth: string;
-  
+
   // In-memory cache for performance (0.5GB RAM constraint)
   private dailyUsageCache = new Map<string, number>(); // userId/ip -> count
   private lastResetDate = new Date().toISOString().split('T')[0];
@@ -41,8 +41,12 @@ export class ApiBudgetService implements OnModuleInit {
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
   ) {
-    this.dailyLimit = parseInt(this.configService.get<string>('DAILY_API_LIMIT', '10'));
-    this.monthlyBudget = parseFloat(this.configService.get<string>('MONTHLY_API_BUDGET', '1.5'));
+    this.dailyLimit = parseInt(
+      this.configService.get<string>('DAILY_API_LIMIT', '10'),
+    );
+    this.monthlyBudget = parseFloat(
+      this.configService.get<string>('MONTHLY_API_BUDGET', '1.5'),
+    );
     this.currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
   }
 
@@ -52,9 +56,12 @@ export class ApiBudgetService implements OnModuleInit {
     this.startUsageResetScheduler();
   }
 
-  async checkDailyLimit(userId: string, ipAddress: string): Promise<DailyLimitCheck> {
+  async checkDailyLimit(
+    userId: string,
+    ipAddress: string,
+  ): Promise<DailyLimitCheck> {
     const today = new Date().toISOString().split('T')[0];
-    
+
     // Check if we need to reset daily cache
     if (today !== this.lastResetDate) {
       this.dailyUsageCache.clear();
@@ -78,7 +85,7 @@ export class ApiBudgetService implements OnModuleInit {
     try {
       const startOfDay = new Date();
       startOfDay.setHours(0, 0, 0, 0);
-      
+
       const count = await this.prisma.apiUsage.count({
         where: {
           OR: [
@@ -115,7 +122,7 @@ export class ApiBudgetService implements OnModuleInit {
   async checkMonthlyBudget(): Promise<MonthlyBudgetCheck> {
     const used = this.currentMonthUsage;
     const remaining = this.monthlyBudget - used;
-    
+
     return {
       withinBudget: used < this.monthlyBudget,
       budget: this.monthlyBudget,
@@ -125,10 +132,10 @@ export class ApiBudgetService implements OnModuleInit {
   }
 
   async trackRequest(
-    userId: string, 
-    ipAddress: string, 
-    userAgent: string, 
-    cost: number
+    userId: string,
+    ipAddress: string,
+    userAgent: string,
+    cost: number,
   ): Promise<void> {
     const now = new Date();
     const cacheKey = userId !== 'anonymous' ? userId : ipAddress;
@@ -149,12 +156,13 @@ export class ApiBudgetService implements OnModuleInit {
         endpoint: 'ai-pipeline',
         cost,
         timestamp: now,
-      }).catch(error => {
+      }).catch((error) => {
         this.logger.error(`Failed to store usage record: ${error.message}`);
       });
 
       // Log budget status periodically
-      if (Math.random() < 0.1) { // 10% chance to log
+      if (Math.random() < 0.1) {
+        // 10% chance to log
         const remaining = this.monthlyBudget - this.currentMonthUsage;
         this.logger.log(
           `API Budget: $${this.currentMonthUsage.toFixed(4)}/${
@@ -217,7 +225,9 @@ export class ApiBudgetService implements OnModuleInit {
       monthly: {
         used: parseFloat(this.currentMonthUsage.toFixed(4)),
         budget: this.monthlyBudget,
-        remaining: parseFloat(Math.max(0, this.monthlyBudget - this.currentMonthUsage).toFixed(4)),
+        remaining: parseFloat(
+          Math.max(0, this.monthlyBudget - this.currentMonthUsage).toFixed(4),
+        ),
       },
       totalRequests: totalCount,
     };
@@ -239,7 +249,9 @@ export class ApiBudgetService implements OnModuleInit {
       });
 
       this.currentMonthUsage = result._sum.cost || 0;
-      this.logger.log(`Loaded monthly usage: $${this.currentMonthUsage.toFixed(4)}`);
+      this.logger.log(
+        `Loaded monthly usage: $${this.currentMonthUsage.toFixed(4)}`,
+      );
     } catch (error) {
       this.logger.error(`Error loading monthly usage: ${error.message}`);
       this.currentMonthUsage = 0;
@@ -291,7 +303,9 @@ export class ApiBudgetService implements OnModuleInit {
       if (currentMonth !== this.currentMonth) {
         this.currentMonth = currentMonth;
         this.currentMonthUsage = 0;
-        this.logger.log(`Month changed to ${currentMonth}, resetting monthly usage`);
+        this.logger.log(
+          `Month changed to ${currentMonth}, resetting monthly usage`,
+        );
       }
     }, 60000); // Check every minute
   }

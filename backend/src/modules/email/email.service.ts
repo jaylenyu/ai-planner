@@ -19,11 +19,14 @@ export class EmailService {
   }
 
   async sendPasswordReset(to: string, token: string) {
-    const frontendUrl = this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
+    const frontendUrl =
+      this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
     const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
 
     await this.transporter.sendMail({
-      from: this.config.get<string>('EMAIL_FROM') ?? 'Dayplan <no-reply@dayplan.com>',
+      from:
+        this.config.get<string>('EMAIL_FROM') ??
+        'Dayplan <no-reply@dayplan.com>',
       to,
       subject: '[Dayplan] 비밀번호 재설정',
       html: `

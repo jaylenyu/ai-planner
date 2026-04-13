@@ -19,12 +19,20 @@ import { NaverStrategy } from './naver.strategy';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('JWT_SECRET'),
-        signOptions: { expiresIn: (config.get<string>('JWT_EXPIRES_IN') ?? '15m') as any },
+        signOptions: {
+          expiresIn: (config.get<string>('JWT_EXPIRES_IN') ?? '15m') as any,
+        },
       }),
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, GoogleStrategy, KakaoStrategy, NaverStrategy],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    GoogleStrategy,
+    KakaoStrategy,
+    NaverStrategy,
+  ],
   exports: [JwtModule],
 })
 export class AuthModule {}

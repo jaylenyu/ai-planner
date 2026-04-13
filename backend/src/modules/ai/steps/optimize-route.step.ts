@@ -2,7 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PipelineContext } from '../interfaces/pipeline-result.interface';
 import { OrderedPlace } from '../interfaces/place.interface';
 
-export function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
+export function haversine(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLng = ((lng2 - lng1) * Math.PI) / 180;
@@ -29,7 +34,9 @@ export class OptimizeRouteStep {
         if (!place) return null;
         return { ...place, type: activity.type };
       })
-      .filter((p): p is (typeof candidates)[string] & { type: string } => p !== null);
+      .filter(
+        (p): p is (typeof candidates)[string] & { type: string } => p !== null,
+      );
 
     if (places.length === 0) {
       ctx.orderedPlaces = [];
@@ -48,7 +55,10 @@ export class OptimizeRouteStep {
 
       unvisited.forEach((p, i) => {
         const d = haversine(currentLat, currentLng, p.lat, p.lng);
-        if (d < minDist) { minDist = d; minIdx = i; }
+        if (d < minDist) {
+          minDist = d;
+          minIdx = i;
+        }
       });
 
       const next = unvisited.splice(minIdx, 1)[0];
@@ -66,6 +76,8 @@ export class OptimizeRouteStep {
     }
 
     ctx.orderedPlaces = ordered;
-    this.logger.log(`경로 최적화 완료: ${ordered.map((p) => p.name).join(' → ')}`);
+    this.logger.log(
+      `경로 최적화 완료: ${ordered.map((p) => p.name).join(' → ')}`,
+    );
   }
 }

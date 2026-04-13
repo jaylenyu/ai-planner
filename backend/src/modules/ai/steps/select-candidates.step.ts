@@ -1,7 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PipelineContext } from '../interfaces/pipeline-result.interface';
 
-function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
+function haversine(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLng = ((lng2 - lng1) * Math.PI) / 180;
@@ -40,8 +45,15 @@ export class SelectCandidatesStep {
       );
 
       ctx.candidates[type] = sorted[0];
-      const dist = haversine(intent.lat, intent.lng, sorted[0].lat, sorted[0].lng);
-      this.logger.log(`[${type}] 선택: ${sorted[0].name} (${dist.toFixed(2)}km)`);
+      const dist = haversine(
+        intent.lat,
+        intent.lng,
+        sorted[0].lat,
+        sorted[0].lng,
+      );
+      this.logger.log(
+        `[${type}] 선택: ${sorted[0].name} (${dist.toFixed(2)}km)`,
+      );
     }
   }
 }

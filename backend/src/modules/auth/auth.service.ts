@@ -27,7 +27,9 @@ export class AuthService {
   private async generateTokenPair(userId: string, email: string) {
     const access_token = this.jwtService.sign(
       { sub: userId, email },
-      { expiresIn: (this.config.get<string>('JWT_EXPIRES_IN') ?? '15m') as any },
+      {
+        expiresIn: (this.config.get<string>('JWT_EXPIRES_IN') ?? '15m') as any,
+      },
     );
 
     const rawRefresh = crypto.randomBytes(40).toString('hex');
@@ -44,7 +46,9 @@ export class AuthService {
   }
 
   async register(dto: RegisterDto) {
-    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    const existing = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
     if (existing) throw new ConflictException('이미 사용 중인 이메일입니다.');
 
     const hashed = await bcrypt.hash(dto.password, 10);
@@ -56,13 +60,20 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
     if (!user || !user.password) {
-      throw new UnauthorizedException('이메일 또는 비밀번호가 올바르지 않습니다.');
+      throw new UnauthorizedException(
+        '이메일 또는 비밀번호가 올바르지 않습니다.',
+      );
     }
 
     const valid = await bcrypt.compare(dto.password, user.password);
-    if (!valid) throw new UnauthorizedException('이메일 또는 비밀번호가 올바르지 않습니다.');
+    if (!valid)
+      throw new UnauthorizedException(
+        '이메일 또는 비밀번호가 올바르지 않습니다.',
+      );
 
     return this.generateTokenPair(user.id, user.email);
   }
@@ -101,7 +112,9 @@ export class AuthService {
   }
 
   async forgotPassword(dto: ForgotPasswordDto) {
-    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
     if (!user) return; // 이메일 존재 여부 노출 방지
 
     const rawToken = crypto.randomBytes(32).toString('hex');
@@ -131,7 +144,8 @@ export class AuthService {
       }
     }
 
-    if (!matched) throw new BadRequestException('유효하지 않거나 만료된 링크입니다.');
+    if (!matched)
+      throw new BadRequestException('유효하지 않거나 만료된 링크입니다.');
 
     const hashed = await bcrypt.hash(dto.password, 10);
     await this.prisma.user.update({

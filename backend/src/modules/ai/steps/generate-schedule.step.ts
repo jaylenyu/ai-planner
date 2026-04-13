@@ -1,5 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PipelineContext, ScheduleItem } from '../interfaces/pipeline-result.interface';
+import {
+  PipelineContext,
+  ScheduleItem,
+} from '../interfaces/pipeline-result.interface';
 
 const DWELL_MINUTES: Record<string, number> = {
   food: 90,

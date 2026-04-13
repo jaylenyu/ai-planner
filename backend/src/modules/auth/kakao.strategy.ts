@@ -19,9 +19,15 @@ export class KakaoStrategy extends PassportStrategy(Strategy, 'kakao') {
     });
   }
 
-  async validate(_accessToken: string, _refreshToken: string, profile: any, done: DoneFn) {
+  async validate(
+    _accessToken: string,
+    _refreshToken: string,
+    profile: any,
+    done: DoneFn,
+  ) {
     const kakaoId = String(profile?.id ?? '');
-    if (!kakaoId) return done(new Error('카카오 사용자 정보를 가져올 수 없습니다.'));
+    if (!kakaoId)
+      return done(new Error('카카오 사용자 정보를 가져올 수 없습니다.'));
 
     const email =
       profile?._json?.kakao_account?.email ?? `${kakaoId}@kakao-user.local`;
@@ -31,7 +37,10 @@ export class KakaoStrategy extends PassportStrategy(Strategy, 'kakao') {
     if (!user) {
       user = await this.prisma.user.findUnique({ where: { email } });
       if (user) {
-        user = await this.prisma.user.update({ where: { id: user.id }, data: { kakaoId } });
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: { kakaoId },
+        });
       } else {
         user = await this.prisma.user.create({ data: { email, kakaoId } });
       }
