@@ -166,7 +166,7 @@ export default function PlanPage() {
               </div>
 
               {/* Map */}
-              <div className="rounded-2xl bg-white p-6 shadow-sm border border-stone-200 order-1 lg:order-2 lg:sticky lg:top-24 lg:self-start">
+              <div className="rounded-2xl bg-white p-6 shadow-sm border border-stone-200 order-1 lg:order-2 lg:sticky lg:top-24 lg:self-start overflow-hidden">
                 <div className="flex items-center gap-2 mb-5">
                   <span className="text-lg">🗺</span>
                   <h3 className="text-base font-bold text-stone-800">경로 지도</h3>

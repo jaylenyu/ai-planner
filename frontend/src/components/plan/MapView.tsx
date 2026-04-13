@@ -177,10 +177,12 @@ export function MapView({ items, polyline }: MapViewProps) {
   }
 
   return (
-    <div
-      ref={mapRef}
-      className="w-full h-full min-h-[400px] rounded-xl overflow-hidden border border-zinc-200"
-      id="naver-map"
-    />
+    <div className="w-full rounded-xl overflow-hidden border border-zinc-200" style={{ height: '400px' }}>
+      <div
+        ref={mapRef}
+        id="naver-map"
+        style={{ width: '100%', height: '100%' }}
+      />
+    </div>
   );
 }
