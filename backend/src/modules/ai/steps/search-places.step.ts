@@ -2,6 +2,14 @@ import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { PlacesService } from '../../places/places.service';
 import { PipelineContext } from '../interfaces/pipeline-result.interface';
 
+const FALLBACK_QUERIES: Record<string, string> = {
+  attraction: '관광지 명소 볼거리',
+  rest: '공원 산책',
+  activity: '체험 놀거리',
+  cafe: '카페',
+  food: '맛집',
+};
+
 @Injectable()
 export class SearchPlacesStep {
   private readonly logger = new Logger(SearchPlacesStep.name);
@@ -13,11 +21,27 @@ export class SearchPlacesStep {
     ctx.rawPlaces = {};
 
     for (const activity of intent.activities) {
-      const places = await this.placesService.searchNearby(
+      let places = await this.placesService.searchNearby(
         activity.naverQuery,
         activity.type,
         5,
       );
+
+      // 결과 0개 시 넓은 폴백 검색어로 1회 재시도
+      if (places.length === 0) {
+        const fallbackQ = FALLBACK_QUERIES[activity.type];
+        if (fallbackQ) {
+          const retryQuery = `${intent.location} ${fallbackQ}`;
+          const retry = await this.placesService.searchNearby(retryQuery, activity.type, 5);
+          if (retry.length > 0) {
+            places = retry;
+            this.logger.warn(
+              `[${activity.type}] 폴백 검색어로 재시도: ${retryQuery}`,
+            );
+          }
+        }
+      }
+
       ctx.rawPlaces[activity.type] = places;
       this.logger.log(
         `[${activity.type}] ${places.length}개 검색됨: ${activity.naverQuery}\n` +

@@ -28,8 +28,7 @@ export class AppModule {
     consumer
       .apply(ApiBudgetMiddleware)
       .forRoutes(
-        { path: 'api/plan', method: RequestMethod.POST },
-        { path: 'api/ai/*', method: RequestMethod.ALL },
+        { path: 'plan/generate', method: RequestMethod.POST },
       );
   }
 }

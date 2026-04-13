@@ -2,7 +2,7 @@ import { Controller, Get, UseGuards, Request } from '@nestjs/common';
 import { ApiBudgetService } from '../../services/api-budget.service';
 import { JwtAuthGuard } from '../auth/auth.guard';
 
-@Controller('api/budget')
+@Controller('budget')
 export class ApiBudgetController {
   constructor(private readonly apiBudgetService: ApiBudgetService) {}
 

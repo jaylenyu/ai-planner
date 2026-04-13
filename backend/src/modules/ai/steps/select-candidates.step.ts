@@ -30,17 +30,24 @@ export class SelectCandidatesStep {
     for (const [type, places] of Object.entries(rawPlaces)) {
       if (!places.length) continue;
 
-      const RADIUS_KM = 3;
-      const filtered = places.filter((p) => {
-        const dist = haversine(intent.lat, intent.lng, p.lat, p.lng);
-        return dist <= RADIUS_KM;
-      });
+      // 반경을 3km → 5km → 10km 순으로 확장 시도 (서울 같은 광역 도시 대응)
+      const RADIUS_STEPS = [3, 5, 10];
+      let filtered: typeof places = [];
+      let usedRadius = RADIUS_STEPS[0];
+      for (const radius of RADIUS_STEPS) {
+        filtered = places.filter((p) => haversine(intent.lat, intent.lng, p.lat, p.lng) <= radius);
+        usedRadius = radius;
+        if (filtered.length > 0) break;
+      }
 
       if (filtered.length === 0) {
         this.logger.warn(
-          `[${type}] 반경 ${RADIUS_KM}km 내 후보 없음 — 활동 제외`,
+          `[${type}] 반경 ${usedRadius}km 내 후보 없음 — 활동 제외`,
         );
-        continue; // 반경 밖이면 candidates에 추가하지 않음
+        continue;
+      }
+      if (usedRadius > 3) {
+        this.logger.warn(`[${type}] 반경 ${usedRadius}km로 확장하여 후보 검색`);
       }
 
       // 기준점에서 거리 오름차순 정렬 → 가장 가까운 곳 선택

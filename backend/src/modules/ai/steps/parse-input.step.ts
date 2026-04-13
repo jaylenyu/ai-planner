@@ -25,7 +25,30 @@ function extractLocationFallback(input: string): string {
   for (const loc of KNOWN_LOCATIONS) {
     if (input.includes(loc)) return loc;
   }
+  // 행정구역 접미사 패턴으로 미등록 지역명 추출 (예: 청도군, 보령시)
+  const adminMatch = input.match(/[가-힣]{2,6}(?:군|시|구|읍|면)/);
+  if (adminMatch) return adminMatch[0];
+  // "에서" 앞 단어로 지역명 추출 (예: 청도에서, 무주에서, 양양에서)
+  const locationMatch = input.match(/([가-힣]{2,6})에서/);
+  if (locationMatch) return locationMatch[1];
   return '서울';
+}
+
+// 폴백용 활동 키워드 (ACTIVITY_QUERY_MAP 키 기준, 우선순위 순)
+const ACTIVITY_KEYWORDS = [
+  '점심', '저녁', '브런치', '맛집', '한식', '일식', '중식', '양식', '고기',
+  '해산물', '치킨', '파스타', '피자', '술',
+  '카페', '커피', '디저트',
+  '영화', '볼링', '쇼핑', '노래방', '방탈출', '클라이밍',
+  '전시', '박물관', '뮤지컬',
+  '산책', '공원', '한강',
+];
+
+/** 사용자 입력에서 활동 키워드를 직접 스캔 (GPT 폴백용) */
+function extractActivitiesFallback(input: string, mode: 'date' | 'trip'): string[] {
+  const found = ACTIVITY_KEYWORDS.filter(k => input.includes(k));
+  if (found.length >= 2) return found.slice(0, 4);
+  return mode === 'date' ? ['맛집', '카페'] : ['맛집', '산책'];
 }
 
 @Injectable()
@@ -60,7 +83,7 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
 
     try {
       const response = await this.openai.chat.completions.create({
-        model: 'openai/gpt-5-mini',
+        model: 'openai/gpt-4o-mini',
         temperature: 0.1,
         messages: [
           { role: 'system', content: systemPrompt },
@@ -94,8 +117,7 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
     // GPT 실패 시 키워드 기반 폴백
     if (!parsed) {
       const location = extractLocationFallback(ctx.rawInput);
-      const activities =
-        ctx.mode === 'date' ? ['맛집', '카페'] : ['맛집', '산책', '전시'];
+      const activities = extractActivitiesFallback(ctx.rawInput, ctx.mode);
       const timeOfDay = ctx.rawInput.match(/저녁|밤|야간/)
         ? 'evening'
         : ctx.rawInput.match(/아침|오전|브런치/)
