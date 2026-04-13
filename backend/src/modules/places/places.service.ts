@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { getMockPlaces } from './places-mock.data';
 
 export interface PlaceResult {
   name: string;
@@ -30,9 +29,9 @@ export class PlacesService {
   ): Promise<PlaceResult[]> {
     if (!this.clientId || !this.clientSecret) {
       this.logger.warn(
-        `Naver API 키 없음 — mock 데이터 사용 (query: ${query})`,
+        `Naver API 키 없음 — 빈 결과 반환 (query: ${query})`,
       );
-      return getMockPlaces(type);
+      return [];
     }
 
     try {
@@ -47,14 +46,14 @@ export class PlacesService {
 
       if (!response.ok) {
         this.logger.warn(
-          `Naver API 오류 ${response.status} — mock 데이터 사용`,
+          `Naver API 오류 ${response.status} — 빈 결과 반환 (query: ${query})`,
         );
-        return getMockPlaces(type);
+        return [];
       }
 
       const data = (await response.json()) as { items: NaverLocalItem[] };
       if (!data.items || data.items.length === 0) {
-        return getMockPlaces(type);
+        return [];
       }
 
       return data.items.map((item) => ({
@@ -66,8 +65,8 @@ export class PlacesService {
         link: item.link,
       }));
     } catch (err) {
-      this.logger.warn(`Naver API 요청 실패 — mock 데이터 사용: ${err}`);
-      return getMockPlaces(type);
+      this.logger.warn(`Naver API 요청 실패 — 빈 결과 반환 (query: ${query}): ${err}`);
+      return [];
     }
   }
 

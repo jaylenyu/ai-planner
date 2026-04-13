@@ -33,11 +33,14 @@ jobs:
             backend:
               - 'backend/**'
 
-  lint-and-typecheck:
-    name: Lint & Typecheck
+  build-backend:
+    name: Build & Push Backend Image
     runs-on: ubuntu-latest
-    needs: changes
-    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.backend == 'true'
+    needs: [changes]
+    if: needs.changes.outputs.backend == 'true'
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
 
@@ -46,37 +49,15 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: |
-            backend/package-lock.json
-            frontend/package-lock.json
+          cache-dependency-path: backend/package-lock.json
 
       - name: Backend — install, typecheck, lint
-        if: needs.changes.outputs.backend == 'true'
         working-directory: backend
         run: |
           npm ci
           npx prisma generate
           npx tsc -p tsconfig.build.json --noEmit
           npm run lint
-
-      - name: Frontend — install, typecheck, lint
-        if: needs.changes.outputs.frontend == 'true'
-        working-directory: frontend
-        run: |
-          npm ci
-          npx tsc --noEmit
-          npm run lint
-
-  build-backend:
-    name: Build & Push Backend Image
-    runs-on: ubuntu-latest
-    needs: [changes, lint-and-typecheck]
-    if: needs.changes.outputs.backend == 'true'
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -100,13 +81,27 @@ jobs:
   build-frontend:
     name: Build & Push Frontend Image
     runs-on: ubuntu-latest
-    needs: [changes, lint-and-typecheck]
+    needs: [changes]
     if: needs.changes.outputs.frontend == 'true'
     permissions:
       contents: read
       packages: write
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Frontend — install, typecheck, lint
+        working-directory: frontend
+        run: |
+          npm ci
+          npx tsc --noEmit
+          npm run lint
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
