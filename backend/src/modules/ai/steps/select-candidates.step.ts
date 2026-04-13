@@ -32,10 +32,15 @@ export class SelectCandidatesStep {
 
       const filtered = places.filter((p) => {
         const dist = haversine(intent.lat, intent.lng, p.lat, p.lng);
-        return dist <= 3; // 3km 이내
+        return dist <= 5; // 5km 이내
       });
 
       const pool = filtered.length > 0 ? filtered : places;
+      if (filtered.length === 0) {
+        this.logger.warn(
+          `[${type}] 반경 5km 내 후보 없음 — 전체 ${places.length}개 중 최단 거리 선택`,
+        );
+      }
 
       // 기준점에서 거리 오름차순 정렬 → 가장 가까운 곳 선택
       const sorted = [...pool].sort(
