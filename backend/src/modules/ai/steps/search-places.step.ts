@@ -20,7 +20,8 @@ export class SearchPlacesStep {
       );
       ctx.rawPlaces[activity.type] = places;
       this.logger.log(
-        `[${activity.type}] ${places.length}개 검색됨: ${activity.naverQuery}`,
+        `[${activity.type}] ${places.length}개 검색됨: ${activity.naverQuery}\n` +
+        places.map((p, i) => `  ${i + 1}. ${p.name} (${p.address})`).join('\n'),
       );
     }
 
