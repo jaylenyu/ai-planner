@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../../hooks/useAuth';
 import { Button } from '../../../components/ui/Button';
@@ -10,12 +9,11 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { login, loading, error } = useAuth();
-  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const ok = await login(email, password);
-    if (ok) router.push('/plan');
+    if (ok) window.location.href = '/plan';
   };
 
   return (
