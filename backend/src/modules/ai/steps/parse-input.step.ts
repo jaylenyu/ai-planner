@@ -91,7 +91,7 @@ export class ParseInputStep {
 
     try {
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-5-mini',
+        model: 'openai/gpt-5-mini',
         response_format: { type: 'json_object' },
         temperature: 0.2,
         messages: [
