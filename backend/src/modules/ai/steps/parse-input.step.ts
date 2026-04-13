@@ -92,13 +92,12 @@ export class ParseInputStep {
     try {
       const response = await this.openai.chat.completions.create({
         model: 'openai/gpt-5-mini',
-        response_format: { type: 'json_object' },
         temperature: 0.2,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: ctx.rawInput },
         ],
-        max_tokens: 300,
+        max_tokens: 500,
       });
 
       const choice = response.choices[0];
@@ -112,7 +111,14 @@ export class ParseInputStep {
         throw new Error('OpenAI 응답이 비어있습니다.');
       }
 
-      const parsed = JSON.parse(content) as ParsedInput;
+      // response_format 미지원 모델 대비: 응답에서 JSON 블록만 추출
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        this.logger.error(`JSON 블록 없음. 원본 응답: ${content}`);
+        throw new SyntaxError('JSON 블록을 찾을 수 없습니다.');
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]) as ParsedInput;
       if (!parsed.location || !parsed.activities?.length) {
         throw new Error('파싱 결과에 필수 필드가 없습니다.');
       }
