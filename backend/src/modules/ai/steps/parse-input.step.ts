@@ -101,8 +101,16 @@ export class ParseInputStep {
         max_tokens: 300,
       });
 
-      const content = response.choices[0]?.message?.content;
-      if (!content) throw new Error('OpenAI 응답이 비어있습니다.');
+      const choice = response.choices[0];
+      const content = choice?.message?.content;
+
+      if (!content) {
+        this.logger.error(
+          `빈 응답: finish_reason=${choice?.finish_reason}, model=${response.model}, ` +
+          `choices=${JSON.stringify(response.choices?.map((c) => ({ finish_reason: c.finish_reason, content: c.message?.content })))}`,
+        );
+        throw new Error('OpenAI 응답이 비어있습니다.');
+      }
 
       const parsed = JSON.parse(content) as ParsedInput;
       if (!parsed.location || !parsed.activities?.length) {
