@@ -6,7 +6,11 @@ import {
   clearAllTokens,
 } from './auth';
 
-const BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000') + '/api';
+const rawApiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+const normalizedApiUrl = rawApiUrl.replace(/\/+$/, '');
+const BASE_URL = normalizedApiUrl.endsWith('/api')
+  ? normalizedApiUrl
+  : `${normalizedApiUrl}/api`;
 
 async function tryRefresh(): Promise<boolean> {
   const refreshToken = getRefreshToken();
