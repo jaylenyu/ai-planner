@@ -18,8 +18,8 @@ export class PlacesService {
   private readonly clientSecret: string;
 
   constructor(private readonly config: ConfigService) {
-    this.clientId = this.config.get<string>('NAVER_CLIENT_ID') ?? '';
-    this.clientSecret = this.config.get<string>('NAVER_CLIENT_SECRET') ?? '';
+    this.clientId = this.config.get<string>('NAVER_SEARCH_CLIENT_ID') ?? '';
+    this.clientSecret = this.config.get<string>('NAVER_SEARCH_CLIENT_SECRET') ?? '';
   }
 
   async searchNearby(
