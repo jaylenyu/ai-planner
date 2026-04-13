@@ -41,11 +41,21 @@ export class GenerateScheduleStep {
 
     let currentMin = parseTime(intent.startTime);
     const items: ScheduleItem[] = [];
+    let lastFoodEndMin = -1; // food 간격 추적
+    const FOOD_GAP_MIN = 240; // food → food 최소 간격 4시간
 
     for (const place of places) {
       // 첫 번째 장소는 이동 시간 없음, 이후는 이전 이동 시간 포함
       if (items.length > 0) {
         currentMin += place.travelMinutes + 10; // buffer 10분
+      }
+
+      // food 연속 시 4시간 이상 간격 보장
+      if (place.type === 'food' && lastFoodEndMin >= 0) {
+        const minStart = lastFoodEndMin + FOOD_GAP_MIN;
+        if (currentMin < minStart) {
+          currentMin = minStart;
+        }
       }
 
       const dwell = DWELL_MINUTES[place.type] ?? 60;
@@ -64,6 +74,7 @@ export class GenerateScheduleStep {
       });
 
       currentMin += dwell;
+      if (place.type === 'food') lastFoodEndMin = currentMin;
     }
 
     ctx.scheduleItems = items;

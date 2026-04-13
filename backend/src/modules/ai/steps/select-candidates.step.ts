@@ -30,20 +30,21 @@ export class SelectCandidatesStep {
     for (const [type, places] of Object.entries(rawPlaces)) {
       if (!places.length) continue;
 
+      const RADIUS_KM = 3;
       const filtered = places.filter((p) => {
         const dist = haversine(intent.lat, intent.lng, p.lat, p.lng);
-        return dist <= 5; // 5km 이내
+        return dist <= RADIUS_KM;
       });
 
-      const pool = filtered.length > 0 ? filtered : places;
       if (filtered.length === 0) {
         this.logger.warn(
-          `[${type}] 반경 5km 내 후보 없음 — 전체 ${places.length}개 중 최단 거리 선택`,
+          `[${type}] 반경 ${RADIUS_KM}km 내 후보 없음 — 활동 제외`,
         );
+        continue; // 반경 밖이면 candidates에 추가하지 않음
       }
 
       // 기준점에서 거리 오름차순 정렬 → 가장 가까운 곳 선택
-      const sorted = [...pool].sort(
+      const sorted = [...filtered].sort(
         (a, b) =>
           haversine(intent.lat, intent.lng, a.lat, a.lng) -
           haversine(intent.lat, intent.lng, b.lat, b.lng),
