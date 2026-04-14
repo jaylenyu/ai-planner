@@ -28,13 +28,30 @@ function extractLocationFallback(input: string): string {
   // 행정구역 접미사 패턴 (예: 청도군, 보령시, 당진시)
   const adminMatch = input.match(/[가-힣]{2,6}(?:군|시|구|읍|면)/);
   if (adminMatch) return adminMatch[0];
-  // "X 여행", "X 일정", "X 데이트" 패턴 (예: 당진 여행, 보령 일정)
-  const tripMatch = input.match(/([가-힣]{2,6})(?:에서)?\s*(?:여행|일정|데이트|코스)/);
+  // "X에서 활동" 패턴 — "에서"를 명시적으로 매칭해 캡처 그룹에 포함되지 않도록
+  // (예: "상주에서 데이트", "당진에서 여행")
+  const eseoTripMatch = input.match(
+    /([가-힣]{2,4})에서\s*(?:여행|일정|데이트|코스|먹|놀|점심|저녁|맛집|카페)/,
+  );
+  if (eseoTripMatch) return eseoTripMatch[1];
+  // "X 활동" 패턴 — 공백 + 활동 키워드 (예: 당진 여행, 보령 일정)
+  const tripMatch = input.match(
+    /([가-힣]{2,4})\s+(?:여행|일정|데이트|코스)/,
+  );
   if (tripMatch) return tripMatch[1];
-  // "에서" 앞 단어 (예: 당진에서, 무주에서)
-  const locationMatch = input.match(/([가-힣]{2,6})에서/);
+  // "X에서" 단순 패턴 — "에서"를 명시적으로 매칭
+  const locationMatch = input.match(/([가-힣]{2,4})에서/);
   if (locationMatch) return locationMatch[1];
   return '서울';
+}
+
+/** location에서 한국어 조사("에서", "에", "은/는") 후미 제거 */
+function stripLocationParticles(loc: string): string {
+  return loc
+    .replace(/에서$/, '')
+    .replace(/에$/, '')
+    .replace(/[은는이가]$/, '')
+    .trim();
 }
 
 // 폴백용 활동 키워드 (ACTIVITY_QUERY_MAP 키 기준, 우선순위 순)
@@ -73,6 +90,17 @@ export class ParseInputStep {
   }
 
   async execute(ctx: PipelineContext): Promise<void> {
+    function normalizeLocation(loc: string): string {
+      let normalized = loc.trim();
+      // 조사/접미사 제거
+      normalized = normalized.replace(/에서$|에$|은$|는$|이$|가$|로$|으로$|쪽$|근처$|주변$/g, '');
+      // 별칭 맵 재적용
+      if (LOCATION_ALIAS[normalized]) {
+        normalized = LOCATION_ALIAS[normalized];
+      }
+      return normalized.trim();
+    }
+
     // 짧은 프롬프트로 토큰 절약
     const systemPrompt = `여행/데이트 요청을 JSON으로 변환. 반드시 아래 형식만 출력:
 {"location":"지역명","activities":["활동1","활동2"],"timeOfDay":"morning|afternoon|evening|full-day","preferences":[]}
@@ -141,6 +169,7 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
       this.logger.warn(`폴백 파싱 결과: ${JSON.stringify(parsed)}`);
     }
 
+    parsed.location = normalizeLocation(parsed.location);
     ctx.parsed = parsed;
     this.logger.log(`파싱 완료: ${JSON.stringify(parsed)}`);
   }

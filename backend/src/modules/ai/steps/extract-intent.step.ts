@@ -113,24 +113,94 @@ export class ExtractIntentStep {
 
   constructor(private readonly placesService: PlacesService) {}
 
-  async execute(ctx: PipelineContext): Promise<void> {
-    const parsed = ctx.parsed!;
+  function normalizeLocation(loc: string): string {
+  let normalized = loc.trim();
+  normalized = normalized.replace(/에서$|에$|은$|는$|이$|가$|로$|으로$|쪽$|근처$|주변$/g, '');
+  const aliasMap: Record<string, string> = {
+    연남동: '홍대',
+    망리단길: '홍대',
+    익선동: '종로',
+    해방촌: '이태원',
+    경리단길: '이태원',
+    성수: '성수동',
+    뚝섬: '성수동',
+  };
+  if (aliasMap[normalized]) {
+    normalized = aliasMap[normalized];
+  }
+  return normalized.trim();
+}
 
-    // 위치 → 좌표 (Naver 지오코딩 검증 포함)
-    const { coords, resolvedLocation } =
-      await this.resolveCoordsWithValidation(
-        parsed.location,
-        ctx.rawInput,
-      );
+async execute(ctx: PipelineContext): Promise<void> {
+  ctx.parsed!.location = normalizeLocation(ctx.parsed!.location);
 
-    // parsed.location을 resolvedLocation으로 업데이트
-    // (SearchPlacesStep에서 사용될 location 쿼리 기준이 됨)
-    if (resolvedLocation !== parsed.location) {
-      this.logger.log(
-        `location 업데이트: "${parsed.location}" → "${resolvedLocation}"`,
-      );
+  const parsed = ctx.parsed!;
+
+  // 위치 → 좌표 (Naver 지오코딩 검증 포함)
+  let { coords, resolvedLocation } = await this.resolveCoordsWithValidation(
+    parsed.location,
+    ctx.rawInput,
+  );
+
+  resolvedLocation = normalizeLocation(resolvedLocation);
+
+  // parsed.location을 resolvedLocation으로 업데이트
+  // (SearchPlacesStep에서 사용될 location 쿼리 기준이 됨)
+  if (resolvedLocation !== parsed.location) {
+    this.logger.log(
+      `location 업데이트: "${parsed.location}" → "${resolvedLocation}"`,
+    );
       parsed.location = resolvedLocation;
     }
+
+    // 활동 → Naver 검색어
+    const activities: ActivityIntent[] = parsed.activities
+      .map((act) => this.resolveActivity(act, parsed.location))
+      .filter((a): a is ActivityIntent => a !== null);
+
+    if (activities.length === 0) {
+      throw new BadRequestException('인식 가능한 활동이 없습니다.');
+    }
+
+    // 모드별 활동 순서 보장
+    const ordered = this.orderByMode(activities, ctx.mode);
+
+    // 모드별 최소 장소 수 미달 시 기본 활동으로 채우기
+    // trip: 최소 4개, date: 최소 3개
+    const MODE_MIN: Record<string, number> = { trip: 4, date: 3 };
+    const MODE_FILLERS: Record<string, string[]> = {
+      trip: ['맛집', '카페', '산책', '전시'],
+      date: ['카페', '산책', '맛집'],
+    };
+    const minCount = MODE_MIN[ctx.mode] ?? 3;
+    const fillers = MODE_FILLERS[ctx.mode] ?? [];
+    const existingTypes = new Set(ordered.map((a) => a.type));
+    for (const filler of fillers) {
+      if (ordered.length >= minCount) break;
+      const resolved = this.resolveActivity(filler, parsed.location);
+      if (resolved && !existingTypes.has(resolved.type)) {
+        ordered.push(resolved);
+        existingTypes.add(resolved.type);
+        this.logger.log(`[자동 추가] ${filler} (${resolved.type})`);
+      }
+    }
+
+    const times = TIME_MAP[parsed.timeOfDay] ?? TIME_MAP['evening'];
+
+    ctx.intent = {
+      location: resolvedLocation,
+      lat: coords.lat,
+      lng: coords.lng,
+      mode: ctx.mode,
+      activities: ordered,
+      startTime: times.start,
+      endTime: times.end,
+    };
+
+    this.logger.log(
+      `의도 추출 완료: ${parsed.location} / ${ordered.map((a) => a.type).join(' → ')}`,
+    );
+  }
 
     // 활동 → Naver 검색어
     const activities: ActivityIntent[] = parsed.activities
