@@ -38,7 +38,7 @@ export default function PlanPage() {
       {/* Header */}
       <header className="sticky top-0 z-50 glass" style={{ borderBottom: '1px solid var(--divider)' }}>
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 sm:px-6 py-4">
-          <Link href="/plan" className="flex items-center gap-2.5 group">
+          <Link href="/" className="flex items-center gap-2.5 group">
             <div className="flex items-center justify-center h-9 w-9 rounded-xl transition-all duration-300"
                  style={{ background: 'var(--gradient-brand)', boxShadow: 'var(--shadow-brand)' }}>
               <svg

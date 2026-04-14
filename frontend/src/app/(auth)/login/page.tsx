@@ -24,7 +24,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md mx-4">
         {/* Logo */}
         <div className="text-center mb-8">
-          <Link href="/plan" className="inline-flex items-center gap-2.5 group">
+          <Link href="/" className="inline-flex items-center gap-2.5 group">
             <div className="flex items-center justify-center h-12 w-12 rounded-2xl bg-gradient-to-br from-orange-500 to-pink-500 shadow-lg shadow-orange-500/20 group-hover:shadow-xl transition-all duration-300">
               <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
