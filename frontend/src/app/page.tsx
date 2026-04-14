@@ -103,7 +103,7 @@ export default function Home() {
 
         <section className="mx-auto flex max-w-6xl flex-col gap-12 px-6 py-20 lg:flex-row lg:items-center">
           <div className="flex-1 space-y-6">
-            <Badge variant="gradient" className="text-xs uppercase tracking-[0.4em]">
+            <Badge className="border-transparent bg-gradient-to-r from-orange-500 to-pink-500 text-[11px] uppercase tracking-[0.4em] text-white">
               AI itinerary platform
             </Badge>
             <h1 className="text-4xl font-black leading-tight text-white md:text-5xl">
@@ -159,8 +159,12 @@ export default function Home() {
               <CardFooter className="flex flex-col gap-3 text-xs text-stone-300">
                 <span>* 추천은 사용자의 피드백을 학습해 지속적으로 개선됩니다.</span>
                 <div className="flex gap-2 text-[11px]">
-                  <Badge variant="outline">NAVER 데이터 연동</Badge>
-                  <Badge variant="outline">시간표 자동 조정</Badge>
+                  <Badge variant="outline" className="border-white/30 text-white">
+                    NAVER 데이터 연동
+                  </Badge>
+                  <Badge variant="outline" className="border-white/30 text-white">
+                    시간표 자동 조정
+                  </Badge>
                 </div>
               </CardFooter>
             </Card>
@@ -184,7 +188,7 @@ export default function Home() {
         <section id="features" className="bg-white py-20 text-stone-900">
           <div className="mx-auto max-w-6xl px-6">
             <div className="mb-12 text-center">
-              <Badge variant="outline" className="text-stone-600">
+              <Badge variant="outline" className="border-stone-200 text-stone-600">
                 Features
               </Badge>
               <h2 className="mt-4 text-3xl font-bold">알고 보면 더 편리한 디테일</h2>
@@ -210,7 +214,9 @@ export default function Home() {
           <div className="rounded-[32px] border border-white/10 bg-white/5 p-10">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
-                <Badge variant="gradient">Workflow</Badge>
+                <Badge className="border-transparent bg-gradient-to-r from-orange-500 to-pink-500 text-white">
+                  Workflow
+                </Badge>
                 <h2 className="mt-3 text-3xl font-bold text-white">세밀한 단계별 경험</h2>
                 <p className="mt-2 max-w-2xl text-sm text-stone-300">
                   사용자 조사를 통해 검증한 3단계 프로세스—아이디어, 다듬기, 공유—를 shadcn 탭 컴포넌트로 직관적으로 보여줍니다.
@@ -218,15 +224,19 @@ export default function Home() {
               </div>
             </div>
             <Tabs defaultValue="ideate" className="mt-8">
-              <TabsList>
+              <TabsList className="rounded-full bg-white/10 p-1 text-sm text-stone-300">
                 {steps.map((step) => (
-                  <TabsTrigger key={step.key} value={step.key}>
+                  <TabsTrigger
+                    key={step.key}
+                    value={step.key}
+                    className="min-w-[120px] rounded-full px-4 py-2 text-sm font-medium text-stone-200 transition-all data-[state=active]:bg-white data-[state=active]:text-stone-900 data-[state=active]:shadow"
+                  >
                     {step.title.split(' ')[0]}
                   </TabsTrigger>
                 ))}
               </TabsList>
               {steps.map((step) => (
-                <TabsContent key={step.key} value={step.key}>
+                <TabsContent key={step.key} value={step.key} className="mt-6">
                   <Card className="border-white/10 bg-white/5 text-white">
                     <CardHeader>
                       <CardTitle>{step.title}</CardTitle>
@@ -242,7 +252,9 @@ export default function Home() {
         <section id="stories" className="bg-stone-50 py-20 text-stone-900">
           <div className="mx-auto max-w-6xl px-6">
             <div className="mb-10 text-center">
-              <Badge variant="outline">Voices</Badge>
+              <Badge variant="outline" className="border-stone-300 text-stone-600">
+                Voices
+              </Badge>
               <h2 className="mt-3 text-3xl font-bold">사용자 후기</h2>
               <p className="text-sm text-stone-500">Dayplan을 먼저 경험한 사람들의 생생한 평가입니다.</p>
             </div>

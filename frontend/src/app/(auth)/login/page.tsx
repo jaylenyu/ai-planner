@@ -3,7 +3,8 @@
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../../../hooks/useAuth';
-import { Button } from '../../../components/ui/Button';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/Spinner';
 import { OAuthButtonList } from '../../../components/auth/OAuthButtonList';
 
 export default function LoginPage() {
@@ -76,8 +77,15 @@ export default function LoginPage() {
                 비밀번호를 잊으셨나요?
               </Link>
             </div>
-            <Button type="submit" loading={loading} className="w-full py-3.5">
-              로그인
+            <Button type="submit" disabled={loading} className="w-full gap-2 py-3.5">
+              {loading ? (
+                <>
+                  <Spinner size="sm" />
+                  <span>로그인 중...</span>
+                </>
+              ) : (
+                '로그인'
+              )}
             </Button>
           </form>
 

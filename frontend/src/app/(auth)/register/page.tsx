@@ -6,7 +6,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Turnstile } from '@marsidev/react-turnstile';
-import { Button } from '../../../components/ui/Button';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/Spinner';
 import { OAuthButtonList } from '../../../components/auth/OAuthButtonList';
 import { authApi } from '../../../lib/api';
 import { setToken, setRefreshToken } from '../../../lib/auth';
@@ -320,8 +321,15 @@ export default function RegisterPage() {
 
                 {error && <ErrorBox message={error} />}
 
-                <Button type="submit" loading={formLoading} className="w-full py-3.5">
-                  인증코드 전송
+                <Button type="submit" disabled={formLoading} className="w-full gap-2 py-3.5">
+                  {formLoading ? (
+                    <>
+                      <Spinner size="sm" />
+                      <span>전송 중...</span>
+                    </>
+                  ) : (
+                    '인증코드 전송'
+                  )}
                 </Button>
               </form>
 
@@ -389,11 +397,17 @@ export default function RegisterPage() {
 
                 <Button
                   type="submit"
-                  loading={formLoading}
                   disabled={timeLeft === 0 || formLoading}
-                  className="w-full py-3.5"
+                  className="w-full gap-2 py-3.5"
                 >
-                  인증 확인
+                  {formLoading ? (
+                    <>
+                      <Spinner size="sm" />
+                      <span>확인 중...</span>
+                    </>
+                  ) : (
+                    '인증 확인'
+                  )}
                 </Button>
 
                 <button
@@ -484,8 +498,15 @@ export default function RegisterPage() {
 
                 {error && <ErrorBox message={error} />}
 
-                <Button type="submit" loading={formLoading} className="w-full py-3.5">
-                  회원가입
+                <Button type="submit" disabled={formLoading} className="w-full gap-2 py-3.5">
+                  {formLoading ? (
+                    <>
+                      <Spinner size="sm" />
+                      <span>가입 중...</span>
+                    </>
+                  ) : (
+                    '회원가입'
+                  )}
                 </Button>
               </form>
             </>

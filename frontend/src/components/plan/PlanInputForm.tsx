@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Button } from '../ui/Button';
+import { Button } from '../ui/button';
+import { Spinner } from '../ui/Spinner';
 import { PlanMode } from '../../lib/types';
 
 interface PlanInputFormProps {
@@ -118,12 +119,12 @@ export function PlanInputForm({ onSubmit, loading, scrollToResults }: PlanInputF
       </div>
 
       {/* Submit */}
-      <Button 
-        type="submit" 
-        loading={loading} 
-        disabled={!rawInput.trim()} 
-        className="w-full py-3 sm:py-4 text-sm sm:text-base"
+      <Button
+        type="submit"
+        disabled={!rawInput.trim() || loading}
+        className="w-full gap-2 py-3 sm:py-4 text-sm sm:text-base"
       >
+        {loading && <Spinner size="sm" />}
         {loading ? 'AI가 최적 일정을 짜는 중...' : '일정 만들기'}
       </Button>
     </form>
