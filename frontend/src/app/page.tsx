@@ -188,7 +188,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main>
+      <main id="main">
         {/* ── HERO ── */}
         <section
           className="relative overflow-hidden hero-pattern"

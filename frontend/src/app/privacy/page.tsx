@@ -3,6 +3,18 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
   title: '개인정보 처리방침 | DatePlanner',
   description: 'DatePlanner 개인정보 처리방침',
+  alternates: { canonical: '/privacy' },
+  openGraph: {
+    title: '개인정보 처리방침 | DatePlanner',
+    description: 'DatePlanner 개인정보 처리방침',
+    url: '/privacy',
+    type: 'article',
+  },
+  twitter: {
+    card: 'summary',
+    title: '개인정보 처리방침 | DatePlanner',
+    description: 'DatePlanner 개인정보 처리방침',
+  },
 };
 
 export default function PrivacyPage() {

@@ -83,7 +83,7 @@ export default function PlanPage() {
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 sm:px-6">
+      <main id="main" className="mx-auto max-w-6xl px-4 sm:px-6">
         {/* Hero input section */}
         <section className="relative py-8 sm:py-12">
           <AppCard padding="lg" className="hero-pattern">

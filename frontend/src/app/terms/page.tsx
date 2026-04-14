@@ -3,6 +3,18 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
   title: '이용약관 | DatePlanner',
   description: 'DatePlanner 서비스 이용약관',
+  alternates: { canonical: '/terms' },
+  openGraph: {
+    title: '이용약관 | DatePlanner',
+    description: 'DatePlanner 서비스 이용약관',
+    url: '/terms',
+    type: 'article',
+  },
+  twitter: {
+    card: 'summary',
+    title: '이용약관 | DatePlanner',
+    description: 'DatePlanner 서비스 이용약관',
+  },
 };
 
 export default function TermsPage() {

@@ -9,6 +9,13 @@ export const metadata: Metadata = {
   title: "DatePlanner — AI 일정 플래너",
   description:
     "자연어 한마디로 완벽한 데이트 코스와 여행 일정을 만들어보세요. AI가 최적 동선을 생성합니다.",
+  keywords: [
+    '데이트 코스',
+    '여행 일정',
+    'AI 플래너',
+    '동선 최적화',
+    '카페 맛집 추천',
+  ],
   alternates: {
     canonical: "/",
   },
@@ -60,7 +67,14 @@ export default function RootLayout({
 
   return (
     <html lang="ko" className="h-full antialiased font-sans">
+      <head>
+        <link rel="preconnect" href="https://oapi.map.naver.com" />
+        <link rel="dns-prefetch" href="//oapi.map.naver.com" />
+      </head>
       <body className="min-h-full flex flex-col">
+        <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:shadow">
+          본문으로 건너뛰기
+        </a>
         {naverMapClientId && (
           <Script
             src={`https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${naverMapClientId}`}
