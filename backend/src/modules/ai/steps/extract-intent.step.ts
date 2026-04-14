@@ -122,6 +122,26 @@ export class ExtractIntentStep {
     // 모드별 활동 순서 보장
     const ordered = this.orderByMode(activities, ctx.mode);
 
+    // 모드별 최소 장소 수 미달 시 기본 활동으로 채우기
+    // trip: 최소 4개, date: 최소 3개
+    const MODE_MIN: Record<string, number> = { trip: 4, date: 3 };
+    const MODE_FILLERS: Record<string, string[]> = {
+      trip: ['맛집', '카페', '산책', '전시'],
+      date: ['카페', '산책', '맛집'],
+    };
+    const minCount = MODE_MIN[ctx.mode] ?? 3;
+    const fillers = MODE_FILLERS[ctx.mode] ?? [];
+    const existingTypes = new Set(ordered.map((a) => a.type));
+    for (const filler of fillers) {
+      if (ordered.length >= minCount) break;
+      const resolved = this.resolveActivity(filler, parsed.location);
+      if (resolved && !existingTypes.has(resolved.type)) {
+        ordered.push(resolved);
+        existingTypes.add(resolved.type);
+        this.logger.log(`[자동 추가] ${filler} (${resolved.type})`);
+      }
+    }
+
     const times = TIME_MAP[parsed.timeOfDay] ?? TIME_MAP['evening'];
 
     ctx.intent = {

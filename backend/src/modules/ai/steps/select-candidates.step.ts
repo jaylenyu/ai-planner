@@ -42,8 +42,8 @@ export class SelectCandidatesStep {
 
       const needed = typeCounts[type] ?? 1;
 
-      // 반경을 3km → 5km → 10km 순으로 확장 시도
-      const RADIUS_STEPS = [3, 5, 10];
+      // 반경 확장: date는 짧은 동선 유지(3→5km), trip은 넓게(3→5→10km)
+      const RADIUS_STEPS = intent.mode === 'date' ? [3, 5] : [3, 5, 10];
       let filtered: PlaceResult[] = [];
       let usedRadius = RADIUS_STEPS[0];
       for (const radius of RADIUS_STEPS) {
