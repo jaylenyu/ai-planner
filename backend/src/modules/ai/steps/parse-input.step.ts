@@ -25,10 +25,13 @@ function extractLocationFallback(input: string): string {
   for (const loc of KNOWN_LOCATIONS) {
     if (input.includes(loc)) return loc;
   }
-  // 행정구역 접미사 패턴으로 미등록 지역명 추출 (예: 청도군, 보령시)
+  // 행정구역 접미사 패턴 (예: 청도군, 보령시, 당진시)
   const adminMatch = input.match(/[가-힣]{2,6}(?:군|시|구|읍|면)/);
   if (adminMatch) return adminMatch[0];
-  // "에서" 앞 단어로 지역명 추출 (예: 청도에서, 무주에서, 양양에서)
+  // "X 여행", "X 일정", "X 데이트" 패턴 (예: 당진 여행, 보령 일정)
+  const tripMatch = input.match(/([가-힣]{2,6})(?:에서)?\s*(?:여행|일정|데이트|코스)/);
+  if (tripMatch) return tripMatch[1];
+  // "에서" 앞 단어 (예: 당진에서, 무주에서)
   const locationMatch = input.match(/([가-힣]{2,6})에서/);
   if (locationMatch) return locationMatch[1];
   return '서울';
