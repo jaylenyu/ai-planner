@@ -193,6 +193,8 @@ export default function RegisterPage() {
 
   // ── Step 2 폼 ──────────────────────────────────────────────
   const codeForm = useForm<CodeForm>({ resolver: zodResolver(codeSchema) });
+  const autoSubmitRef = useRef(false);
+  const codeValue = codeForm.watch('code');
 
   const onStep2Submit = codeForm.handleSubmit(async (data) => {
     setFormLoading(true);
@@ -207,6 +209,21 @@ export default function RegisterPage() {
       setFormLoading(false);
     }
   });
+
+  useEffect(() => {
+    if (step !== 2) {
+      autoSubmitRef.current = false;
+      return;
+    }
+    if (codeValue?.length === 6 && !formLoading && !autoSubmitRef.current) {
+      autoSubmitRef.current = true;
+      void onStep2Submit().finally(() => {
+        autoSubmitRef.current = false;
+      });
+    } else if ((codeValue?.length ?? 0) < 6) {
+      autoSubmitRef.current = false;
+    }
+  }, [codeValue, formLoading, onStep2Submit, step]);
 
   const onResend = async () => {
     if (!canResend || !email) return;
