@@ -6,31 +6,68 @@ import { ParsedInput } from '../interfaces/intent.interface';
 import {
   KNOWN_LOCATIONS,
   LOCATION_ALIAS,
+  LOCATION_STOP_WORDS,
   normalizeLocation,
   stripLocationParticles,
 } from '../utils/location.util';
 
+function isValidLocationCandidate(raw?: string): string | null {
+  if (!raw) return null;
+  const normalized = normalizeLocation(raw);
+  if (!normalized || normalized.length < 2) return null;
+  if (LOCATION_STOP_WORDS.has(normalized)) return null;
+  return normalized;
+}
+
 /** 사용자 입력에서 지역명을 간단히 추출 (GPT 폴백용) */
 function extractLocationFallback(input: string): string {
   const text = input ?? '';
+
   for (const [alias, canonical] of Object.entries(LOCATION_ALIAS)) {
-    if (text.includes(alias)) return canonical;
+    if (text.includes(alias)) {
+      const candidate = isValidLocationCandidate(canonical);
+      if (candidate) return candidate;
+    }
   }
+
   for (const loc of KNOWN_LOCATIONS) {
-    if (text.includes(loc)) return loc;
+    if (text.includes(loc)) {
+      const candidate = isValidLocationCandidate(loc);
+      if (candidate) return candidate;
+    }
   }
+
   const adminMatch = text.match(/[가-힣]{2,6}(?:군|시|구|읍|면)/);
-  if (adminMatch) return normalizeLocation(adminMatch[0]);
+  if (adminMatch) {
+    const candidate = isValidLocationCandidate(adminMatch[0]);
+    if (candidate) return candidate;
+  }
+
+  const locationMatch = text.match(/([가-힣]{2,6})에서/);
+  if (locationMatch) {
+    const candidate = isValidLocationCandidate(locationMatch[1]);
+    if (candidate) return candidate;
+  }
+
   const eseoTripMatch = text.match(
     /([가-힣]{2,6})에서\s*(?:여행|일정|데이트|코스|먹|놀|점심|저녁|맛집|카페)/,
   );
-  if (eseoTripMatch) return normalizeLocation(eseoTripMatch[1]);
+  if (eseoTripMatch) {
+    const candidate = isValidLocationCandidate(eseoTripMatch[1]);
+    if (candidate) return candidate;
+  }
+
   const tripMatch = text.match(/([가-힣]{2,6})\s+(?:여행|일정|데이트|코스)/);
-  if (tripMatch) return normalizeLocation(tripMatch[1]);
-  const locationMatch = text.match(/([가-힣]{2,6})에서/);
-  if (locationMatch) return normalizeLocation(locationMatch[1]);
-  const stripped = stripLocationParticles(text);
-  if (stripped.length >= 2) return normalizeLocation(stripped);
+  if (tripMatch) {
+    const candidate = isValidLocationCandidate(tripMatch[1]);
+    if (candidate) return candidate;
+  }
+
+  const strippedCandidate = isValidLocationCandidate(
+    stripLocationParticles(text),
+  );
+  if (strippedCandidate) return strippedCandidate;
+
   return '서울';
 }
 
@@ -166,6 +203,21 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
 
       parsed = { location, activities, timeOfDay, preferences: [] };
       this.logger.warn(`폴백 파싱 결과: ${JSON.stringify(parsed)}`);
+    }
+
+    parsed.location = normalizeLocation(parsed.location);
+
+    if (
+      LOCATION_STOP_WORDS.has(parsed.location) ||
+      parsed.location.length < 2
+    ) {
+      const fallbackLoc = extractLocationFallback(ctx.rawInput);
+      if (fallbackLoc !== parsed.location) {
+        this.logger.warn(
+          `location 교정: "${parsed.location}" → "${fallbackLoc}"`,
+        );
+        parsed.location = fallbackLoc;
+      }
     }
 
     parsed.location = normalizeLocation(parsed.location);

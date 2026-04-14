@@ -2,7 +2,7 @@ import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { PipelineContext } from '../interfaces/pipeline-result.interface';
 import { ActivityIntent } from '../interfaces/intent.interface';
 import { PlacesService } from '../../places/places.service';
-import { normalizeLocation } from '../utils/location.util';
+import { LOCATION_STOP_WORDS, normalizeLocation } from '../utils/location.util';
 
 const LOCATION_COORDS: Record<string, { lat: number; lng: number }> = {
   // 서울 주요 지역
@@ -54,44 +54,6 @@ const LOCATION_COORDS: Record<string, { lat: number; lng: number }> = {
   춘천: { lat: 37.8813, lng: 127.7298 },
   강릉: { lat: 37.7519, lng: 128.8761 },
 };
-
-/** 지역명이 아닌 일반 명사들 (필터링용) */
-const LOCATION_STOP_WORDS = new Set([
-  '여행',
-  '일정',
-  '데이트',
-  '코스',
-  '추천',
-  '음식',
-  '먹을',
-  '해줘',
-  '뭐해',
-  '뭐하지',
-  '뭐할',
-  '가자',
-  '갈래',
-  '해보자',
-  '봅시다',
-  '살펴봐',
-  '추천해',
-  '점심',
-  '저녁',
-  '브런치',
-  '맛집',
-  '카페',
-  '영화',
-  '볼링',
-  '쇼핑',
-  '노래방',
-  '방탈출',
-  '클라이밍',
-  '전시',
-  '박물관',
-  '뮤지컬',
-  '산책',
-  '공원',
-  '한강',
-]);
 
 const ACTIVITY_QUERY_MAP: Record<string, { query: string; type: string }> = {
   // 음식
