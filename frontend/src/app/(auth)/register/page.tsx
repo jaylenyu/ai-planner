@@ -124,13 +124,17 @@ export default function RegisterPage() {
       if (saved) {
         const { savedEmail, savedStep, requestedAt } = JSON.parse(saved);
         if (savedEmail && savedStep === 2) {
-          setEmail(savedEmail);
-          setStep(2);
           const age = requestedAt ? Math.floor((Date.now() - requestedAt) / 1000) : 0;
           const remainingCode = Math.max(CODE_TTL - age, 0);
           const remainingResend = Math.max(RESEND_COOLDOWN - age, 0);
-          startTimer(remainingCode, remainingResend);
+          if (remainingCode > 0) {
+            setEmail(savedEmail);
+            setStep(2);
+            startTimer(remainingCode, remainingResend);
+            return;
+          }
         }
+        sessionStorage.removeItem(SESSION_KEY);
       }
     } catch {
       // 무시
