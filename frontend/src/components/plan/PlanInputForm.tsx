@@ -1,14 +1,14 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Button } from '../ui/button';
 import { Spinner } from '../ui/Spinner';
+import { PrimaryButton } from '../ui/primary-button';
 import { PlanMode } from '../../lib/types';
 
 interface PlanInputFormProps {
   onSubmit: (rawInput: string, mode: PlanMode) => void;
   loading: boolean;
-  scrollToResults?: () => void;  // 새로운 prop 추가
+  scrollToResults?: () => void;
 }
 
 const MODE_CONFIG: { mode: PlanMode; emoji: string; label: string; desc: string }[] = [
@@ -33,23 +33,22 @@ export function PlanInputForm({ onSubmit, loading, scrollToResults }: PlanInputF
     e.preventDefault();
     if (!rawInput.trim()) return;
     onSubmit(rawInput.trim(), mode);
-    scrollToResults?.(); // 결과 위치로 스크롤
+    scrollToResults?.();
   };
 
-  // Enter 키로 제출 (Shift+Enter는 줄바꿈)
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (rawInput.trim()) {
         onSubmit(rawInput.trim(), mode);
-        scrollToResults?.(); // 결과 위치로 스크롤
+        scrollToResults?.();
       }
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4 sm:gap-5">
-      {/* Mode toggle cards - 상단으로 이동 */}
+      {/* Mode toggle */}
       <div className="grid grid-cols-2 gap-3 mb-2">
         {MODE_CONFIG.map(({ mode: m, emoji, label, desc }) => (
           <button
@@ -58,28 +57,32 @@ export function PlanInputForm({ onSubmit, loading, scrollToResults }: PlanInputF
             onClick={() => setMode(m)}
             disabled={loading}
             className={`
-              relative flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 sm:p-4 text-center transition-all duration-300 cursor-pointer
+              relative flex flex-col items-center gap-1.5 rounded-[var(--radius-md)] border-2 p-3 sm:p-4 text-center transition-all duration-300 cursor-pointer
               ${
                 mode === m
-                  ? 'border-orange-400 bg-orange-50 shadow-md shadow-orange-100'
-                  : 'border-stone-200 bg-white hover:border-stone-300 hover:bg-stone-50'
+                  ? 'border-orange-400 bg-orange-50'
+                  : 'border-[var(--border-default)] bg-white hover:border-orange-200 hover:bg-orange-50/40'
               }
             `}
+            style={mode === m ? { boxShadow: 'var(--shadow-brand)' } : undefined}
           >
             {mode === m && (
               <div className="absolute top-2 right-2">
                 <div className="h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-orange-500 flex items-center justify-center">
-                  <svg className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <svg className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-white" fill="none" viewBox="0 0 24 24"
+                       stroke="currentColor" strokeWidth={3} aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
               </div>
             )}
-            <span className="text-2xl sm:text-3xl">{emoji}</span>
-            <span className={`text-xs sm:text-sm font-semibold ${mode === m ? 'text-orange-700' : 'text-stone-700'}`}>
+            <span className="text-2xl sm:text-3xl" aria-hidden="true">{emoji}</span>
+            <span className={`text-xs sm:text-sm font-semibold ${mode === m ? 'text-orange-700' : ''}`}
+                  style={mode !== m ? { color: 'var(--text-primary)' } : undefined}>
               {label}
             </span>
-            <span className={`text-[10px] sm:text-xs ${mode === m ? 'text-orange-500' : 'text-stone-400'}`}>
+            <span className={`text-[10px] sm:text-xs ${mode === m ? 'text-orange-500' : ''}`}
+                  style={mode !== m ? { color: 'var(--text-tertiary)' } : undefined}>
               {desc}
             </span>
           </button>
@@ -95,8 +98,14 @@ export function PlanInputForm({ onSubmit, loading, scrollToResults }: PlanInputF
           onKeyDown={handleKeyDown}
           placeholder="어디서 무엇을 하고 싶은지 자유롭게 적어주세요..."
           rows={3}
-          className="w-full resize-none rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm sm:text-base text-stone-800 placeholder-stone-400 outline-none focus:border-orange-300 focus:ring-4 focus:ring-orange-100 transition-all duration-300"
           disabled={loading}
+          className="w-full resize-none border px-4 py-3 text-sm outline-none transition-all duration-200 focus:bg-white focus:border-orange-300 focus:ring-2 focus:ring-orange-100 disabled:opacity-60 disabled:cursor-not-allowed"
+          style={{
+            borderRadius: 'var(--radius-md)',
+            borderColor: 'var(--border-default)',
+            background: 'var(--surface-sunken)',
+            color: 'var(--text-primary)',
+          }}
         />
       </div>
 
@@ -110,23 +119,31 @@ export function PlanInputForm({ onSubmit, loading, scrollToResults }: PlanInputF
               setRawInput(text);
               textareaRef.current?.focus();
             }}
-            className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-full bg-stone-50 border border-stone-200 px-3 py-1.5 text-xs sm:text-sm text-stone-600 hover:bg-orange-50 hover:border-orange-200 hover:text-orange-700 transition-all duration-200 cursor-pointer"
+            className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs sm:text-sm transition-all duration-200 cursor-pointer hover:bg-orange-50 hover:border-orange-200 hover:text-orange-700"
+            style={{
+              background: 'var(--surface-sunken)',
+              borderColor: 'var(--border-light)',
+              color: 'var(--text-secondary)',
+            }}
           >
-            <span className="text-sm">{emoji}</span>
+            <span className="text-sm" aria-hidden="true">{emoji}</span>
             <span className="whitespace-nowrap">{text}</span>
           </button>
         ))}
       </div>
 
       {/* Submit */}
-      <Button
+      <PrimaryButton
         type="submit"
+        variant="brand"
+        size="lg"
+        className="w-full"
         disabled={!rawInput.trim() || loading}
-        className="w-full gap-2 py-3 sm:py-4 text-sm sm:text-base"
+        loading={loading}
       >
         {loading && <Spinner size="sm" />}
         {loading ? 'AI가 최적 일정을 짜는 중...' : '일정 만들기'}
-      </Button>
+      </PrimaryButton>
     </form>
   );
 }

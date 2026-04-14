@@ -6,6 +6,8 @@ import { ScheduleList } from '@/components/plan/ScheduleList';
 import { MapView } from '@/components/plan/MapView';
 import { PlanHistory } from '@/components/plan/PlanHistory';
 import { Spinner } from '@/components/ui/Spinner';
+import { AppCard } from '@/components/ui/app-card';
+import { PrimaryButton } from '@/components/ui/primary-button';
 import { usePlanGenerate } from '@/hooks/usePlanGenerate';
 import { usePlanList } from '@/hooks/usePlanList';
 import { useAuth } from '@/hooks/useAuth';
@@ -34,51 +36,48 @@ export default function PlanPage() {
   return (
     <div className="min-h-screen bg-[var(--background)]">
       {/* Header */}
-      <header className="sticky top-0 z-50 glass border-b border-stone-200/60">
+      <header className="sticky top-0 z-50 glass" style={{ borderBottom: '1px solid var(--divider)' }}>
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 sm:px-6 py-4">
           <Link href="/plan" className="flex items-center gap-2.5 group">
-            <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-orange-500 shadow-md shadow-orange-500/20 group-hover:shadow-lg group-hover:shadow-orange-500/30 transition-all duration-300">
+            <div className="flex items-center justify-center h-9 w-9 rounded-xl transition-all duration-300"
+                 style={{ background: 'var(--gradient-brand)', boxShadow: 'var(--shadow-brand)' }}>
               <svg
                 className="h-5 w-5 text-white"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
                 strokeWidth={2}
+                aria-hidden="true"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
             </div>
             <div>
-              <h1 className="text-lg font-bold text-stone-900 tracking-tight">Dayplan</h1>
-              <p className="text-[11px] text-stone-400 -mt-0.5 font-medium">AI 일정 플래너</p>
+              <p className="text-lg font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Dayplan</p>
+              <p className="text-[11px] -mt-0.5 font-medium" style={{ color: 'var(--text-tertiary)' }}>AI 일정 플래너</p>
             </div>
           </Link>
           <div className="flex items-center gap-2">
             {isLoggedIn ? (
-              <button
+              <PrimaryButton
+                variant="outline"
+                size="sm"
                 onClick={() => {
                   logout();
                   window.location.href = '/login';
                 }}
-                className="rounded-xl border border-stone-200 px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50 hover:border-stone-300 transition-all duration-200 cursor-pointer"
               >
                 로그아웃
-              </button>
+              </PrimaryButton>
             ) : (
               <div className="flex gap-2">
-                <Link
-                  href="/login"
-                  className="rounded-xl border border-stone-200 px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50 hover:border-stone-300 transition-all duration-200"
-                >
-                  로그인
-                </Link>
-                <Link
-                  href="/register"
-                  className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-medium text-white shadow-md hover:bg-orange-600 transition-all duration-200"
-                >
-                  시작하기
-                </Link>
+                <PrimaryButton asChild variant="outline" size="sm">
+                  <Link href="/login">로그인</Link>
+                </PrimaryButton>
+                <PrimaryButton asChild variant="brand" size="sm">
+                  <Link href="/register">시작하기</Link>
+                </PrimaryButton>
               </div>
             )}
           </div>
@@ -87,7 +86,7 @@ export default function PlanPage() {
       <main className="mx-auto max-w-6xl px-4 sm:px-6">
         {/* Hero input section */}
         <section className="relative py-8 sm:py-12">
-          <div className="hero-pattern rounded-3xl p-6 sm:p-10 border border-stone-100 bg-white/60">
+          <AppCard padding="lg" className="hero-pattern">
             {/* Title area */}
             <div className="text-center mb-8">
               <h2 className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">
@@ -114,7 +113,7 @@ export default function PlanPage() {
               </div>
             )}
             <PlanInputForm onSubmit={handleSubmit} loading={status === 'loading'} scrollToResults={scrollToResults} />
-          </div>
+          </AppCard>
         </section>
         {/* Loading state */}
         {status === 'loading' && (
@@ -126,18 +125,19 @@ export default function PlanPage() {
             <div className="text-center">
               <p className="text-base font-semibold text-stone-700">AI가 최적 일정을 설계하고 있어요</p>
               <div className="flex items-center justify-center gap-3 mt-3">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-3 py-1.5 text-xs text-stone-500 animate-pulse-soft">
+                <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs animate-pulse-soft"
+                      style={{ background: 'var(--surface-sunken)', borderColor: 'var(--border-light)', color: 'var(--text-secondary)' }}>
                   📍 장소 탐색 중
                 </span>
                 <span
-                  className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-3 py-1.5 text-xs text-stone-500 animate-pulse-soft"
-                  style={{ animationDelay: '0.5s' }}
+                  className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs animate-pulse-soft"
+                  style={{ background: 'var(--surface-sunken)', borderColor: 'var(--border-light)', color: 'var(--text-secondary)', animationDelay: '0.5s' }}
                 >
                   🗺 동선 최적화
                 </span>
                 <span
-                  className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-3 py-1.5 text-xs text-stone-500 animate-pulse-soft"
-                  style={{ animationDelay: '1s' }}
+                  className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs animate-pulse-soft"
+                  style={{ background: 'var(--surface-sunken)', borderColor: 'var(--border-light)', color: 'var(--text-secondary)', animationDelay: '1s' }}
                 >
                   ⏰ 시간표 생성
                 </span>
@@ -170,32 +170,32 @@ export default function PlanPage() {
             </div>
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               {/* Schedule */}
-              <div className="rounded-2xl bg-white p-6 shadow-sm border border-stone-200 order-2 lg:order-1">
+              <AppCard padding="md" className="order-2 lg:order-1">
                 <div className="flex items-center gap-2 mb-5">
-                  <span className="text-lg">📋</span>
-                  <h3 className="text-base font-bold text-stone-800">일정 상세</h3>
+                  <span className="text-lg" aria-hidden="true">📋</span>
+                  <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>일정 상세</h3>
                 </div>
                 <ScheduleList
                   items={result.items}
                   summary={result.summary}
                   totalDurationMin={result.totalDurationMin}
                 />
-              </div>
+              </AppCard>
               {/* Map */}
-              <div className="rounded-2xl bg-white p-6 shadow-sm border border-stone-200 order-1 lg:order-2 lg:sticky lg:top-24 lg:self-start overflow-hidden">
+              <AppCard padding="md" className="order-1 lg:order-2 lg:sticky lg:top-24 lg:self-start overflow-hidden">
                 <div className="flex items-center gap-2 mb-5">
-                  <span className="text-lg">🗺</span>
-                  <h3 className="text-base font-bold text-stone-800">경로 지도</h3>
+                  <span className="text-lg" aria-hidden="true">🗺</span>
+                  <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>경로 지도</h3>
                 </div>
                 <MapView items={result.items} polyline={result.polyline} />
-              </div>
+              </AppCard>
             </div>
           </section>
         )}
         {/* Empty state */}
         {!hasSubmitted && status === 'idle' && (
           <section className="flex flex-col items-center gap-4 py-16 text-center animate-fade-in">
-            <div className="text-6xl animate-float">🗓</div>
+            <div className="text-6xl animate-pulse-soft">🗓</div>
             <div>
               <p className="text-base font-semibold text-stone-600">원하는 일정을 입력해보세요</p>
               <p className="text-sm text-stone-400 mt-1">데이트 코스부터 당일치기 여행까지 AI가 설계해드려요</p>
