@@ -5,6 +5,8 @@ export interface PlaceResult {
   category: string;
   address: string;
   link?: string;
+  source?: 'naver' | 'ai';
+  score?: number;
 }
 
 export interface OrderedPlace extends PlaceResult {

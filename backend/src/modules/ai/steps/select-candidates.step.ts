@@ -19,6 +19,18 @@ function haversine(
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+function scoreCandidate(
+  place: PlaceResult,
+  distanceKm: number,
+  mode: 'date' | 'trip',
+): number {
+  const base =
+    place.source === 'naver' ? 1 : place.source === 'ai' ? 0.92 : 0.85;
+  const distancePenalty = distanceKm / (mode === 'date' ? 4 : 6);
+  const linkBonus = place.link ? 0.02 : 0;
+  return base + linkBonus - distancePenalty;
+}
+
 @Injectable()
 export class SelectCandidatesStep {
   private readonly logger = new Logger(SelectCandidatesStep.name);
@@ -62,20 +74,21 @@ export class SelectCandidatesStep {
         this.logger.warn(`[${type}] 반경 ${usedRadius}km로 확장하여 후보 검색`);
       }
 
-      // 기준점에서 거리 오름차순 정렬
-      const sorted = [...filtered].sort(
-        (a, b) =>
-          haversine(intent.lat, intent.lng, a.lat, a.lng) -
-          haversine(intent.lat, intent.lng, b.lat, b.lng),
-      );
+      const scored = filtered
+        .map((place) => {
+          const distance = haversine(intent.lat, intent.lng, place.lat, place.lng);
+          const score = scoreCandidate(place, distance, intent.mode);
+          return { place, distance, score };
+        })
+        .sort((a, b) => b.score - a.score || a.distance - b.distance);
 
-      // 중복 없이 needed개 선택
       const picks: PlaceResult[] = [];
-      for (const p of sorted) {
+      for (const entry of scored) {
         if (picks.length >= needed) break;
-        if (!usedNames.has(p.name)) {
-          picks.push(p);
-          usedNames.add(p.name);
+        if (!usedNames.has(entry.place.name)) {
+          entry.place.score = entry.score;
+          picks.push(entry.place);
+          usedNames.add(entry.place.name);
         }
       }
 
@@ -87,7 +100,12 @@ export class SelectCandidatesStep {
       ctx.candidates[type] = picks;
       picks.forEach((pick) => {
         const dist = haversine(intent.lat, intent.lng, pick.lat, pick.lng);
-        this.logger.log(`[${type}] 선택: ${pick.name} (${dist.toFixed(2)}km)`);
+        const score = pick.score ?? scoreCandidate(pick, dist, intent.mode);
+        this.logger.log(
+          `[${type}] 선택: ${pick.name} (${dist.toFixed(2)}km, score ${score.toFixed(
+            2,
+          )}, source=${pick.source ?? 'mix'})`,
+        );
       });
     }
   }

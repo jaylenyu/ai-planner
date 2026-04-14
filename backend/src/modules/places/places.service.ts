@@ -8,6 +8,8 @@ export interface PlaceResult {
   category: string;
   address: string;
   link?: string;
+  source?: 'naver' | 'ai';
+  score?: number;
 }
 
 interface CacheEntry<T> {
@@ -109,6 +111,7 @@ export class PlacesService {
           category: item.category,
           address: item.roadAddress || item.address,
           link: item.link,
+          source: 'naver' as const,
         }));
 
         this.searchCache.set(cacheKey, places);

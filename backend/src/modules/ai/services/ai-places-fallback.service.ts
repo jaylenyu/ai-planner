@@ -133,6 +133,7 @@ export class AiPlacesFallbackService {
       lng,
       category: item.category?.trim() || `[AI] ${activityType}`,
       link: item.link,
+      source: 'ai',
     };
   }
 
