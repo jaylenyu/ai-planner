@@ -15,29 +15,6 @@ export function useAuth() {
     setIsLoggedIn(!!getToken());
   }, []);
 
-  const register = async (email: string, password: string) => {
-    setLoading(true);
-    setError(null);
-    setErrorStatus(null);
-    try {
-      const res = await api.post<AuthResponse>('/auth/register', { email, password });
-      setToken(res.access_token);
-      setRefreshToken(res.refresh_token);
-      setIsLoggedIn(true);
-      return true;
-    } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message);
-        setErrorStatus(err.status);
-      } else {
-        setError('회원가입 실패');
-      }
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const login = async (email: string, password: string) => {
     setLoading(true);
     setError(null);
@@ -75,5 +52,5 @@ export function useAuth() {
     }
   };
 
-  return { login, register, logout, loading, error, errorStatus, isLoggedIn };
+  return { login, logout, loading, error, errorStatus, isLoggedIn };
 }
