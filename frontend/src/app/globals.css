@@ -235,6 +235,18 @@ input:focus, textarea:focus {
   display: none;
 }
 
+/* Cursor for interactive elements */
+a[href],
+button,
+[role="button"],
+input[type="button"],
+input[type="submit"],
+summary,
+label[for],
+select {
+  cursor: pointer;
+}
+
 /* ── Design system utility classes ── */
 .label-eyebrow {
   font-size: var(--font-size-label);
