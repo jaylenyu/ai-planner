@@ -140,7 +140,7 @@ export class PlacesService {
       const result = await this.geocodeLocation(q);
       if (result) {
         this.logger.log(
-          `geocodeCity: "${name}" → "${q}" (${result.lat.toFixed(4)},${result.lng.toFixed(4)})",
+          `geocodeCity: "${name}" → "${q}" (${result.lat.toFixed(4)},${result.lng.toFixed(4)})`,
         );
         return result;
       }
@@ -154,16 +154,19 @@ export class PlacesService {
       return null;
     }
 
-    const cacheKey = `geo:${keyword}`;
+    const cacheKey = 'geo:' + keyword;
     if (this.rateLimitCache.get(cacheKey)) {
-      this.logger.warn(`429 상태 캐시 히트: ${cacheKey}`);
+      this.logger.warn('429 상태 캐시 히트: ' + cacheKey);
       return null;
     }
 
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const encoded = encodeURIComponent(keyword);
-        const url = `https://openapi.naver.com/v1/search/local.json?query=${encoded}&display=1&sort=comment`;
+        const url =
+          'https://openapi.naver.com/v1/search/local.json?query=' +
+          encoded +
+          '&display=1&sort=comment';
         const response = await fetch(url, {
           headers: {
             'X-Naver-Client-Id': this.clientId,
@@ -172,11 +175,19 @@ export class PlacesService {
         });
 
         if (!response.ok) {
-          this.logger.warn(`Naver API 오류 ${response.status} (시도 ${attempt + 1}/3) — (query: ${keyword})`);
+          this.logger.warn(
+            'Naver API 오류 ' +
+              response.status +
+              ' (시도 ' +
+              (attempt + 1) +
+              '/3) — (query: ' +
+              keyword +
+              ')',
+          );
           if (response.status === 429) {
             this.rateLimitCache.set(cacheKey, true);
             const backoff = 300 * (attempt + 1) * (Math.random() + 0.5);
-            this.logger.warn(`429 감지, ${backoff.toFixed(0)}ms 후 재시도`);
+            this.logger.warn('429 감지, ' + backoff.toFixed(0) + 'ms 후 재시도');
             await new Promise((r) => setTimeout(r, backoff));
             continue;
           } else {
@@ -195,7 +206,7 @@ export class PlacesService {
           lng: parseInt(item.mapx) / 10_000_000,
         };
       } catch (err) {
-        this.logger.warn(`Naver 위치 검색 실패: ${keyword} (${err})`);
+        this.logger.warn('Naver 위치 검색 실패: ' + keyword + ' (' + err + ')');
         await new Promise((r) => setTimeout(r, 500));
       }
     }
