@@ -40,6 +40,37 @@ export class SelectCandidatesStep {
     const rawPlaces = ctx.rawPlaces!;
     ctx.candidates = {};
 
+    // 유효 중심 계산: rawPlaces의 중심(centroid)을 구해 초기 geocode 오차를 보정
+    const allPlaces = Object.values(rawPlaces).flat();
+    let centerLat = intent.lat;
+    let centerLng = intent.lng;
+    if (allPlaces.length >= 3) {
+      // 1) 1차 중심
+      const meanLat = allPlaces.reduce((s, p) => s + p.lat, 0) / allPlaces.length;
+      const meanLng = allPlaces.reduce((s, p) => s + p.lng, 0) / allPlaces.length;
+      // 2) 중심으로부터의 거리 계산 후 중앙 80%만 사용해 재평균(간단한 트림)
+      const withDist = allPlaces
+        .map((p) => ({ p, d: haversine(meanLat, meanLng, p.lat, p.lng) }))
+        .sort((a, b) => a.d - b.d);
+      const keep = Math.max(3, Math.floor(withDist.length * 0.8));
+      const trimmed = withDist.slice(0, keep).map((x) => x.p);
+      const tLat = trimmed.reduce((s, p) => s + p.lat, 0) / trimmed.length;
+      const tLng = trimmed.reduce((s, p) => s + p.lng, 0) / trimmed.length;
+      const driftKm = haversine(intent.lat, intent.lng, tLat, tLng);
+      const threshold = intent.mode === 'date' ? 3 : 5; // date는 3km, trip은 5km 허용
+      if (driftKm > threshold) {
+        this.logger.warn(
+          `유효 중심 보정: intent(${intent.lat.toFixed(4)},${intent.lng.toFixed(
+            4,
+          )}) → centroid(${tLat.toFixed(4)},${tLng.toFixed(4)}) (drift ${driftKm.toFixed(
+            2,
+          )}km)`,
+        );
+        centerLat = tLat;
+        centerLng = tLng;
+      }
+    }
+
     // type별 필요 개수 계산 (food가 2개 activities면 2개 선택)
     const typeCounts: Record<string, number> = {};
     for (const a of intent.activities) {
@@ -60,7 +91,7 @@ export class SelectCandidatesStep {
       let usedRadius = RADIUS_STEPS[0];
       for (const radius of RADIUS_STEPS) {
         filtered = places.filter(
-          (p) => haversine(intent.lat, intent.lng, p.lat, p.lng) <= radius,
+          (p) => haversine(centerLat, centerLng, p.lat, p.lng) <= radius,
         );
         usedRadius = radius;
         if (filtered.length > 0) break;
@@ -78,12 +109,7 @@ export class SelectCandidatesStep {
 
       const scored = filtered
         .map((place) => {
-          const distance = haversine(
-            intent.lat,
-            intent.lng,
-            place.lat,
-            place.lng,
-          );
+          const distance = haversine(centerLat, centerLng, place.lat, place.lng);
           const score = scoreCandidate(place, distance, intent.mode);
           return { place, distance, score };
         })
@@ -106,7 +132,7 @@ export class SelectCandidatesStep {
 
       ctx.candidates[type] = picks;
       picks.forEach((pick) => {
-        const dist = haversine(intent.lat, intent.lng, pick.lat, pick.lng);
+        const dist = haversine(centerLat, centerLng, pick.lat, pick.lng);
         const score = pick.score ?? scoreCandidate(pick, dist, intent.mode);
         this.logger.log(
           `[${type}] 선택: ${pick.name} (${dist.toFixed(2)}km, score ${score.toFixed(

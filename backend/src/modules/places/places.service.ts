@@ -69,6 +69,7 @@ export class PlacesService {
   private readonly clientSecret: string;
   private rateLimitCache = new TTLCache<boolean>(5 * 60 * 1000); // 5분 TTL
   private searchCache = new TTLCache<PlaceResult[]>(5 * 60 * 1000); // 5분 TTL
+  private naverUnauthorized = false; // 401 감지 시 정적 폴백 사용
 
   constructor(
     private readonly config: ConfigService,
@@ -77,6 +78,58 @@ export class PlacesService {
     this.clientId = this.config.get<string>('NAVER_SEARCH_CLIENT_ID') ?? '';
     this.clientSecret =
       this.config.get<string>('NAVER_SEARCH_CLIENT_SECRET') ?? '';
+  }
+
+  /**
+   * 일부 주요 지역/도시의 정적 중심 좌표 테이블.
+   * 키는 RegionService의 shortName(정규화 결과) 또는 널리 쓰는 지명 키워드.
+   */
+  private staticCoords: Record<string, { lat: number; lng: number }> = {
+    // 서울권 핵심 권역/동 단위
+    서울: { lat: 37.5665, lng: 126.9780 },
+    종로: { lat: 37.5720, lng: 126.9794 },
+    강남: { lat: 37.4979, lng: 127.0276 },
+    홍대: { lat: 37.5563, lng: 126.9239 },
+    이태원: { lat: 37.5349, lng: 126.9945 },
+    여의도: { lat: 37.5236, lng: 126.9256 },
+    성동: { lat: 37.5636, lng: 127.0365 }, // 구 단위 중심
+    성수동: { lat: 37.5446, lng: 127.0565 }, // 동 단위(성수 카페거리 중심 부근)
+    성수: { lat: 37.5446, lng: 127.0565 },
+    뚝섬: { lat: 37.5311, lng: 127.0662 },
+    잠실: { lat: 37.5133, lng: 127.1002 },
+    종각: { lat: 37.5704, lng: 126.9827 },
+    합정: { lat: 37.5499, lng: 126.9145 },
+    상수: { lat: 37.5474, lng: 126.9234 },
+    연남동: { lat: 37.5613, lng: 126.9250 },
+    한남: { lat: 37.5352, lng: 127.0059 },
+
+    // 광역시/도 주요 도시
+    부산: { lat: 35.1796, lng: 129.0756 },
+    해운대: { lat: 35.1631, lng: 129.1635 },
+    대구: { lat: 35.8714, lng: 128.6014 },
+    대전: { lat: 36.3504, lng: 127.3845 },
+    광주: { lat: 35.1595, lng: 126.8526 },
+    인천: { lat: 37.4563, lng: 126.7052 },
+    울산: { lat: 35.5384, lng: 129.3114 },
+    수원: { lat: 37.2636, lng: 127.0286 },
+    춘천: { lat: 37.8813, lng: 127.7298 },
+    전주: { lat: 35.8242, lng: 127.1480 },
+    여수: { lat: 34.7604, lng: 127.6622 },
+    강릉: { lat: 37.7519, lng: 128.8761 },
+    제주: { lat: 33.4996, lng: 126.5312 },
+    제주시: { lat: 33.4996, lng: 126.5312 },
+    서귀포: { lat: 33.2539, lng: 126.5600 },
+  };
+
+  /** 정적 좌표 테이블 조회. 없으면 null */
+  geocodeCityStatic(name: string): { lat: number; lng: number } | null {
+    if (!name) return null;
+    const key = name.trim();
+    const direct = this.staticCoords[key];
+    if (direct) return direct;
+    // 흔한 접미사 제거(시/군/구) 후 재시도
+    const stripped = key.replace(/(시|군|구)$/u, '');
+    return this.staticCoords[stripped] ?? null;
   }
 
   private async getCachedPlaces(key: string): Promise<PlaceResult[] | null> {
@@ -195,6 +248,17 @@ export class PlacesService {
     // 시청(시) → 군청(군) → 구청(구) → 터미널(시외버스) → 역(기차역) → plain
     // 사업체가 아닌 정부기관/교통허브를 우선 검색해 정확한 도시 좌표 확보
 
+    // 네이버 키 누락 또는 이전 호출에서 401 감지 시 정적 폴백 우선 시도
+    if (!this.clientId || !this.clientSecret || this.naverUnauthorized) {
+      const staticHit = this.geocodeCityStatic(name);
+      if (staticHit) {
+        this.logger.warn(
+          `geocodeCity: 정적 좌표 사용 (${name}) → ${staticHit.lat.toFixed(4)},${staticHit.lng.toFixed(4)}`,
+        );
+        return staticHit;
+      }
+    }
+
     const queries = [
       `${name}시청`,
       `${name}군청`,
@@ -211,6 +275,16 @@ export class PlacesService {
           `geocodeCity: "${name}" → "${q}" (${result.lat.toFixed(4)},${result.lng.toFixed(4)})`,
         );
         return result;
+      }
+      // 동적 시도가 모두 실패하고 401이 감지된 경우 즉시 정적 폴백
+      if (this.naverUnauthorized) {
+        const staticHit = this.geocodeCityStatic(name);
+        if (staticHit) {
+          this.logger.warn(
+            `geocodeCity: 401 감지로 정적 좌표 사용 (${name}) → ${staticHit.lat.toFixed(4)},${staticHit.lng.toFixed(4)}`,
+          );
+          return staticHit;
+        }
       }
     }
 
@@ -257,6 +331,11 @@ export class PlacesService {
               keyword +
               ')',
           );
+          if (response.status === 401) {
+            // 인증 오류는 재시도 이득이 적으므로 플래그 세팅 후 중단
+            this.naverUnauthorized = true;
+            return null;
+          }
           if (response.status === 429) {
             this.rateLimitCache.set(cacheKey, true);
             const backoff = 300 * (attempt + 1) * (Math.random() + 0.5);
