@@ -23,11 +23,20 @@ export class EmailVerificationService {
     private readonly email: EmailService,
   ) {}
 
-  async requestCode(emailAddr: string, captchaToken: string, ip?: string): Promise<void> {
+  private normalizeEmail(raw: string): string {
+    return raw.trim().toLowerCase();
+  }
+
+  async requestCode(
+    emailAddr: string,
+    captchaToken: string,
+    ip?: string,
+  ): Promise<void> {
     await this.turnstile.verify(captchaToken, ip);
+    const normalized = this.normalizeEmail(emailAddr);
 
     // 재전송 쿨다운 체크
-    const resendKey = `email_verify:resend:${emailAddr}`;
+    const resendKey = `email_verify:resend:${normalized}`;
     const onCooldown = await this.redis.get(resendKey);
     if (onCooldown) {
       const remaining = await this.redis.ttl(resendKey);
@@ -41,8 +50,8 @@ export class EmailVerificationService {
     const code = crypto.randomInt(100000, 1000000).toString();
 
     // Redis 저장
-    const codeKey = `email_verify:code:${emailAddr}`;
-    const attemptsKey = `email_verify:attempts:${emailAddr}`;
+    const codeKey = `email_verify:code:${normalized}`;
+    const attemptsKey = `email_verify:attempts:${normalized}`;
 
     await this.redis.set(codeKey, code, CODE_TTL);
     await this.redis.del(attemptsKey); // 재전송 시 시도 횟수 초기화
@@ -52,9 +61,10 @@ export class EmailVerificationService {
   }
 
   async verifyCode(emailAddr: string, code: string): Promise<void> {
-    const codeKey = `email_verify:code:${emailAddr}`;
-    const attemptsKey = `email_verify:attempts:${emailAddr}`;
-    const passedKey = `email_verify:passed:${emailAddr}`;
+    const normalized = this.normalizeEmail(emailAddr);
+    const codeKey = `email_verify:code:${normalized}`;
+    const attemptsKey = `email_verify:attempts:${normalized}`;
+    const passedKey = `email_verify:passed:${normalized}`;
 
     // 시도 횟수 확인
     const attemptsStr = await this.redis.get(attemptsKey);
@@ -92,7 +102,8 @@ export class EmailVerificationService {
   }
 
   async assertVerified(emailAddr: string): Promise<void> {
-    const passedKey = `email_verify:passed:${emailAddr}`;
+    const normalized = this.normalizeEmail(emailAddr);
+    const passedKey = `email_verify:passed:${normalized}`;
     const passed = await this.redis.get(passedKey);
     if (!passed) {
       throw new BadRequestException('이메일 인증이 필요합니다.');

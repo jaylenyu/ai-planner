@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 
 export type OAuthProvider = 'google' | 'kakao' | 'naver';
 
@@ -23,8 +24,9 @@ export class OAuthAccountService {
     const field = providerField[provider];
 
     // 1. providerId로 직접 매칭
+    const providerWhere = { [field]: providerId } as Record<string, string>;
     const existing = await this.prisma.user.findUnique({
-      where: { [field]: providerId } as any,
+      where: providerWhere as unknown as Prisma.UserWhereUniqueInput,
     });
     if (existing) return existing;
 
@@ -51,7 +53,9 @@ export class OAuthAccountService {
 
     if (byEmail.password) {
       // 2c. local 가입자 — 안전 모드 거부
-      const providerName = { google: 'Google', kakao: 'Kakao', naver: 'Naver' }[provider];
+      const providerName = { google: 'Google', kakao: 'Kakao', naver: 'Naver' }[
+        provider
+      ];
       throw new UnauthorizedException(
         `이 이메일은 이미 사이트 회원가입으로 사용 중입니다. 이메일/비밀번호로 로그인 후 [설정 → 소셜 연동]에서 ${providerName} 계정을 연결해주세요.`,
       );
