@@ -205,7 +205,8 @@ export class ExtractIntentStep {
     }
 
     // Step 2: 동적 지오코딩 시도 (GPT가 추출한 location에 대해)
-    const resolved = await this.placesService.geocodeLocation(initialLocation);
+    // geocodeCity는 시청/군청/구청/터미널/역 순으로 시도해 행정 랜드마크 기반 좌표 반환
+    const resolved = await this.placesService.geocodeCity(initialLocation);
     if (resolved) {
       this.logger.log(
         `동적 좌표 해석: ${initialLocation} → ${resolved.lat},${resolved.lng}`,
@@ -219,7 +220,7 @@ export class ExtractIntentStep {
       // stop word 필터링
       if (LOCATION_STOP_WORDS.has(candidate)) continue;
 
-      const geoResult = await this.placesService.geocodeLocation(candidate);
+      const geoResult = await this.placesService.geocodeCity(candidate);
       if (geoResult) {
         this.logger.warn(
           `location 재해석: "${initialLocation}" → "${candidate}" (${geoResult.lat},${geoResult.lng})`,

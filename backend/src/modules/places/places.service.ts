@@ -70,6 +70,32 @@ export class PlacesService {
     }
   }
 
+  async geocodeCity(
+    name: string,
+  ): Promise<{ lat: number; lng: number } | null> {
+    // 도시/지역명 geocoding: 행정 랜드마크를 순차 시도
+    // 시청(시) → 군청(군) → 구청(구) → 터미널(시외버스) → 역(기차역) → plain
+    // 사업체가 아닌 정부기관/교통허브를 우선 검색해 정확한 도시 좌표 확보
+    const queries = [
+      `${name}시청`,
+      `${name}군청`,
+      `${name}구청`,
+      `${name}터미널`,
+      `${name}역`,
+      name,
+    ];
+    for (const q of queries) {
+      const result = await this.geocodeLocation(q);
+      if (result) {
+        this.logger.log(
+          `geocodeCity: "${name}" → "${q}" (${result.lat.toFixed(4)},${result.lng.toFixed(4)})`,
+        );
+        return result;
+      }
+    }
+    return null;
+  }
+
   async geocodeLocation(
     keyword: string,
   ): Promise<{ lat: number; lng: number } | null> {
