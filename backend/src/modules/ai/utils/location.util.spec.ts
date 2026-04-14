@@ -6,9 +6,9 @@ describe('location.util', () => {
     expect(normalizeLocation('당진에')).toBe('당진');
   });
 
-  it('maps aliases like 성수/뚝섬 to canonical names', () => {
-    expect(normalizeLocation('성수')).toBe('성수동');
-    expect(normalizeLocation('뚝섬에서')).toBe('성수동');
+  it('keeps base text when alias resolution is handled elsewhere', () => {
+    expect(normalizeLocation('성수')).toBe('성수');
+    expect(normalizeLocation('뚝섬에서')).toBe('뚝섬');
   });
 
   it('strips polite endings and punctuation when scanning raw text', () => {

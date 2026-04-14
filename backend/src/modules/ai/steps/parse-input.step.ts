@@ -3,73 +3,8 @@ import OpenAI from 'openai';
 import { ConfigService } from '@nestjs/config';
 import { PipelineContext } from '../interfaces/pipeline-result.interface';
 import { ParsedInput } from '../interfaces/intent.interface';
-import {
-  KNOWN_LOCATIONS,
-  LOCATION_ALIAS,
-  LOCATION_STOP_WORDS,
-  normalizeLocation,
-  stripLocationParticles,
-} from '../utils/location.util';
-
-function isValidLocationCandidate(raw?: string): string | null {
-  if (!raw) return null;
-  const normalized = normalizeLocation(raw);
-  if (!normalized || normalized.length < 2) return null;
-  if (LOCATION_STOP_WORDS.has(normalized)) return null;
-  return normalized;
-}
-
-/** 사용자 입력에서 지역명을 간단히 추출 (GPT 폴백용) */
-function extractLocationFallback(input: string): string {
-  const text = input ?? '';
-
-  for (const [alias, canonical] of Object.entries(LOCATION_ALIAS)) {
-    if (text.includes(alias)) {
-      const candidate = isValidLocationCandidate(canonical);
-      if (candidate) return candidate;
-    }
-  }
-
-  for (const loc of KNOWN_LOCATIONS) {
-    if (text.includes(loc)) {
-      const candidate = isValidLocationCandidate(loc);
-      if (candidate) return candidate;
-    }
-  }
-
-  const adminMatch = text.match(/[가-힣]{2,6}(?:군|시|구|읍|면)/);
-  if (adminMatch) {
-    const candidate = isValidLocationCandidate(adminMatch[0]);
-    if (candidate) return candidate;
-  }
-
-  const locationMatch = text.match(/([가-힣]{2,6})에서/);
-  if (locationMatch) {
-    const candidate = isValidLocationCandidate(locationMatch[1]);
-    if (candidate) return candidate;
-  }
-
-  const eseoTripMatch = text.match(
-    /([가-힣]{2,6})에서\s*(?:여행|일정|데이트|코스|먹|놀|점심|저녁|맛집|카페)/,
-  );
-  if (eseoTripMatch) {
-    const candidate = isValidLocationCandidate(eseoTripMatch[1]);
-    if (candidate) return candidate;
-  }
-
-  const tripMatch = text.match(/([가-힣]{2,6})\s+(?:여행|일정|데이트|코스)/);
-  if (tripMatch) {
-    const candidate = isValidLocationCandidate(tripMatch[1]);
-    if (candidate) return candidate;
-  }
-
-  const strippedCandidate = isValidLocationCandidate(
-    stripLocationParticles(text),
-  );
-  if (strippedCandidate) return strippedCandidate;
-
-  return '서울';
-}
+import { LOCATION_STOP_WORDS, stripLocationParticles } from '../utils/location.util';
+import { RegionService } from '../../../shared/region/region.service';
 
 // 폴백용 활동 키워드 (ACTIVITY_QUERY_MAP 키 기준, 우선순위 순)
 const ACTIVITY_KEYWORDS = [
@@ -119,7 +54,10 @@ export class ParseInputStep {
   private readonly logger = new Logger(ParseInputStep.name);
   private readonly openai: OpenAI;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    private readonly regionService: RegionService,
+  ) {
     const apiKey = this.config.get<string>('OPENROUTER_API_KEY');
     if (!apiKey) throw new Error('OPENROUTER_API_KEY가 설정되지 않았습니다.');
     this.openai = new OpenAI({
@@ -172,15 +110,16 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
           const candidate = JSON.parse(jsonMatch[0]) as ParsedInput;
           if (candidate.location && candidate.activities?.length) {
             parsed = candidate;
-            // GPT가 "서울"을 반환했는데 입력에 서울이 없으면 폴백으로 교정
-            if (parsed.location === '서울' && !ctx.rawInput.includes('서울')) {
-              const fallbackLoc = extractLocationFallback(ctx.rawInput);
-              if (fallbackLoc !== '서울') {
-                this.logger.warn(
-                  `GPT location 교정: "서울" → "${fallbackLoc}"`,
-                );
-                parsed.location = fallbackLoc;
-              }
+            const normalized = this.normalizeCandidate(parsed.location);
+            if (normalized) {
+              parsed.location = normalized;
+            }
+            if (!normalized) {
+              const fallbackLoc = this.extractLocationFallback(ctx.rawInput);
+              this.logger.warn(
+                `GPT location 교정: "${parsed.location}" → "${fallbackLoc}"`,
+              );
+              parsed.location = fallbackLoc;
             }
           }
         }
@@ -191,7 +130,7 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
 
     // GPT 실패 시 키워드 기반 폴백
     if (!parsed) {
-      const location = extractLocationFallback(ctx.rawInput);
+      const location = this.extractLocationFallback(ctx.rawInput);
       const activities = extractActivitiesFallback(ctx.rawInput, ctx.mode);
       const timeOfDay = ctx.rawInput.match(/저녁|밤|야간/)
         ? 'evening'
@@ -205,23 +144,49 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
       this.logger.warn(`폴백 파싱 결과: ${JSON.stringify(parsed)}`);
     }
 
-    parsed.location = normalizeLocation(parsed.location);
+    const normalized = this.normalizeCandidate(parsed.location);
+    if (normalized) {
+      parsed.location = normalized;
+    } else {
+      parsed.location = this.extractLocationFallback(ctx.rawInput);
+    }
+    ctx.parsed = parsed;
+    this.logger.log(`파싱 완료: ${JSON.stringify(parsed)}`);
+  }
 
-    if (
-      LOCATION_STOP_WORDS.has(parsed.location) ||
-      parsed.location.length < 2
-    ) {
-      const fallbackLoc = extractLocationFallback(ctx.rawInput);
-      if (fallbackLoc !== parsed.location) {
-        this.logger.warn(
-          `location 교정: "${parsed.location}" → "${fallbackLoc}"`,
-        );
-        parsed.location = fallbackLoc;
+  private normalizeCandidate(candidate?: string): string | null {
+    if (!candidate) return null;
+    const stripped = stripLocationParticles(candidate);
+    if (!stripped || LOCATION_STOP_WORDS.has(stripped)) return null;
+    return this.regionService.normalize(stripped);
+  }
+
+  private extractLocationFallback(input: string): string {
+    const text = input ?? '';
+    const candidateHits = this.regionService.extractCandidates(text);
+    if (candidateHits.length > 0) {
+      return candidateHits[0];
+    }
+
+    const patterns = [
+      /([가-힣]{2,6})에서\s*(?:여행|일정|데이트|코스|먹|놀|점심|저녁|맛집|카페)/,
+      /([가-힣]{2,6})\s+(?:여행|일정|데이트|코스)/,
+      /([가-힣]{2,6})에서/,
+      /([가-힣]{2,6})(?:군|시|구|읍|면)/,
+    ];
+
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match?.[1]) {
+        const normalized = this.normalizeCandidate(match[1]);
+        if (normalized) return normalized;
       }
     }
 
-    parsed.location = normalizeLocation(parsed.location);
-    ctx.parsed = parsed;
-    this.logger.log(`파싱 완료: ${JSON.stringify(parsed)}`);
+    const stripped = stripLocationParticles(text);
+    const normalized = this.normalizeCandidate(stripped);
+    if (normalized) return normalized;
+
+    return this.regionService.normalize('서울') ?? '서울';
   }
 }

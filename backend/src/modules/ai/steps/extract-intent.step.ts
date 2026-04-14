@@ -3,6 +3,7 @@ import { PipelineContext } from '../interfaces/pipeline-result.interface';
 import { ActivityIntent } from '../interfaces/intent.interface';
 import { PlacesService } from '../../places/places.service';
 import { LOCATION_STOP_WORDS, normalizeLocation } from '../utils/location.util';
+import { RegionService } from '../../../shared/region/region.service';
 
 const LOCATION_COORDS: Record<string, { lat: number; lng: number }> = {
   // 서울 주요 지역
@@ -103,12 +104,20 @@ const TIME_MAP: Record<string, { start: string; end: string }> = {
 export class ExtractIntentStep {
   private readonly logger = new Logger(ExtractIntentStep.name);
 
-  constructor(private readonly placesService: PlacesService) {}
+  constructor(
+    private readonly placesService: PlacesService,
+    private readonly regionService: RegionService,
+  ) {}
 
   async execute(ctx: PipelineContext): Promise<void> {
     ctx.parsed!.location = normalizeLocation(ctx.parsed!.location);
 
     const parsed = ctx.parsed!;
+
+    const registryNormalized = this.regionService.normalize(parsed.location);
+    if (registryNormalized) {
+      parsed.location = registryNormalized;
+    }
 
     const { coords, resolvedLocation: rawResolvedLocation } =
       await this.resolveCoordsWithValidation(parsed.location, ctx.rawInput);
@@ -203,12 +212,15 @@ export class ExtractIntentStep {
       // stop word 필터링
       if (LOCATION_STOP_WORDS.has(candidate)) continue;
 
-      const geoResult = await this.placesService.geocodeCity(candidate);
+      const normalized = this.regionService.normalize(candidate);
+      if (!normalized) continue;
+
+      const geoResult = await this.placesService.geocodeCity(normalized);
       if (geoResult) {
         this.logger.warn(
-          `location 재해석: "${initialLocation}" → "${candidate}" (${geoResult.lat},${geoResult.lng})`,
+          `location 재해석: "${initialLocation}" → "${normalized}" (${geoResult.lat},${geoResult.lng})`,
         );
-        return { coords: geoResult, resolvedLocation: candidate };
+        return { coords: geoResult, resolvedLocation: normalized };
       }
     }
 

@@ -8,9 +8,10 @@ import { OptimizeRouteStep } from './steps/optimize-route.step';
 import { GenerateScheduleStep } from './steps/generate-schedule.step';
 import { PlacesModule } from '../places/places.module';
 import { AiPlacesFallbackService } from './services/ai-places-fallback.service';
+import { RegionModule } from '../../shared/region/region.module';
 
 @Module({
-  imports: [PlacesModule],
+  imports: [PlacesModule, RegionModule],
   providers: [
     AiService,
     ParseInputStep,
