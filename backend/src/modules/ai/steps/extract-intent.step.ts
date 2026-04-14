@@ -54,6 +54,15 @@ const LOCATION_COORDS: Record<string, { lat: number; lng: number }> = {
   강릉: { lat: 37.7519, lng: 128.8761 },
 };
 
+/** 지역명이 아닌 일반 명사들 (필터링용) */
+const LOCATION_STOP_WORDS = new Set([
+  '여행', '일정', '데이트', '코스', '추천', '음식', '먹을', '해줘',
+  '뭐해', '뭐하지', '뭐할', '가자', '갈래', '해보자', '봅시다',
+  '살펴봐', '추천해', '점심', '저녁', '브런치', '맛집', '카페',
+  '영화', '볼링', '쇼핑', '노래방', '방탈출', '클라이밍',
+  '전시', '박물관', '뮤지컬', '산책', '공원', '한강',
+]);
+
 const ACTIVITY_QUERY_MAP: Record<string, { query: string; type: string }> = {
   // 음식
   파스타: { query: '파스타 이탈리안 레스토랑', type: 'food' },
@@ -107,8 +116,21 @@ export class ExtractIntentStep {
   async execute(ctx: PipelineContext): Promise<void> {
     const parsed = ctx.parsed!;
 
-    // 위치 → 좌표
-    const coords = await this.resolveCoords(parsed.location);
+    // 위치 → 좌표 (Naver 지오코딩 검증 포함)
+    const { coords, resolvedLocation } =
+      await this.resolveCoordsWithValidation(
+        parsed.location,
+        ctx.rawInput,
+      );
+
+    // parsed.location을 resolvedLocation으로 업데이트
+    // (SearchPlacesStep에서 사용될 location 쿼리 기준이 됨)
+    if (resolvedLocation !== parsed.location) {
+      this.logger.log(
+        `location 업데이트: "${parsed.location}" → "${resolvedLocation}"`,
+      );
+      parsed.location = resolvedLocation;
+    }
 
     // 활동 → Naver 검색어
     const activities: ActivityIntent[] = parsed.activities
@@ -145,7 +167,7 @@ export class ExtractIntentStep {
     const times = TIME_MAP[parsed.timeOfDay] ?? TIME_MAP['evening'];
 
     ctx.intent = {
-      location: parsed.location,
+      location: resolvedLocation,
       lat: coords.lat,
       lng: coords.lng,
       mode: ctx.mode,
@@ -157,6 +179,61 @@ export class ExtractIntentStep {
     this.logger.log(
       `의도 추출 완료: ${parsed.location} / ${ordered.map((a) => a.type).join(' → ')}`,
     );
+  }
+
+  private async resolveCoordsWithValidation(
+    initialLocation: string,
+    rawInput: string,
+  ): Promise<{
+    coords: { lat: number; lng: number };
+    resolvedLocation: string;
+  }> {
+    // Step 1: 정확한 매칭 또는 부분 매칭이 있으면 그것을 우선 사용 (초기 location)
+    if (LOCATION_COORDS[initialLocation]) {
+      return {
+        coords: LOCATION_COORDS[initialLocation],
+        resolvedLocation: initialLocation,
+      };
+    }
+    for (const [key, coords] of Object.entries(LOCATION_COORDS)) {
+      if (
+        initialLocation.includes(key) ||
+        key.includes(initialLocation)
+      ) {
+        return { coords, resolvedLocation: initialLocation };
+      }
+    }
+
+    // Step 2: 동적 지오코딩 시도 (GPT가 추출한 location에 대해)
+    const resolved = await this.placesService.geocodeLocation(initialLocation);
+    if (resolved) {
+      this.logger.log(
+        `동적 좌표 해석: ${initialLocation} → ${resolved.lat},${resolved.lng}`,
+      );
+      return { coords: resolved, resolvedLocation: initialLocation };
+    }
+
+    // Step 3: rawInput에서 한글 2~6자 단어 추출 후 지오코딩 시도
+    const candidates = rawInput.match(/[가-힣]{2,6}/g) ?? [];
+    for (const candidate of candidates) {
+      // stop word 필터링
+      if (LOCATION_STOP_WORDS.has(candidate)) continue;
+
+      const geoResult = await this.placesService.geocodeLocation(candidate);
+      if (geoResult) {
+        this.logger.warn(
+          `location 재해석: "${initialLocation}" → "${candidate}" (${geoResult.lat},${geoResult.lng})`,
+        );
+        return { coords: geoResult, resolvedLocation: candidate };
+      }
+    }
+
+    // Step 4: 모든 시도 실패 시 서울 fallback
+    this.logger.warn(`좌표 해석 실패, 서울로 fallback: ${initialLocation}`);
+    return {
+      coords: LOCATION_COORDS['서울'],
+      resolvedLocation: '서울',
+    };
   }
 
   private async resolveCoords(
