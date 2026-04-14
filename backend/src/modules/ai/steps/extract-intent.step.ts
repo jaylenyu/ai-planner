@@ -57,6 +57,10 @@ const TIME_MAP: Record<string, { start: string; end: string }> = {
 export class ExtractIntentStep {
   private readonly logger = new Logger(ExtractIntentStep.name);
 
+  // 일부 세분화 동(洞) 명칭은 광역 구(區)로 정규화하지 않고 그대로 유지
+  // 예) 성수동 → 성동 으로 뭉개지지 않도록 우선 보존
+  private readonly preserveSpecific = new Set<string>(['성수동']);
+
   constructor(
     private readonly placesService: PlacesService,
     private readonly regionService: RegionService,
@@ -69,7 +73,12 @@ export class ExtractIntentStep {
     const parsed = ctx.parsed!;
 
     const registryNormalized = this.regionService.normalize(parsed.location);
-    if (registryNormalized) {
+    const shouldPreserve =
+      this.preserveSpecific.has(parsed.location) ||
+      Array.from(this.preserveSpecific).some((t) => ctx.rawInput.includes(t));
+    if (shouldPreserve) {
+      // 그대로 보존 (예: 성수동)
+    } else if (registryNormalized) {
       parsed.location = registryNormalized;
     }
 
@@ -141,6 +150,8 @@ export class ExtractIntentStep {
       `의도 추출 완료: ${parsed.location} / ${ordered.map((a) => a.type).join(' → ')}`,
     );
   }
+
+  
 
   private async resolveCoordsWithValidation(
     initialLocation: string,
