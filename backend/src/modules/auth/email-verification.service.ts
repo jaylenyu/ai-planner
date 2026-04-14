@@ -15,6 +15,14 @@ const RESEND_COOLDOWN = 60; // 1분
 const PASSED_TTL = 600; // 인증 통과 마커 유효 시간
 const MAX_ATTEMPTS = 5;
 
+interface VerificationEntry {
+  code?: string;
+  expiresAt?: number;
+  attempts: number;
+  resendAvailableAt?: number;
+  passedUntil?: number;
+}
+
 @Injectable()
 export class EmailVerificationService {
   constructor(
@@ -22,6 +30,8 @@ export class EmailVerificationService {
     private readonly turnstile: TurnstileService,
     private readonly email: EmailService,
   ) {}
+
+  private readonly fallbackStore = new Map<string, VerificationEntry>();
 
   private normalizeEmail(raw: string): string {
     return raw.trim().toLowerCase();
@@ -34,6 +44,28 @@ export class EmailVerificationService {
   ): Promise<void> {
     await this.turnstile.verify(captchaToken, ip);
     const normalized = this.normalizeEmail(emailAddr);
+
+    if (!this.redis.isEnabled()) {
+      const now = Date.now();
+      const entry = this.fallbackStore.get(normalized);
+      if (entry?.resendAvailableAt && entry.resendAvailableAt > now) {
+        const remaining = Math.ceil((entry.resendAvailableAt - now) / 1000);
+        throw new HttpException(
+          `인증코드 재전송은 ${remaining}초 후에 가능합니다.`,
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+
+      const code = crypto.randomInt(100000, 1000000).toString();
+      this.fallbackStore.set(normalized, {
+        code,
+        expiresAt: now + CODE_TTL * 1000,
+        attempts: 0,
+        resendAvailableAt: now + RESEND_COOLDOWN * 1000,
+      });
+      await this.email.sendVerificationCode(emailAddr, code);
+      return;
+    }
 
     // 재전송 쿨다운 체크
     const resendKey = `email_verify:resend:${normalized}`;
@@ -62,6 +94,40 @@ export class EmailVerificationService {
 
   async verifyCode(emailAddr: string, code: string): Promise<void> {
     const normalized = this.normalizeEmail(emailAddr);
+
+    if (!this.redis.isEnabled()) {
+      const now = Date.now();
+      const entry = this.fallbackStore.get(normalized);
+      if (!entry || !entry.code || !entry.expiresAt || entry.expiresAt <= now) {
+        throw new BadRequestException(
+          '인증코드가 만료되었습니다. 다시 요청해주세요.',
+        );
+      }
+
+      if (entry.attempts >= MAX_ATTEMPTS) {
+        throw new BadRequestException(
+          '인증 시도 횟수가 초과되었습니다. 인증코드를 다시 요청해주세요.',
+        );
+      }
+
+      if (entry.code !== code) {
+        entry.attempts += 1;
+        const remaining = MAX_ATTEMPTS - entry.attempts;
+        throw new BadRequestException(
+          remaining > 0
+            ? `인증코드가 올바르지 않습니다. (${remaining}회 남음)`
+            : '인증 시도 횟수가 초과되었습니다. 인증코드를 다시 요청해주세요.',
+        );
+      }
+
+      entry.code = undefined;
+      entry.expiresAt = undefined;
+      entry.attempts = 0;
+      entry.passedUntil = now + PASSED_TTL * 1000;
+      this.fallbackStore.set(normalized, entry);
+      return;
+    }
+
     const codeKey = `email_verify:code:${normalized}`;
     const attemptsKey = `email_verify:attempts:${normalized}`;
     const passedKey = `email_verify:passed:${normalized}`;
@@ -103,6 +169,17 @@ export class EmailVerificationService {
 
   async assertVerified(emailAddr: string): Promise<void> {
     const normalized = this.normalizeEmail(emailAddr);
+
+    if (!this.redis.isEnabled()) {
+      const now = Date.now();
+      const entry = this.fallbackStore.get(normalized);
+      if (!entry || !entry.passedUntil || entry.passedUntil <= now) {
+        throw new BadRequestException('이메일 인증이 필요합니다.');
+      }
+      this.fallbackStore.delete(normalized);
+      return;
+    }
+
     const passedKey = `email_verify:passed:${normalized}`;
     const passed = await this.redis.get(passedKey);
     if (!passed) {
