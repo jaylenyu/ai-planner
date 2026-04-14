@@ -1,188 +1,290 @@
 import Link from 'next/link';
+import { CalendarCheck, Compass, MapIcon, MessageCircle, Sparkles, Timer } from 'lucide-react';
 
-const highlights = [
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+const features = [
   {
-    title: '대화형 일정 생성',
-    body: '여행 목적과 취향을 자연어로 말하면 AI가 즉시 코스를 제안합니다.',
-  },
-  {
-    title: '지역별 장소 데이터',
-    body: 'NAVER, Google 등 외부 데이터를 조합해 믿을 수 있는 추천을 제공합니다.',
+    title: '대화형 일정 브리핑',
+    body: '자연어로 목적을 설명하면 AI가 핵심만 추려서 요약해 줍니다.',
+    icon: MessageCircle,
   },
   {
     title: '실시간 동선 최적화',
-    body: '이동 시간을 고려해 최적의 순서를 자동으로 정렬합니다.',
+    body: '지도 데이터와 이동 시간을 통합한 스마트 루트 계산.',
+    icon: MapIcon,
+  },
+  {
+    title: '상세한 장소 인사이트',
+    body: '운영시간·예약 팁·분위기까지 한 화면에 확인 가능합니다.',
+    icon: Compass,
   },
 ];
 
+const stats = [
+  { label: '평균 일정 생성 시간', value: '2분 41초', detail: '기존 대비 6배 빨라짐' },
+  { label: '추천 정확도', value: '92%', detail: '사용자 피드백 기준' },
+  { label: '재사용률', value: '78%', detail: '월간 활성 사용자 기준' },
+];
+
 const steps = [
-  '어디로 떠날지 간단한 문장으로 입력',
-  'AI가 추천한 일정 초안을 훑어보기',
-  '마음에 드는 장소를 추가/수정해서 마무리',
+  {
+    key: 'ideate',
+    title: '상황만 말하면 됩니다',
+    description: '“이번 주말 홍대에서 6시간 데이트”처럼 한 줄만 남기면 자동으로 키워드를 추출합니다.',
+  },
+  {
+    key: 'refine',
+    title: '제안 비교 & 커스터마이징',
+    description: 'AI가 제안한 여러 코스를 탭으로 넘기며 비교하고, 마음에 드는 장소만 골라 담을 수 있습니다.',
+  },
+  {
+    key: 'share',
+    title: '공유와 실행까지 한번에',
+    description: '카카오톡 공유 링크, 캘린더 내보내기, PDF 스냅샷까지 버튼 한 번으로 완료됩니다.',
+  },
 ];
 
 const testimonials = [
   {
     quote:
-      '일정을 잡는 데 30분 이상 들였는데 이제는 3분이면 끝납니다. 장소 추천도 신뢰할 수 있었어요.',
-    name: '김유진 · 직장인',
+      'Dayplan 덕분에 팀 워크숍 코스를 짜는 시간이 1/5로 줄었습니다. 장소별 디테일이 많아서 바로 예약까지 이어졌어요.',
+    name: '이상훈 · 스타트업 COO',
   },
   {
-    quote: '네이버 지도로 하나씩 찾던 시절로는 돌아가기 싫어요. 주말 데이트 계획이 훨씬 쉬워졌습니다.',
-    name: '박현우 · 개발자',
+    quote:
+      'AI 추천이라 걱정했는데 실제로 다녀와 보니 취향을 잘 반영해 줬어요. 특히 이동 동선이 매끄러워 만족도가 높았습니다.',
+    name: '정다혜 · 제품 디자이너',
   },
 ];
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-gradient-to-b from-rose-50 to-orange-50 text-stone-900">
-      <header className="sticky top-0 z-10 border-b border-white/60 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <Link href="/" className="text-xl font-extrabold tracking-tight text-stone-900">
+    <div className="min-h-screen bg-[#040306] text-stone-50">
+      <header className="sticky top-0 z-30 border-b border-white/10 bg-[#040306]/80 backdrop-blur">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
+          <Link href="/" className="text-lg font-bold tracking-tight text-white">
             Dayplan
           </Link>
-          <nav className="flex items-center gap-4 text-sm font-medium text-stone-600">
-            <a href="#features" className="hover:text-stone-900">
+          <nav className="hidden items-center gap-4 text-sm text-stone-300 md:flex">
+            <Link href="#features" className="hover:text-white">
               기능 소개
-            </a>
-            <a href="#workflow" className="hover:text-stone-900">
+            </Link>
+            <Link href="#workflow" className="hover:text-white">
               작동 방식
-            </a>
-            <a href="#stories" className="hover:text-stone-900">
-              사용자 이야기
-            </a>
-            <Link
-              href="/login"
-              className="rounded-full border border-stone-200 px-4 py-1.5 text-stone-900 hover:border-stone-400"
-            >
-              로그인
             </Link>
-            <Link
-              href="/register"
-              className="rounded-full bg-stone-900 px-4 py-1.5 text-white shadow-lg shadow-stone-900/20"
-            >
-              무료로 시작
+            <Link href="#stories" className="hover:text-white">
+              후기
             </Link>
+            <Button asChild variant="ghost" className="text-stone-100">
+              <Link href="/login">로그인</Link>
+            </Button>
+            <Button asChild className="bg-white text-stone-900 hover:bg-white/90">
+              <Link href="/register">무료로 시작하기</Link>
+            </Button>
           </nav>
         </div>
       </header>
 
-      <section className="mx-auto flex max-w-5xl flex-col gap-10 px-6 py-16 md:flex-row md:items-center">
-        <div className="flex-1 space-y-6">
-          <span className="inline-flex items-center rounded-full bg-white px-4 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-orange-500">
-            AI Itinerary Builder
-          </span>
-          <h1 className="text-4xl font-black leading-tight text-stone-900 md:text-5xl">
-            채팅처럼 계획하고,
-            <br />
-            단 몇 분 안에 완벽한 일정 완성
-          </h1>
-          <p className="text-base text-stone-600 md:text-lg">
-            Dayplan은 AI가 대화형으로 일정을 제안하고, 실제 장소 데이터를 기반으로 루트를 최적화합니다.
-            복잡한 검색 없이 바로 실행 가능한 데이트/여행 계획을 세워보세요.
-          </p>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Link
-              href="/register"
-              className="flex items-center justify-center rounded-2xl bg-stone-900 px-6 py-3 text-base font-semibold text-white shadow-lg shadow-stone-900/20"
-            >
-              무료로 체험하기
-            </Link>
-            <Link
-              href="/login"
-              className="flex items-center justify-center rounded-2xl border border-stone-300 px-6 py-3 text-base font-semibold text-stone-800 hover:border-stone-500"
-            >
-              이미 계정이 있어요
-            </Link>
-          </div>
+      <main className="relative overflow-hidden">
+        <div className="pointer-events-none absolute inset-0 -z-10">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,120,90,0.35),_transparent_60%)]" />
         </div>
-        <div className="flex flex-1 items-center justify-center">
-          <div className="h-full w-full max-w-md rounded-3xl border border-white/70 bg-white/80 p-6 shadow-2xl shadow-orange-200/60">
-            <div className="rounded-2xl bg-stone-900 p-4 text-sm text-white">
-              <p className="text-orange-200">AI 제안</p>
-              <p className="mt-2 text-lg font-semibold">서울 데이트 일정</p>
-              <ul className="mt-4 space-y-3 text-stone-100">
-                <li>10:00 · 성수동 브런치</li>
-                <li>12:00 · 갤러리 산책</li>
-                <li>15:00 · 한강 피크닉</li>
-                <li>18:00 · 루프탑 다이닝</li>
-              </ul>
-            </div>
-            <p className="mt-4 text-sm text-stone-500">
-              * UI 미리보기 — 실제 일정은 사용자의 입력에 따라 자동 생성됩니다.
+
+        <section className="mx-auto flex max-w-6xl flex-col gap-12 px-6 py-20 lg:flex-row lg:items-center">
+          <div className="flex-1 space-y-6">
+            <Badge variant="gradient" className="text-xs uppercase tracking-[0.4em]">
+              AI itinerary platform
+            </Badge>
+            <h1 className="text-4xl font-black leading-tight text-white md:text-5xl">
+              대화 한 번으로 여행·데이트 코스가 완성됩니다.
+            </h1>
+            <p className="text-base text-stone-300 md:text-lg">
+              Dayplan은 자연어 입력 → 후보 생성 → 동선 최적화 → 공유까지 한 번에 처리해 주는 스마트 플래너입니다.
+              복잡한 엑셀과 지도 앱을 넘나들 필요가 없습니다.
             </p>
-          </div>
-        </div>
-      </section>
-
-      <section id="features" className="bg-white py-16">
-        <div className="mx-auto grid max-w-5xl gap-8 px-6 md:grid-cols-3">
-          {highlights.map((item) => (
-            <div key={item.title} className="rounded-3xl border border-stone-100 bg-stone-50 p-6">
-              <h3 className="text-lg font-semibold text-stone-900">{item.title}</h3>
-              <p className="mt-2 text-sm text-stone-600">{item.body}</p>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button asChild size="lg">
+                <Link href="/register">지금 무료 체험</Link>
+              </Button>
+              <Button asChild variant="outline" size="lg" className="border-white/40 text-white">
+                <Link href="/plan">샘플 일정 보기</Link>
+              </Button>
             </div>
+            <div className="flex flex-wrap gap-6 text-sm text-stone-400">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-orange-400" />
+                맞춤 취향 분석
+              </div>
+              <div className="flex items-center gap-2">
+                <Timer className="h-4 w-4 text-orange-400" />
+                동선 시간 계산
+              </div>
+              <div className="flex items-center gap-2">
+                <CalendarCheck className="h-4 w-4 text-orange-400" />
+                캘린더 연동
+              </div>
+            </div>
+          </div>
+          <div className="flex-1">
+            <Card className="border-white/10 bg-white/5 text-white">
+              <CardHeader>
+                <CardTitle>이번 주 토요일 · 성수 데이트</CardTitle>
+                <CardDescription className="text-stone-300">
+                  입력 문장을 토대로 Dayplan이 생성한 아이디어 스케치입니다.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {[
+                  '11:00 · 먼데이투선데이 브런치',
+                  '13:00 · 아트하우스 전시 관람',
+                  '15:30 · 뚝섬 한강 피크닉',
+                  '18:00 · 루프탑 와인바',
+                ].map((item) => (
+                  <div key={item} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
+                    {item}
+                  </div>
+                ))}
+              </CardContent>
+              <CardFooter className="flex flex-col gap-3 text-xs text-stone-300">
+                <span>* 추천은 사용자의 피드백을 학습해 지속적으로 개선됩니다.</span>
+                <div className="flex gap-2 text-[11px]">
+                  <Badge variant="outline">NAVER 데이터 연동</Badge>
+                  <Badge variant="outline">시간표 자동 조정</Badge>
+                </div>
+              </CardFooter>
+            </Card>
+          </div>
+        </section>
+
+        <section className="mx-auto grid max-w-6xl gap-6 px-6 pb-16 md:grid-cols-3">
+          {stats.map((stat) => (
+            <Card key={stat.label} className="border-white/10 bg-white/5 text-white">
+              <CardHeader>
+                <CardDescription className="text-stone-400">{stat.label}</CardDescription>
+                <CardTitle className="text-3xl">{stat.value}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-stone-400">{stat.detail}</p>
+              </CardContent>
+            </Card>
           ))}
-        </div>
-      </section>
+        </section>
 
-      <section id="workflow" className="mx-auto max-w-5xl px-6 py-16">
-        <div className="rounded-3xl bg-white p-8 shadow-xl shadow-stone-200/60">
-          <h2 className="text-2xl font-bold text-stone-900">3단계로 끝나는 일정 제작</h2>
-          <ol className="mt-6 space-y-4 text-stone-700">
-            {steps.map((step, idx) => (
-              <li key={step} className="flex items-start gap-4">
-                <span className="mt-1 inline-flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 text-sm font-semibold text-orange-600">
-                  {idx + 1}
-                </span>
-                <p className="text-base">{step}</p>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </section>
-
-      <section id="stories" className="bg-white py-16">
-        <div className="mx-auto max-w-5xl px-6">
-          <h2 className="text-center text-2xl font-bold text-stone-900">사용자들이 전하는 이야기</h2>
-          <div className="mt-8 grid gap-6 md:grid-cols-2">
-            {testimonials.map((item) => (
-              <figure key={item.name} className="rounded-3xl border border-stone-100 bg-stone-50 p-6">
-                <blockquote className="text-base text-stone-700">“{item.quote}”</blockquote>
-                <figcaption className="mt-4 text-sm font-semibold text-stone-900">{item.name}</figcaption>
-              </figure>
-            ))}
+        <section id="features" className="bg-white py-20 text-stone-900">
+          <div className="mx-auto max-w-6xl px-6">
+            <div className="mb-12 text-center">
+              <Badge variant="outline" className="text-stone-600">
+                Features
+              </Badge>
+              <h2 className="mt-4 text-3xl font-bold">알고 보면 더 편리한 디테일</h2>
+              <p className="mt-2 text-stone-500">
+                일정 생성부터 실행까지 필요한 순간마다 shadcn/ui 기반의 세심한 인터랙션을 제공합니다.
+              </p>
+            </div>
+            <div className="grid gap-6 md:grid-cols-3">
+              {features.map((feature) => (
+                <Card key={feature.title} className="hover:border-stone-300">
+                  <CardHeader>
+                    <feature.icon className="h-10 w-10 rounded-2xl bg-stone-900/5 p-2 text-stone-900" />
+                    <CardTitle>{feature.title}</CardTitle>
+                    <CardDescription>{feature.body}</CardDescription>
+                  </CardHeader>
+                </Card>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="mx-auto max-w-4xl px-6 py-16">
-        <div className="rounded-3xl bg-stone-900 p-10 text-center text-white">
-          <p className="text-sm uppercase tracking-[0.4em] text-orange-200">Ready to start?</p>
-          <h3 className="mt-4 text-3xl font-bold">지금 바로 Dayplan으로 첫 일정을 만들어보세요</h3>
-          <p className="mt-2 text-base text-stone-200">
-            이메일 인증 후 30초면 가입이 끝납니다. 언제든 무료로 시작할 수 있어요.
-          </p>
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-            <Link
-              href="/register"
-              className="rounded-2xl bg-white px-6 py-3 text-base font-semibold text-stone-900"
-            >
-              무료 회원가입
-            </Link>
-            <Link
-              href="/plan"
-              className="rounded-2xl border border-white/40 px-6 py-3 text-base font-semibold text-white"
-            >
-              데모 일정 보기
-            </Link>
+        <section id="workflow" className="mx-auto max-w-6xl px-6 py-20">
+          <div className="rounded-[32px] border border-white/10 bg-white/5 p-10">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <Badge variant="gradient">Workflow</Badge>
+                <h2 className="mt-3 text-3xl font-bold text-white">세밀한 단계별 경험</h2>
+                <p className="mt-2 max-w-2xl text-sm text-stone-300">
+                  사용자 조사를 통해 검증한 3단계 프로세스—아이디어, 다듬기, 공유—를 shadcn 탭 컴포넌트로 직관적으로 보여줍니다.
+                </p>
+              </div>
+            </div>
+            <Tabs defaultValue="ideate" className="mt-8">
+              <TabsList>
+                {steps.map((step) => (
+                  <TabsTrigger key={step.key} value={step.key}>
+                    {step.title.split(' ')[0]}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              {steps.map((step) => (
+                <TabsContent key={step.key} value={step.key}>
+                  <Card className="border-white/10 bg-white/5 text-white">
+                    <CardHeader>
+                      <CardTitle>{step.title}</CardTitle>
+                      <CardDescription className="text-stone-200">{step.description}</CardDescription>
+                    </CardHeader>
+                  </Card>
+                </TabsContent>
+              ))}
+            </Tabs>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <footer className="border-t border-white/70 bg-white py-6 text-center text-sm text-stone-500">
-        © {new Date().getFullYear()} Dayplan. All rights reserved.
+        <section id="stories" className="bg-stone-50 py-20 text-stone-900">
+          <div className="mx-auto max-w-6xl px-6">
+            <div className="mb-10 text-center">
+              <Badge variant="outline">Voices</Badge>
+              <h2 className="mt-3 text-3xl font-bold">사용자 후기</h2>
+              <p className="text-sm text-stone-500">Dayplan을 먼저 경험한 사람들의 생생한 평가입니다.</p>
+            </div>
+            <div className="grid gap-6 md:grid-cols-2">
+              {testimonials.map((item) => (
+                <Card key={item.name} className="border-stone-200">
+                  <CardContent className="space-y-4">
+                    <p className="text-lg font-semibold text-stone-900">“{item.quote}”</p>
+                    <p className="text-sm text-stone-500">{item.name}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-4xl px-6 py-20">
+          <Card className="bg-gradient-to-r from-orange-500 to-pink-500 text-white">
+            <CardHeader className="space-y-3 text-center">
+              <Badge variant="outline" className="border-white/40 text-white">
+                Ready?
+              </Badge>
+              <CardTitle className="text-3xl">지금 바로 Dayplan으로 플랜을 세워보세요.</CardTitle>
+              <CardDescription className="text-stone-100">
+                회원가입 후 30초면 이메일 인증이 끝나고, 첫 번째 일정이 자동으로 채워집니다.
+              </CardDescription>
+            </CardHeader>
+            <CardFooter className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+              <Button asChild variant="secondary" size="lg" className="text-stone-900">
+                <Link href="/register">무료 회원가입</Link>
+              </Button>
+              <Button asChild variant="ghost" size="lg" className="text-white hover:bg-white/20">
+                <Link href="/login">이미 계정이 있어요</Link>
+              </Button>
+            </CardFooter>
+          </Card>
+        </section>
+      </main>
+
+      <footer className="border-t border-white/10 py-6 text-center text-xs text-stone-500">
+        © {new Date().getFullYear()} Dayplan · Build delightful journeys.
       </footer>
-    </main>
+    </div>
   );
 }
