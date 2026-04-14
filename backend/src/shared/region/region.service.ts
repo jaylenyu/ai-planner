@@ -42,6 +42,18 @@ export class RegionService implements OnModuleInit {
     return this.normalize(input) !== null;
   }
 
+  /**
+   * 런타임에 동적으로 alias를 추가 (alias 자동 학습 시 사용).
+   * 기존 canonical 항목이 있으면 그 항목에 alias를 연결, 없으면 무시.
+   */
+  addDynamicAlias(token: string, canonical: string): void {
+    const region = this.canonicalMap.get(canonical);
+    if (!region) return; // canonical이 레지스트리에 없으면 무시
+    if (!this.aliasMap.has(token)) {
+      this.aliasMap.set(token, region);
+    }
+  }
+
   extractCandidates(text: string): string[] {
     if (!text) return [];
     const matches = text.match(/[가-힣]{2,10}/g) ?? [];

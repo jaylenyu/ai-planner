@@ -4,57 +4,10 @@ import { ActivityIntent } from '../interfaces/intent.interface';
 import { PlacesService } from '../../places/places.service';
 import { LOCATION_STOP_WORDS, normalizeLocation } from '../utils/location.util';
 import { RegionService } from '../../../shared/region/region.service';
+import { AliasLearningService } from '../../../shared/region/alias-learning.service';
 
-const LOCATION_COORDS: Record<string, { lat: number; lng: number }> = {
-  // 서울 주요 지역
-  강남역: { lat: 37.4979, lng: 127.0276 },
-  강남: { lat: 37.4979, lng: 127.0276 },
-  홍대입구: { lat: 37.5573, lng: 126.9241 },
-  홍대: { lat: 37.5573, lng: 126.9241 },
-  연남동: { lat: 37.5605, lng: 126.9237 },
-  망리단길: { lat: 37.5573, lng: 126.9241 },
-  이태원: { lat: 37.5344, lng: 126.9949 },
-  해방촌: { lat: 37.5401, lng: 126.9887 },
-  경리단길: { lat: 37.5344, lng: 126.9949 },
-  명동: { lat: 37.5636, lng: 126.9827 },
-  여의도: { lat: 37.5219, lng: 126.9245 },
-  한강: { lat: 37.5175, lng: 126.9332 },
-  신촌: { lat: 37.5551, lng: 126.9368 },
-  건대입구: { lat: 37.5403, lng: 127.0694 },
-  건대: { lat: 37.5403, lng: 127.0694 },
-  성수동: { lat: 37.5447, lng: 127.0557 },
-  성수: { lat: 37.5447, lng: 127.0557 },
-  뚝섬: { lat: 37.5471, lng: 127.0458 },
-  잠실: { lat: 37.5133, lng: 127.1 },
-  종로: { lat: 37.5703, lng: 126.9916 },
-  익선동: { lat: 37.5751, lng: 126.9991 },
-  북촌: { lat: 37.5824, lng: 126.9827 },
-  인사동: { lat: 37.5743, lng: 126.9855 },
-  압구정: { lat: 37.527, lng: 127.0288 },
-  청담: { lat: 37.5232, lng: 127.0465 },
-  신사동: { lat: 37.5176, lng: 127.0208 },
-  가로수길: { lat: 37.5195, lng: 127.0225 },
-  합정: { lat: 37.5497, lng: 126.9137 },
-  망원: { lat: 37.5557, lng: 126.9025 },
-  마포: { lat: 37.5538, lng: 126.9491 },
-  용산: { lat: 37.5326, lng: 126.9904 },
-  동대문: { lat: 37.5714, lng: 127.0097 },
-  서울: { lat: 37.5665, lng: 126.978 },
-  // 지방 도시
-  부산: { lat: 35.1796, lng: 129.0756 },
-  해운대: { lat: 35.1587, lng: 129.1604 },
-  광안리: { lat: 35.1531, lng: 129.1187 },
-  제주: { lat: 33.4996, lng: 126.5312 },
-  제주도: { lat: 33.4996, lng: 126.5312 },
-  전주: { lat: 35.8242, lng: 127.1479 },
-  대구: { lat: 35.8714, lng: 128.6014 },
-  광주: { lat: 35.1595, lng: 126.8526 },
-  수원: { lat: 37.2636, lng: 127.0286 },
-  인천: { lat: 37.4563, lng: 126.7052 },
-  대전: { lat: 36.3504, lng: 127.3845 },
-  춘천: { lat: 37.8813, lng: 127.7298 },
-  강릉: { lat: 37.7519, lng: 128.8761 },
-};
+// 최종 fallback 전용 — geocode가 모두 실패한 경우에만 사용
+const SEOUL_FALLBACK_COORDS = { lat: 37.5665, lng: 126.978 };
 
 const ACTIVITY_QUERY_MAP: Record<string, { query: string; type: string }> = {
   // 음식
@@ -107,6 +60,7 @@ export class ExtractIntentStep {
   constructor(
     private readonly placesService: PlacesService,
     private readonly regionService: RegionService,
+    private readonly aliasLearning: AliasLearningService,
   ) {}
 
   async execute(ctx: PipelineContext): Promise<void> {
@@ -123,6 +77,18 @@ export class ExtractIntentStep {
       await this.resolveCoordsWithValidation(parsed.location, ctx.rawInput);
 
     const resolvedLocation = normalizeLocation(rawResolvedLocation);
+
+    // registry miss였던 토큰이 geocode까지 성공한 경우 alias 학습 기록.
+    // 이 시점에 기록해야 "을지로 → 을지로" 형태로 저장되고, "을지로 → 서울" 오기록을 방지.
+    if (
+      ctx.unrecognizedLocationToken &&
+      resolvedLocation !== '서울' // 서울 fallback은 학습 안 함
+    ) {
+      void this.aliasLearning.logUnrecognized(
+        [ctx.unrecognizedLocationToken],
+        resolvedLocation,
+      );
+    }
 
     if (resolvedLocation !== parsed.location) {
       this.logger.log(
@@ -183,20 +149,7 @@ export class ExtractIntentStep {
     coords: { lat: number; lng: number };
     resolvedLocation: string;
   }> {
-    // Step 1: 정확한 매칭 또는 부분 매칭이 있으면 그것을 우선 사용 (초기 location)
-    if (LOCATION_COORDS[initialLocation]) {
-      return {
-        coords: LOCATION_COORDS[initialLocation],
-        resolvedLocation: initialLocation,
-      };
-    }
-    for (const [key, coords] of Object.entries(LOCATION_COORDS)) {
-      if (initialLocation.includes(key) || key.includes(initialLocation)) {
-        return { coords, resolvedLocation: initialLocation };
-      }
-    }
-
-    // Step 2: 동적 지오코딩 시도 (GPT가 추출한 location에 대해)
+    // Step 1: 동적 지오코딩 시도 (RegionService를 통과한 location에 대해)
     // geocodeCity는 시청/군청/구청/터미널/역 순으로 시도해 행정 랜드마크 기반 좌표 반환
     const resolved = await this.placesService.geocodeCity(initialLocation);
     if (resolved) {
@@ -206,7 +159,7 @@ export class ExtractIntentStep {
       return { coords: resolved, resolvedLocation: initialLocation };
     }
 
-    // Step 3: rawInput에서 한글 2~6자 단어 추출 후 지오코딩 시도
+    // Step 2: rawInput에서 한글 2~6자 단어 추출 후 지오코딩 시도
     const candidates = rawInput.match(/[가-힣]{2,6}/g) ?? [];
     for (const candidate of candidates) {
       // stop word 필터링
@@ -224,34 +177,12 @@ export class ExtractIntentStep {
       }
     }
 
-    // Step 4: 모든 시도 실패 시 서울 fallback
+    // Step 3: 모든 시도 실패 시 서울 fallback
     this.logger.warn(`좌표 해석 실패, 서울로 fallback: ${initialLocation}`);
     return {
-      coords: LOCATION_COORDS['서울'],
+      coords: SEOUL_FALLBACK_COORDS,
       resolvedLocation: '서울',
     };
-  }
-
-  private async resolveCoords(
-    location: string,
-  ): Promise<{ lat: number; lng: number }> {
-    // 정확한 매칭
-    if (LOCATION_COORDS[location]) return LOCATION_COORDS[location];
-    // 부분 매칭
-    for (const [key, coords] of Object.entries(LOCATION_COORDS)) {
-      if (location.includes(key) || key.includes(location)) return coords;
-    }
-
-    const resolved = await this.placesService.geocodeLocation(location);
-    if (resolved) {
-      this.logger.log(
-        `동적 좌표 해석: ${location} → ${resolved.lat},${resolved.lng}`,
-      );
-      return resolved;
-    }
-
-    this.logger.warn(`좌표 해석 실패, 서울로 fallback: ${location}`);
-    return LOCATION_COORDS['서울'];
   }
 
   private resolveActivity(

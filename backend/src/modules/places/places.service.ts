@@ -24,7 +24,11 @@ interface CacheEntry<T> {
  */
 class TTLCache<T> {
   private cache = new Map<string, CacheEntry<T>>();
-  constructor(private ttlMs: number) {}
+  private readonly maxSize: number;
+
+  constructor(private ttlMs: number, maxSize = 500) {
+    this.maxSize = maxSize;
+  }
 
   get(key: string): T | undefined {
     const entry = this.cache.get(key);
@@ -37,6 +41,11 @@ class TTLCache<T> {
   }
 
   set(key: string, value: T): void {
+    if (this.cache.size >= this.maxSize) {
+      // Map은 삽입 순서를 유지하므로 첫 번째 키가 가장 오래된 항목
+      const firstKey = this.cache.keys().next().value;
+      if (firstKey !== undefined) this.cache.delete(firstKey);
+    }
     this.cache.set(key, {
       value,
       expiry: Date.now() + this.ttlMs,

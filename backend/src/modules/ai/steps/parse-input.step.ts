@@ -8,6 +8,7 @@ import {
 import { ParsedInput } from '../interfaces/intent.interface';
 import { LOCATION_STOP_WORDS, stripLocationParticles } from '../utils/location.util';
 import { RegionService } from '../../../shared/region/region.service';
+import { AliasLearningService } from '../../../shared/region/alias-learning.service';
 
 interface LocationSeed {
   value?: string | null;
@@ -66,6 +67,7 @@ export class ParseInputStep {
   constructor(
     private readonly config: ConfigService,
     private readonly regionService: RegionService,
+    private readonly aliasLearning: AliasLearningService,
   ) {
     const apiKey = this.config.get<string>('OPENROUTER_API_KEY');
     if (!apiKey) throw new Error('OPENROUTER_API_KEY가 설정되지 않았습니다.');
@@ -90,6 +92,7 @@ activities 2~4개 (목록에서만): 한식 일식 중식 양식 고기 해산�
 timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening, 그외→full-day`;
 
     let parsed: ParsedInput | null = null;
+    let gptSucceeded = false;
 
     try {
       const response = await this.openai.chat.completions.create({
@@ -119,6 +122,7 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
           const candidate = JSON.parse(jsonMatch[0]) as ParsedInput;
           if (candidate.location && candidate.activities?.length) {
             parsed = candidate;
+            gptSucceeded = true;
           }
         }
       }
@@ -126,9 +130,8 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
       this.logger.warn(`GPT 호출 실패: ${(err as Error).message} — 폴백 사용`);
     }
 
-    // GPT 실패 시 키워드 기반 폴백
+    // GPT 실패 시 키워드 기반 폴백 (location은 resolveLocation이 텍스트에서 직접 추출)
     if (!parsed) {
-      const location = '서울';
       const activities = extractActivitiesFallback(ctx.rawInput, ctx.mode);
       const timeOfDay = ctx.rawInput.match(/저녁|밤|야간/)
         ? 'evening'
@@ -138,12 +141,13 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
             ? 'afternoon'
             : 'full-day';
 
-      parsed = { location, activities, timeOfDay, preferences: [] };
+      parsed = { location: '', activities, timeOfDay, preferences: [] };
       this.logger.warn(`폴백 파싱 결과: ${JSON.stringify(parsed)}`);
     }
 
+    // GPT가 성공한 경우에만 location을 seed로 사용. 실패 시 text-scan/regex에서 추출.
     const seeds: LocationSeed[] = [];
-    if (parsed.location) {
+    if (gptSucceeded && parsed.location) {
       seeds.push({ value: parsed.location, source: 'gpt', weight: 0.95 });
     }
     const resolvedLocation = this.resolveLocation(ctx, seeds);
@@ -158,13 +162,37 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
   ): string {
     const text = ctx.rawInput ?? '';
     const candidates = new Map<string, LocationCandidateLog>();
+    const unrecognizedTokens = new Set<string>(); // registry miss 토큰 (alias 학습 대상)
 
     const pushCandidate = (rawValue: string | null, source: string, base: number) => {
       if (!rawValue) return;
       const stripped = stripLocationParticles(rawValue);
       if (!stripped || LOCATION_STOP_WORDS.has(stripped)) return;
       const normalized = this.regionService.normalize(stripped);
-      if (!normalized) return;
+      if (!normalized) {
+        // registry에 없지만 지명처럼 생긴 토큰은 gpt/regex source에서만 후보로 추가.
+        // token/strip source는 "추천해줘" 같은 일반어가 섞여 노이즈가 크므로 제외.
+        if (
+          /^[가-힣]{2,10}$/.test(stripped) &&
+          (source === 'gpt' || source === 'regex')
+        ) {
+          unrecognizedTokens.add(stripped);
+          let rawScore = 0.5;
+          if (text.includes(`${stripped}에서`)) rawScore += 0.15;
+          if (text.includes(`${stripped} `)) rawScore += 0.05;
+          if (stripped.length <= 2) rawScore -= 0.1;
+          const existing = candidates.get(stripped);
+          if (!existing || existing.score < rawScore) {
+            candidates.set(stripped, {
+              value: stripped,
+              source: `${source}:unrecognized`,
+              score: rawScore,
+              raw: stripped,
+            });
+          }
+        }
+        return;
+      }
       let score = base;
       if (text.includes(`${normalized}에서`)) score += 0.15;
       if (text.includes(`${normalized} `)) score += 0.05;
@@ -217,6 +245,14 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
 
     ctx.locationCandidates = sorted;
 
-    return sorted[0]?.value ?? '서울';
+    const winner = sorted[0]?.value ?? '서울';
+
+    // registry miss 토큰 중 winner가 된 것만 PipelineContext에 기록.
+    // alias 학습은 extract-intent에서 geocode 성공 확인 후 수행 (잘못된 canonical 방지).
+    if (unrecognizedTokens.has(winner)) {
+      ctx.unrecognizedLocationToken = winner;
+    }
+
+    return winner;
   }
 }

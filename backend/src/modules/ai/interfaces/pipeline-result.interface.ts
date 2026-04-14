@@ -18,6 +18,8 @@ export interface PipelineContext {
   parsed?: ParsedInput;
   intent?: IntentPayload;
   locationCandidates?: LocationCandidateLog[];
+  /** registry miss였지만 winner가 된 raw 토큰. extract-intent에서 geocode 확인 후 alias 학습에 사용. */
+  unrecognizedLocationToken?: string;
   rawPlaces?: Record<string, PlaceResult[]>;
   candidates?: Record<string, PlaceResult[]>;
   orderedPlaces?: OrderedPlace[];

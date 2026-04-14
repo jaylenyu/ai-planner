@@ -38,11 +38,17 @@ export class RedisService implements OnModuleDestroy {
 
   private async getClient(): Promise<Redis | null> {
     if (!this.client) return null;
-    if (!this.connected) {
+    if (this.connected) return this.client;
+    try {
       await this.client.connect();
       this.connected = true;
+      return this.client;
+    } catch (err) {
+      this.logger.error(`Redis 연결 실패, 비활성화: ${(err as Error).message}`);
+      this.client = null;
+      this.connected = false;
+      return null;
     }
-    return this.client;
   }
 
   async get(key: string): Promise<string | null> {

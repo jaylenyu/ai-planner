@@ -1,8 +1,11 @@
 import { Module } from '@nestjs/common';
 import { RegionService } from './region.service';
+import { AliasLearningService } from './alias-learning.service';
+import { RedisModule } from '../redis/redis.module';
 
 @Module({
-  providers: [RegionService],
-  exports: [RegionService],
+  imports: [RedisModule],
+  providers: [RegionService, AliasLearningService],
+  exports: [RegionService, AliasLearningService],
 })
 export class RegionModule {}
