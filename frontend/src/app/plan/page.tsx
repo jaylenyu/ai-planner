@@ -54,7 +54,7 @@ export default function PlanPage() {
               </svg>
             </div>
             <div>
-              <p className="text-lg font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Dayplan</p>
+              <p className="text-lg font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>DatePlanner</p>
               <p className="text-[11px] -mt-0.5 font-medium" style={{ color: 'var(--text-tertiary)' }}>AI 일정 플래너</p>
             </div>
           </Link>
@@ -212,7 +212,7 @@ export default function PlanPage() {
       {/* Footer */}
       <footer className="mt-auto border-t border-stone-100 py-6">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 flex items-center justify-between">
-          <p className="text-xs text-stone-400">Dayplan © 2026</p>
+          <p className="text-xs text-stone-400">DatePlanner © 2026</p>
           <p className="text-xs text-stone-400">Powered by AI</p>
         </div>
       </footer>

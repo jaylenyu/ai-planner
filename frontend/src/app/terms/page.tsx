@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: '이용약관 | Dayplan',
-  description: 'Dayplan 서비스 이용약관',
+  title: '이용약관 | DatePlanner',
+  description: 'DatePlanner 서비스 이용약관',
 };
 
 export default function TermsPage() {
@@ -11,10 +11,10 @@ export default function TermsPage() {
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         <div className="rounded-3xl bg-white p-10 shadow-xl shadow-stone-200/60">
           <header className="mb-10 border-b border-stone-200 pb-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-orange-500">Dayplan Terms</p>
-            <h1 className="mt-3 text-3xl font-extrabold text-stone-900">Dayplan 이용약관</h1>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-orange-500">DatePlanner Terms</p>
+            <h1 className="mt-3 text-3xl font-extrabold text-stone-900">DatePlanner 이용약관</h1>
             <p className="mt-3 text-sm leading-relaxed text-stone-500">
-              본 약관은 Dayplan(이하 &quot;회사&quot;)이 제공하는 일정 기획 및 장소 추천 서비스(이하 &quot;서비스&quot;)의 이용과 관련하여 회사와 이용자 사이의 권리와 의무,
+              본 약관은 DatePlanner(이하 &quot;회사&quot;)가 제공하는 일정 기획 및 장소 추천 서비스(이하 &quot;서비스&quot;)의 이용과 관련하여 회사와 이용자 사이의 권리와 의무,
               책임 사항, 서비스 이용 조건을 규정합니다.
               이용자는 본 약관에 동의함으로써 서비스를 이용할 수 있으며,
               약관에 동의하지 않을 경우 서비스 이용이 제한될 수 있습니다.
@@ -26,7 +26,7 @@ export default function TermsPage() {
             <article>
               <h2 className="mb-3 text-xl font-bold text-stone-900">제1조 (목적)</h2>
               <p>
-                본 약관은 회사가 제공하는 Dayplan 서비스의 이용과 관련하여 회사와 회원 간의 권리, 의무 및 책임 사항,
+                본 약관은 회사가 제공하는 DatePlanner 서비스의 이용과 관련하여 회사와 회원 간의 권리, 의무 및 책임 사항,
                 기타 필요한 사항을 규정함을 목적으로 합니다.
               </p>
               <p>
@@ -52,7 +52,7 @@ export default function TermsPage() {
                 메모 등 모든 자료를 의미합니다.
               </p>
               <p>
-                &quot;연계 서비스&quot;란 Dayplan이 OAuth 또는 API를 통해 연동하는 Google,
+                &quot;연계 서비스&quot;란 DatePlanner가 OAuth 또는 API를 통해 연동하는 Google,
                 Kakao,
                 Naver 등 외부 서비스를 의미합니다.
               </p>

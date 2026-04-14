@@ -22,9 +22,9 @@ export class EmailService {
     await this.transporter.sendMail({
       from:
         this.config.get<string>('EMAIL_FROM') ??
-        'Dayplan <no-reply@dayplan.com>',
+        'DatePlanner <no-reply@dateplanner.com>',
       to,
-      subject: '[Dayplan] 이메일 인증코드',
+      subject: '[DatePlanner] 이메일 인증코드',
       html: `
         <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
           <h2>이메일 인증</h2>
@@ -43,9 +43,9 @@ export class EmailService {
     await this.transporter.sendMail({
       from:
         this.config.get<string>('EMAIL_FROM') ??
-        'Dayplan <no-reply@dayplan.com>',
+        'DatePlanner <no-reply@dateplanner.com>',
       to,
-      subject: '[Dayplan] 로그인 방법 안내',
+      subject: '[DatePlanner] 로그인 방법 안내',
       html: `
         <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
           <h2>로그인 방법 안내</h2>
@@ -69,9 +69,9 @@ export class EmailService {
     await this.transporter.sendMail({
       from:
         this.config.get<string>('EMAIL_FROM') ??
-        'Dayplan <no-reply@dayplan.com>',
+        'DatePlanner <no-reply@dateplanner.com>',
       to,
-      subject: '[Dayplan] 비밀번호 재설정',
+      subject: '[DatePlanner] 비밀번호 재설정',
       html: `
         <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
           <h2>비밀번호 재설정</h2>

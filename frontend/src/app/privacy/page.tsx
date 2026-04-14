@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: '개인정보 처리방침 | Dayplan',
-  description: 'Dayplan 개인정보 처리방침',
+  title: '개인정보 처리방침 | DatePlanner',
+  description: 'DatePlanner 개인정보 처리방침',
 };
 
 export default function PrivacyPage() {
@@ -11,10 +11,10 @@ export default function PrivacyPage() {
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         <div className="rounded-3xl bg-white p-10 shadow-xl shadow-stone-200/60">
           <header className="mb-10 border-b border-stone-200 pb-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-orange-500">Dayplan Privacy</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-orange-500">DatePlanner Privacy</p>
             <h1 className="mt-3 text-3xl font-extrabold text-stone-900">개인정보 처리방침</h1>
             <p className="mt-3 text-sm leading-relaxed text-stone-500">
-              Dayplan(이하 &quot;회사&quot;)는 이용자의 개인정보를 중요하게 생각하며,
+              DatePlanner(이하 &quot;회사&quot;)는 이용자의 개인정보를 중요하게 생각하며,
               개인정보 보호법,
               정보통신망 이용촉진 및 정보보호 등에 관한 법률 등 관련 법령을 준수합니다.
               회사는 개인정보 처리방침을 통하여 이용자에게 개인정보가 어떠한 목적과 방식으로 수집,
@@ -139,7 +139,7 @@ export default function PrivacyPage() {
               </p>
               <p>이용자는 브라우저 설정에서 쿠키 저장을 허용하거나 거부할 수 있습니다.</p>
               <ul className="ml-6 list-disc space-y-1 text-stone-600">
-                <li>쿠키 허용: Dayplan에 최적화된 추천과 이용 환경 제공</li>
+                <li>쿠키 허용: DatePlanner에 최적화된 추천과 이용 환경 제공</li>
                 <li>쿠키 차단: 일부 맞춤형 기능 이용에 제한이 있을 수 있음</li>
               </ul>
             </article>

@@ -35,7 +35,7 @@ export default function ForgotPasswordPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
             </div>
-            <span className="text-2xl font-extrabold text-stone-900 tracking-tight">Dayplan</span>
+            <span className="text-2xl font-extrabold text-stone-900 tracking-tight">DatePlanner</span>
           </Link>
         </div>
 

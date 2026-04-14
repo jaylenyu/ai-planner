@@ -143,7 +143,7 @@ export default function Home() {
                 />
               </svg>
             </div>
-            <span className="text-base font-bold tracking-tight">Dayplan</span>
+            <span className="text-base font-bold tracking-tight">DatePlanner</span>
           </Link>
 
           {/* Desktop nav */}
@@ -333,7 +333,7 @@ export default function Home() {
         <SectionLayout
           background="alt"
           eyebrow="By the numbers"
-          heading="숫자로 보는 Dayplan"
+          heading="숫자로 보는 DatePlanner"
         >
           <div className="grid gap-5 sm:grid-cols-3">
             {stats.map((stat, i) => (
@@ -473,7 +473,7 @@ export default function Home() {
                 className="mx-auto max-w-2xl text-balance font-extrabold text-white leading-tight mb-4"
                 style={{ fontSize: "var(--font-size-h1)" }}
               >
-                지금 바로 Dayplan으로 플랜을 세워보세요.
+                지금 바로 DatePlanner로 플랜을 세워보세요.
               </h2>
               <p className="mx-auto mb-8 max-w-md text-white/80">
                 회원가입 후 30초면 이메일 인증이 끝나고, 첫 번째 일정이 자동으로
@@ -501,10 +501,10 @@ export default function Home() {
               style={{ background: "var(--gradient-brand)" }}
               aria-hidden="true"
             />
-            <span className="text-sm font-semibold">Dayplan</span>
+            <span className="text-sm font-semibold">DatePlanner</span>
           </div>
           <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-            © {new Date().getFullYear()} Dayplan · Build delightful journeys.
+            © {new Date().getFullYear()} DatePlanner · Build delightful journeys.
           </p>
           <div
             className="flex items-center gap-4 text-xs"
