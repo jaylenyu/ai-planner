@@ -88,6 +88,28 @@ export class RedisService implements OnModuleDestroy {
     await client.del(key);
   }
 
+  async incr(key: string, ttlSeconds?: number): Promise<number> {
+    const client = await this.getClient();
+    if (!client) return 0;
+    const val = await client.incr(key);
+    if (ttlSeconds && val === 1) {
+      await client.expire(key, ttlSeconds);
+    }
+    return val;
+  }
+
+  async expire(key: string, ttlSeconds: number): Promise<void> {
+    const client = await this.getClient();
+    if (!client) return;
+    await client.expire(key, ttlSeconds);
+  }
+
+  async ttl(key: string): Promise<number> {
+    const client = await this.getClient();
+    if (!client) return -2;
+    return client.ttl(key);
+  }
+
   async onModuleDestroy(): Promise<void> {
     if (this.client && this.connected) {
       await this.client.quit();

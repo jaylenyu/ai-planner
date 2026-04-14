@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
 import { Strategy } from 'passport-kakao';
-import { PrismaService } from '../../prisma/prisma.service';
+import { OAuthAccountService } from './oauth-account.service';
 
 type DoneFn = (error: any, user?: any) => void;
 
@@ -10,7 +10,7 @@ type DoneFn = (error: any, user?: any) => void;
 export class KakaoStrategy extends PassportStrategy(Strategy, 'kakao') {
   constructor(
     config: ConfigService,
-    private readonly prisma: PrismaService,
+    private readonly oauthAccount: OAuthAccountService,
   ) {
     super({
       clientID: config.get<string>('KAKAO_CLIENT_ID') ?? 'not-configured',
@@ -25,27 +25,15 @@ export class KakaoStrategy extends PassportStrategy(Strategy, 'kakao') {
     profile: any,
     done: DoneFn,
   ) {
-    const kakaoId = String(profile?.id ?? '');
-    if (!kakaoId)
-      return done(new Error('카카오 사용자 정보를 가져올 수 없습니다.'));
+    try {
+      const kakaoId = String(profile?.id ?? '');
+      if (!kakaoId) return done(new Error('카카오 사용자 정보를 가져올 수 없습니다.'));
 
-    const email =
-      profile?._json?.kakao_account?.email ?? `${kakaoId}@kakao-user.local`;
-
-    let user = await this.prisma.user.findUnique({ where: { kakaoId } });
-
-    if (!user) {
-      user = await this.prisma.user.findUnique({ where: { email } });
-      if (user) {
-        user = await this.prisma.user.update({
-          where: { id: user.id },
-          data: { kakaoId },
-        });
-      } else {
-        user = await this.prisma.user.create({ data: { email, kakaoId } });
-      }
+      const email: string | null = profile?._json?.kakao_account?.email ?? null;
+      const user = await this.oauthAccount.findOrLinkOrCreate('kakao', kakaoId, email);
+      done(null, user);
+    } catch (err) {
+      done(err);
     }
-
-    done(null, user);
   }
 }

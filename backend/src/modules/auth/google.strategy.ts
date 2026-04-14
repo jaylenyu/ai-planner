@@ -2,13 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, VerifyCallback } from 'passport-google-oauth20';
 import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../../prisma/prisma.service';
+import { OAuthAccountService } from './oauth-account.service';
 
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   constructor(
     config: ConfigService,
-    private prisma: PrismaService,
+    private readonly oauthAccount: OAuthAccountService,
   ) {
     super({
       clientID: config.get<string>('GOOGLE_CLIENT_ID') ?? 'not-configured',
@@ -25,25 +25,12 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     profile: { id: string; emails: { value: string }[] },
     done: VerifyCallback,
   ) {
-    const email = profile.emails[0].value;
-    const googleId = profile.id;
-
-    let user = await this.prisma.user.findUnique({ where: { googleId } });
-
-    if (!user) {
-      user = await this.prisma.user.findUnique({ where: { email } });
-      if (user) {
-        user = await this.prisma.user.update({
-          where: { id: user.id },
-          data: { googleId },
-        });
-      } else {
-        user = await this.prisma.user.create({
-          data: { email, googleId },
-        });
-      }
+    try {
+      const email = profile.emails?.[0]?.value ?? null;
+      const user = await this.oauthAccount.findOrLinkOrCreate('google', profile.id, email);
+      done(null, user);
+    } catch (err) {
+      done(err as Error);
     }
-
-    done(null, user);
   }
 }

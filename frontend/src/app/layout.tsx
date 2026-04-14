@@ -1,12 +1,6 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Dayplan — AI 일정 플래너",
@@ -21,7 +15,7 @@ export default function RootLayout({
   const naverMapClientId = process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID;
 
   return (
-    <html lang="ko" className={`${geistSans.variable} h-full antialiased`}>
+    <html lang="ko" className="h-full antialiased font-sans">
       <body className="min-h-full flex flex-col">
         {naverMapClientId && (
           <Script

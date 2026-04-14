@@ -15,7 +15,8 @@ model User {
   googleId      String?              @unique
   kakaoId       String?              @unique
   naverId       String?              @unique
-plans         Plan[]
+  emailVerified Boolean              @default(false)
+  plans         Plan[]
   refreshTokens RefreshToken[]
   resetTokens   PasswordResetToken[]
   createdAt     DateTime             @default(now())

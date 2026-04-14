@@ -9,11 +9,17 @@ import { GoogleStrategy } from './google.strategy';
 import { EmailModule } from '../email/email.module';
 import { KakaoStrategy } from './kakao.strategy';
 import { NaverStrategy } from './naver.strategy';
+import { EmailVerificationService } from './email-verification.service';
+import { OAuthAccountService } from './oauth-account.service';
+import { RedisModule } from '../../shared/redis/redis.module';
+import { CaptchaModule } from '../../shared/captcha/captcha.module';
 
 @Module({
   imports: [
     PassportModule,
     EmailModule,
+    RedisModule,
+    CaptchaModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -32,6 +38,8 @@ import { NaverStrategy } from './naver.strategy';
     GoogleStrategy,
     KakaoStrategy,
     NaverStrategy,
+    EmailVerificationService,
+    OAuthAccountService,
   ],
   exports: [JwtModule],
 })

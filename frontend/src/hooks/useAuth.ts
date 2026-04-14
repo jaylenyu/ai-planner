@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { api } from '../lib/api';
+import { api, ApiError } from '../lib/api';
 import { setToken, setRefreshToken, getRefreshToken, clearAllTokens, getToken } from '../lib/auth';
 import { AuthResponse } from '../lib/types';
 
 export function useAuth() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
@@ -17,6 +18,7 @@ export function useAuth() {
   const register = async (email: string, password: string) => {
     setLoading(true);
     setError(null);
+    setErrorStatus(null);
     try {
       const res = await api.post<AuthResponse>('/auth/register', { email, password });
       setToken(res.access_token);
@@ -24,7 +26,12 @@ export function useAuth() {
       setIsLoggedIn(true);
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : '회원가입 실패');
+      if (err instanceof ApiError) {
+        setError(err.message);
+        setErrorStatus(err.status);
+      } else {
+        setError('회원가입 실패');
+      }
       return false;
     } finally {
       setLoading(false);
@@ -34,6 +41,7 @@ export function useAuth() {
   const login = async (email: string, password: string) => {
     setLoading(true);
     setError(null);
+    setErrorStatus(null);
     try {
       const res = await api.post<AuthResponse>('/auth/login', { email, password });
       setToken(res.access_token);
@@ -41,7 +49,12 @@ export function useAuth() {
       setIsLoggedIn(true);
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : '로그인 실패');
+      if (err instanceof ApiError) {
+        setError(err.message);
+        setErrorStatus(err.status);
+      } else {
+        setError('로그인 실패');
+      }
       return false;
     } finally {
       setLoading(false);
@@ -62,5 +75,5 @@ export function useAuth() {
     }
   };
 
-  return { login, register, logout, loading, error, isLoggedIn };
+  return { login, register, logout, loading, error, errorStatus, isLoggedIn };
 }
