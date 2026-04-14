@@ -39,6 +39,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const naverMapClientId = process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://date-planner.us';
+  const orgJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'DatePlanner',
+    url: siteUrl,
+  };
+  const webSiteJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'DatePlanner',
+    url: siteUrl,
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: `${siteUrl}/?q={search_term_string}`,
+      'query-input': 'required name=search_term_string',
+    },
+  };
 
   return (
     <html lang="ko" className="h-full antialiased font-sans">
@@ -49,6 +67,18 @@ export default function RootLayout({
             strategy="afterInteractive"
           />
         )}
+        <script
+          type="application/ld+json"
+          // eslint-disable-next-line react/no-danger
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }}
+          suppressHydrationWarning
+        />
+        <script
+          type="application/ld+json"
+          // eslint-disable-next-line react/no-danger
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(webSiteJsonLd) }}
+          suppressHydrationWarning
+        />
         {children}
       </body>
     </html>
