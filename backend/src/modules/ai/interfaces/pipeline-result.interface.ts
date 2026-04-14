@@ -17,12 +17,20 @@ export interface PipelineContext {
   mode: 'date' | 'trip';
   parsed?: ParsedInput;
   intent?: IntentPayload;
+  locationCandidates?: LocationCandidateLog[];
   rawPlaces?: Record<string, PlaceResult[]>;
   candidates?: Record<string, PlaceResult[]>;
   orderedPlaces?: OrderedPlace[];
   scheduleItems?: ScheduleItem[];
   polyline?: [number, number][];
   summary?: string;
+}
+
+export interface LocationCandidateLog {
+  value: string;
+  source: string;
+  score: number;
+  raw: string;
 }
 
 export interface PipelineResult {

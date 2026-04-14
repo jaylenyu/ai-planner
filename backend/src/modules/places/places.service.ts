@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { RedisService } from '../../shared/redis/redis.service';
 
 export interface PlaceResult {
   name: string;
@@ -55,9 +56,42 @@ export class PlacesService {
   private rateLimitCache = new TTLCache<boolean>(5 * 60 * 1000); // 5분 TTL
   private searchCache = new TTLCache<PlaceResult[]>(5 * 60 * 1000); // 5분 TTL
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    private readonly redisService: RedisService,
+  ) {
     this.clientId = this.config.get<string>('NAVER_SEARCH_CLIENT_ID') ?? '';
     this.clientSecret = this.config.get<string>('NAVER_SEARCH_CLIENT_SECRET') ?? '';
+  }
+
+  private async getCachedPlaces(key: string): Promise<PlaceResult[] | null> {
+    if (!this.redisService.isEnabled()) return null;
+    return this.redisService.getJSON<PlaceResult[]>(key);
+  }
+
+  private async cachePlaces(
+    key: string,
+    value: PlaceResult[],
+    ttlSeconds = 60 * 60,
+  ): Promise<void> {
+    if (!this.redisService.isEnabled()) return;
+    await this.redisService.setJSON(key, value, ttlSeconds);
+  }
+
+  private async getCachedGeo(
+    key: string,
+  ): Promise<{ lat: number; lng: number } | null> {
+    if (!this.redisService.isEnabled()) return null;
+    return this.redisService.getJSON<{ lat: number; lng: number }>(key);
+  }
+
+  private async cacheGeo(
+    key: string,
+    value: { lat: number; lng: number },
+    ttlSeconds = 7 * 24 * 60 * 60,
+  ): Promise<void> {
+    if (!this.redisService.isEnabled()) return;
+    await this.redisService.setJSON(key, value, ttlSeconds);
   }
 
   async searchNearby(query: string, type: string, display = 5): Promise<PlaceResult[]> {
@@ -66,13 +100,18 @@ export class PlacesService {
       return [];
     }
 
-    const cacheKey = `search:${query}:${display}`;
+    const cacheKey = `places:${type}:${query}:${display}`;
     if (this.rateLimitCache.get(cacheKey)) {
       const cached = this.searchCache.get(cacheKey);
       if (cached) {
         this.logger.warn(`429 상태 캐시 히트: ${cacheKey}`);
         return cached;
       }
+    }
+
+    const redisCached = await this.getCachedPlaces(cacheKey);
+    if (redisCached) {
+      return redisCached;
     }
 
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -115,6 +154,7 @@ export class PlacesService {
         }));
 
         this.searchCache.set(cacheKey, places);
+        await this.cachePlaces(cacheKey, places);
         return places;
       } catch (err) {
         this.logger.warn(`Naver API 요청 실패 — 빈 결과 반환 (query: ${query}): ${err}`);
@@ -163,6 +203,9 @@ export class PlacesService {
       return null;
     }
 
+    const cachedGeo = await this.getCachedGeo(cacheKey);
+    if (cachedGeo) return cachedGeo;
+
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const encoded = encodeURIComponent(keyword);
@@ -204,10 +247,12 @@ export class PlacesService {
           return null;
         }
 
-        return {
+        const result = {
           lat: parseInt(item.mapy) / 10_000_000,
           lng: parseInt(item.mapx) / 10_000_000,
         };
+        await this.cacheGeo(cacheKey, result);
+        return result;
       } catch (err) {
         this.logger.warn('Naver 위치 검색 실패: ' + keyword + ' (' + err + ')');
         await new Promise((r) => setTimeout(r, 500));
