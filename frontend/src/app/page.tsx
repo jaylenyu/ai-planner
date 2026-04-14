@@ -165,13 +165,7 @@ export default function Home() {
             >
               작동 방식
             </Link>
-            <Link
-              href="#stories"
-              className="transition-colors hover:text-[var(--text-primary)]"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              후기
-            </Link>
+            {/* 후기 섹션 제거됨 */}
             <div className="ml-2 flex items-center gap-2">
               <PrimaryButton asChild variant="outline" size="sm">
                 <Link href="/login">로그인</Link>
