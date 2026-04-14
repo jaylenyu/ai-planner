@@ -67,7 +67,9 @@ export class SelectCandidatesStep {
       }
 
       if (filtered.length === 0) {
-        this.logger.warn(`[${type}] 반경 ${usedRadius}km 내 후보 없음 — 활동 제외`);
+        this.logger.warn(
+          `[${type}] 반경 ${usedRadius}km 내 후보 없음 — 활동 제외`,
+        );
         continue;
       }
       if (usedRadius > 3) {
@@ -76,7 +78,12 @@ export class SelectCandidatesStep {
 
       const scored = filtered
         .map((place) => {
-          const distance = haversine(intent.lat, intent.lng, place.lat, place.lng);
+          const distance = haversine(
+            intent.lat,
+            intent.lng,
+            place.lat,
+            place.lng,
+          );
           const score = scoreCandidate(place, distance, intent.mode);
           return { place, distance, score };
         })

@@ -14,7 +14,9 @@ export class TurnstileService {
   ) {
     this.secretKey = this.config.get<string>('TURNSTILE_SECRET_KEY');
     if (!this.secretKey) {
-      this.logger.warn('TURNSTILE_SECRET_KEY 미설정 — CAPTCHA 검증 우회됨 (dev 모드)');
+      this.logger.warn(
+        'TURNSTILE_SECRET_KEY 미설정 — CAPTCHA 검증 우회됨 (dev 모드)',
+      );
     }
   }
 
@@ -45,15 +47,21 @@ export class TurnstileService {
         'https://challenges.cloudflare.com/turnstile/v0/siteverify',
         { method: 'POST', body },
       );
-      data = await res.json() as typeof data;
+      data = (await res.json()) as typeof data;
     } catch (err) {
       this.logger.error(`Turnstile 검증 요청 실패: ${(err as Error).message}`);
-      throw new BadRequestException('CAPTCHA 검증에 실패했습니다. 다시 시도해주세요.');
+      throw new BadRequestException(
+        'CAPTCHA 검증에 실패했습니다. 다시 시도해주세요.',
+      );
     }
 
     if (!data.success) {
-      this.logger.warn(`Turnstile 실패 (${ip}): ${JSON.stringify(data['error-codes'])}`);
-      throw new BadRequestException('CAPTCHA 검증에 실패했습니다. 다시 시도해주세요.');
+      this.logger.warn(
+        `Turnstile 실패 (${ip}): ${JSON.stringify(data['error-codes'])}`,
+      );
+      throw new BadRequestException(
+        'CAPTCHA 검증에 실패했습니다. 다시 시도해주세요.',
+      );
     }
 
     // 사용 표시 (5분 TTL)

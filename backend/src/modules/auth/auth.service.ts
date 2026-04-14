@@ -89,7 +89,9 @@ export class AuthService {
     });
 
     if (!user || !user.password) {
-      throw new UnauthorizedException('이메일 또는 비밀번호가 올바르지 않습니다.');
+      throw new UnauthorizedException(
+        '이메일 또는 비밀번호가 올바르지 않습니다.',
+      );
     }
 
     const valid = await bcrypt.compare(dto.password, user.password);
@@ -101,7 +103,9 @@ export class AuthService {
           '로그인 시도 횟수가 초과되었습니다. 10분 후 다시 시도해주세요.',
         );
       }
-      throw new UnauthorizedException('이메일 또는 비밀번호가 올바르지 않습니다.');
+      throw new UnauthorizedException(
+        '이메일 또는 비밀번호가 올바르지 않습니다.',
+      );
     }
 
     // 성공: 실패 카운터 초기화

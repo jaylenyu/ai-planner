@@ -6,7 +6,10 @@ import {
   LocationCandidateLog,
 } from '../interfaces/pipeline-result.interface';
 import { ParsedInput } from '../interfaces/intent.interface';
-import { LOCATION_STOP_WORDS, stripLocationParticles } from '../utils/location.util';
+import {
+  LOCATION_STOP_WORDS,
+  stripLocationParticles,
+} from '../utils/location.util';
 import { RegionService } from '../../../shared/region/region.service';
 import { AliasLearningService } from '../../../shared/region/alias-learning.service';
 
@@ -156,15 +159,16 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
     this.logger.log(`파싱 완료: ${JSON.stringify(parsed)}`);
   }
 
-  private resolveLocation(
-    ctx: PipelineContext,
-    seeds: LocationSeed[],
-  ): string {
+  private resolveLocation(ctx: PipelineContext, seeds: LocationSeed[]): string {
     const text = ctx.rawInput ?? '';
     const candidates = new Map<string, LocationCandidateLog>();
     const unrecognizedTokens = new Set<string>(); // registry miss 토큰 (alias 학습 대상)
 
-    const pushCandidate = (rawValue: string | null, source: string, base: number) => {
+    const pushCandidate = (
+      rawValue: string | null,
+      source: string,
+      base: number,
+    ) => {
       if (!rawValue) return;
       const stripped = stripLocationParticles(rawValue);
       if (!stripped || LOCATION_STOP_WORDS.has(stripped)) return;
@@ -208,7 +212,9 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
       }
     };
 
-    seeds.forEach((seed) => pushCandidate(seed.value ?? null, seed.source, seed.weight));
+    seeds.forEach((seed) =>
+      pushCandidate(seed.value ?? null, seed.source, seed.weight),
+    );
 
     this.regionService.extractCandidates(text).forEach((candidate) => {
       pushCandidate(candidate, 'text-scan', 0.85);

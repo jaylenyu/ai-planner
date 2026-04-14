@@ -57,6 +57,10 @@ export class RedisService implements OnModuleDestroy {
     return client.get(key);
   }
 
+  async getNativeClient(): Promise<Redis | null> {
+    return this.getClient();
+  }
+
   async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
     const client = await this.getClient();
     if (!client) return;
@@ -73,12 +77,18 @@ export class RedisService implements OnModuleDestroy {
     try {
       return JSON.parse(raw) as T;
     } catch (err) {
-      this.logger.warn(`Redis JSON 파싱 실패 (${key}): ${(err as Error).message}`);
+      this.logger.warn(
+        `Redis JSON 파싱 실패 (${key}): ${(err as Error).message}`,
+      );
       return null;
     }
   }
 
-  async setJSON(key: string, value: unknown, ttlSeconds?: number): Promise<void> {
+  async setJSON(
+    key: string,
+    value: unknown,
+    ttlSeconds?: number,
+  ): Promise<void> {
     await this.set(key, JSON.stringify(value), ttlSeconds);
   }
 

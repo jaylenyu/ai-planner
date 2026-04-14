@@ -26,7 +26,10 @@ class TTLCache<T> {
   private cache = new Map<string, CacheEntry<T>>();
   private readonly maxSize: number;
 
-  constructor(private ttlMs: number, maxSize = 500) {
+  constructor(
+    private ttlMs: number,
+    maxSize = 500,
+  ) {
     this.maxSize = maxSize;
   }
 
@@ -43,8 +46,10 @@ class TTLCache<T> {
   set(key: string, value: T): void {
     if (this.cache.size >= this.maxSize) {
       // Map은 삽입 순서를 유지하므로 첫 번째 키가 가장 오래된 항목
-      const firstKey = this.cache.keys().next().value;
-      if (firstKey !== undefined) this.cache.delete(firstKey);
+      const firstEntry = this.cache.keys().next();
+      if (!firstEntry.done) {
+        this.cache.delete(firstEntry.value);
+      }
     }
     this.cache.set(key, {
       value,
@@ -70,7 +75,8 @@ export class PlacesService {
     private readonly redisService: RedisService,
   ) {
     this.clientId = this.config.get<string>('NAVER_SEARCH_CLIENT_ID') ?? '';
-    this.clientSecret = this.config.get<string>('NAVER_SEARCH_CLIENT_SECRET') ?? '';
+    this.clientSecret =
+      this.config.get<string>('NAVER_SEARCH_CLIENT_SECRET') ?? '';
   }
 
   private async getCachedPlaces(key: string): Promise<PlaceResult[] | null> {
@@ -103,7 +109,11 @@ export class PlacesService {
     await this.redisService.setJSON(key, value, ttlSeconds);
   }
 
-  async searchNearby(query: string, type: string, display = 5): Promise<PlaceResult[]> {
+  async searchNearby(
+    query: string,
+    type: string,
+    display = 5,
+  ): Promise<PlaceResult[]> {
     if (!this.clientId || !this.clientSecret) {
       this.logger.warn(`Naver API 키 없음 — 빈 결과 반환 (query: ${query})`);
       return [];
@@ -135,7 +145,9 @@ export class PlacesService {
         });
 
         if (!response.ok) {
-          this.logger.warn(`Naver API 오류 ${response.status} (시도 ${attempt + 1}/3) — (query: ${query})`);
+          this.logger.warn(
+            `Naver API 오류 ${response.status} (시도 ${attempt + 1}/3) — (query: ${query})`,
+          );
           if (response.status === 429) {
             this.rateLimitCache.set(cacheKey, true);
             const backoff = 300 * (attempt + 1) * (Math.random() + 0.5);
@@ -166,7 +178,9 @@ export class PlacesService {
         await this.cachePlaces(cacheKey, places);
         return places;
       } catch (err) {
-        this.logger.warn(`Naver API 요청 실패 — 빈 결과 반환 (query: ${query}): ${err}`);
+        this.logger.warn(
+          `Naver API 요청 실패 — 빈 결과 반환 (query: ${query}): ${err}`,
+        );
         await new Promise((r) => setTimeout(r, 500)); // 짧은 대기 후 재시도
       }
     }
@@ -174,7 +188,9 @@ export class PlacesService {
     return [];
   }
 
-  async geocodeCity(name: string): Promise<{ lat: number; lng: number } | null> {
+  async geocodeCity(
+    name: string,
+  ): Promise<{ lat: number; lng: number } | null> {
     // 도시/지역명 geocoding: 행정 랜드마크를 순차 시도
     // 시청(시) → 군청(군) → 구청(구) → 터미널(시외버스) → 역(기차역) → plain
     // 사업체가 아닌 정부기관/교통허브를 우선 검색해 정확한 도시 좌표 확보
@@ -201,7 +217,9 @@ export class PlacesService {
     return null;
   }
 
-  async geocodeLocation(keyword: string): Promise<{ lat: number; lng: number } | null> {
+  async geocodeLocation(
+    keyword: string,
+  ): Promise<{ lat: number; lng: number } | null> {
     if (!this.clientId || !this.clientSecret) {
       return null;
     }
@@ -242,7 +260,9 @@ export class PlacesService {
           if (response.status === 429) {
             this.rateLimitCache.set(cacheKey, true);
             const backoff = 300 * (attempt + 1) * (Math.random() + 0.5);
-            this.logger.warn('429 감지, ' + backoff.toFixed(0) + 'ms 후 재시도');
+            this.logger.warn(
+              '429 감지, ' + backoff.toFixed(0) + 'ms 후 재시도',
+            );
             await new Promise((r) => setTimeout(r, backoff));
             continue;
           } else {

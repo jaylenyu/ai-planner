@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { RedisService } from '../redis/redis.service';
 import { RegionService } from './region.service';
+import type Redis from 'ioredis';
 
 const ALIAS_LOG_PREFIX = 'alias-log:';
 const ALIAS_PREFIX = 'alias:';
@@ -26,7 +27,7 @@ export class AliasLearningService implements OnModuleInit {
   async loadPersistedAliases(): Promise<void> {
     if (!this.redis.isEnabled()) return;
 
-    const client = await (this.redis as any).getClient();
+    const client = await this.redis.getNativeClient();
     if (!client) return;
 
     try {
@@ -56,7 +57,7 @@ export class AliasLearningService implements OnModuleInit {
   ): Promise<void> {
     if (!this.redis.isEnabled() || tokens.length === 0) return;
 
-    const client = await (this.redis as any).getClient();
+    const client = await this.redis.getNativeClient();
     if (!client) return;
 
     for (const token of tokens) {
@@ -83,7 +84,7 @@ export class AliasLearningService implements OnModuleInit {
   private async promoteAlias(
     token: string,
     canonical: string,
-    client: any,
+    client: Redis,
   ): Promise<void> {
     const aliasKey = `${ALIAS_PREFIX}${token}`;
 

@@ -95,7 +95,9 @@ export class SearchPlacesStep {
         );
         if (retry.length > 0) {
           results = retry;
-          this.logger.warn(`[${activityType}] 폴백 검색어로 재시도: ${retryQuery}`);
+          this.logger.warn(
+            `[${activityType}] 폴백 검색어로 재시도: ${retryQuery}`,
+          );
         }
       }
     }

@@ -27,10 +27,15 @@ export class KakaoStrategy extends PassportStrategy(Strategy, 'kakao') {
   ) {
     try {
       const kakaoId = String(profile?.id ?? '');
-      if (!kakaoId) return done(new Error('카카오 사용자 정보를 가져올 수 없습니다.'));
+      if (!kakaoId)
+        return done(new Error('카카오 사용자 정보를 가져올 수 없습니다.'));
 
       const email: string | null = profile?._json?.kakao_account?.email ?? null;
-      const user = await this.oauthAccount.findOrLinkOrCreate('kakao', kakaoId, email);
+      const user = await this.oauthAccount.findOrLinkOrCreate(
+        'kakao',
+        kakaoId,
+        email,
+      );
       done(null, user);
     } catch (err) {
       done(err);

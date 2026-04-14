@@ -27,7 +27,11 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   ) {
     try {
       const email = profile.emails?.[0]?.value ?? null;
-      const user = await this.oauthAccount.findOrLinkOrCreate('google', profile.id, email);
+      const user = await this.oauthAccount.findOrLinkOrCreate(
+        'google',
+        profile.id,
+        email,
+      );
       done(null, user);
     } catch (err) {
       done(err as Error);

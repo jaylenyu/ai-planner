@@ -107,8 +107,10 @@ export class ApiBudgetService implements OnModuleInit {
         used: count,
         resetTime: this.getNextResetTime(),
       };
-    } catch (error) {
-      this.logger.error(`Error checking daily limit: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error(
+        `Error checking daily limit: ${this.getErrorMessage(error)}`,
+      );
       // Fail-open: allow request if database is unavailable
       return {
         allowed: true,
@@ -119,19 +121,19 @@ export class ApiBudgetService implements OnModuleInit {
     }
   }
 
-  async checkMonthlyBudget(): Promise<MonthlyBudgetCheck> {
+  checkMonthlyBudget(): Promise<MonthlyBudgetCheck> {
     const used = this.currentMonthUsage;
     const remaining = this.monthlyBudget - used;
 
-    return {
+    return Promise.resolve({
       withinBudget: used < this.monthlyBudget,
       budget: this.monthlyBudget,
       used: parseFloat(used.toFixed(4)),
       remaining: parseFloat(Math.max(0, remaining).toFixed(4)),
-    };
+    });
   }
 
-  async trackRequest(
+  trackRequest(
     userId: string,
     ipAddress: string,
     userAgent: string,
@@ -156,8 +158,10 @@ export class ApiBudgetService implements OnModuleInit {
         endpoint: 'ai-pipeline',
         cost,
         timestamp: now,
-      }).catch((error) => {
-        this.logger.error(`Failed to store usage record: ${error.message}`);
+      }).catch((error: unknown) => {
+        this.logger.error(
+          `Failed to store usage record: ${this.getErrorMessage(error)}`,
+        );
       });
 
       // Log budget status periodically
@@ -179,10 +183,13 @@ export class ApiBudgetService implements OnModuleInit {
           } used (${Math.round((this.currentMonthUsage / this.monthlyBudget) * 100)}%)`,
         );
       }
-    } catch (error) {
-      this.logger.error(`Error tracking API request: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error(
+        `Error tracking API request: ${this.getErrorMessage(error)}`,
+      );
       // Don't throw - we don't want to break the user experience
     }
+    return Promise.resolve();
   }
 
   async getUsageStats(userId?: string): Promise<{
@@ -252,8 +259,10 @@ export class ApiBudgetService implements OnModuleInit {
       this.logger.log(
         `Loaded monthly usage: $${this.currentMonthUsage.toFixed(4)}`,
       );
-    } catch (error) {
-      this.logger.error(`Error loading monthly usage: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error(
+        `Error loading monthly usage: ${this.getErrorMessage(error)}`,
+      );
       this.currentMonthUsage = 0;
     }
   }
@@ -283,8 +292,24 @@ export class ApiBudgetService implements OnModuleInit {
       });
 
       this.logger.log('Cleaned up old API usage records');
-    } catch (error) {
-      this.logger.error(`Error cleaning up old records: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error(
+        `Error cleaning up old records: ${this.getErrorMessage(error)}`,
+      );
+    }
+  }
+
+  private getErrorMessage(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
+    if (typeof error === 'string') {
+      return error;
+    }
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return 'Unknown error';
     }
   }
 
