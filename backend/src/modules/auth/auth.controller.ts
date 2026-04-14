@@ -8,6 +8,7 @@ import {
   Res,
   HttpCode,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
@@ -29,6 +30,8 @@ export class AuthController {
     private readonly emailVerification: EmailVerificationService,
     private readonly config: ConfigService,
   ) {}
+
+  private readonly logger = new Logger(AuthController.name);
 
   private getFrontendUrl(): string {
     return this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
@@ -52,8 +55,13 @@ export class AuthController {
     @Body() dto: RequestEmailCodeDto,
     @Req() req: Request,
   ) {
-    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0] ?? req.ip;
-    await this.emailVerification.requestCode(dto.email, dto.captchaToken ?? '', ip);
+    const ip =
+      (req.headers['x-forwarded-for'] as string)?.split(',')[0] ?? req.ip;
+    await this.emailVerification.requestCode(
+      dto.email,
+      dto.captchaToken ?? '',
+      ip,
+    );
     return { message: '인증코드를 전송했습니다.' };
   }
 
@@ -73,7 +81,8 @@ export class AuthController {
 
   @Post('login')
   login(@Body() dto: LoginDto, @Req() req: Request) {
-    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0] ?? req.ip ?? '';
+    const ip =
+      (req.headers['x-forwarded-for'] as string)?.split(',')[0] ?? req.ip ?? '';
     return this.authService.login(dto, ip);
   }
 
@@ -118,6 +127,7 @@ export class AuthController {
     try {
       await this.handleOAuthRedirect(res, req.user);
     } catch (err: any) {
+      this.logger.warn(`Google OAuth conflict: ${(err as Error).message}`);
       res.redirect(
         `${this.getFrontendUrl()}/login?error=oauth_local_conflict&provider=google`,
       );
@@ -137,6 +147,7 @@ export class AuthController {
     try {
       await this.handleOAuthRedirect(res, req.user);
     } catch (err: any) {
+      this.logger.warn(`Kakao OAuth conflict: ${(err as Error).message}`);
       res.redirect(
         `${this.getFrontendUrl()}/login?error=oauth_local_conflict&provider=kakao`,
       );
@@ -156,6 +167,7 @@ export class AuthController {
     try {
       await this.handleOAuthRedirect(res, req.user);
     } catch (err: any) {
+      this.logger.warn(`Naver OAuth conflict: ${(err as Error).message}`);
       res.redirect(
         `${this.getFrontendUrl()}/login?error=oauth_local_conflict&provider=naver`,
       );
