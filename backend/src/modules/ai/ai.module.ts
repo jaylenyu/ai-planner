@@ -7,6 +7,7 @@ import { SelectCandidatesStep } from './steps/select-candidates.step';
 import { OptimizeRouteStep } from './steps/optimize-route.step';
 import { GenerateScheduleStep } from './steps/generate-schedule.step';
 import { PlacesModule } from '../places/places.module';
+import { AiPlacesFallbackService } from './services/ai-places-fallback.service';
 
 @Module({
   imports: [PlacesModule],
@@ -14,6 +15,7 @@ import { PlacesModule } from '../places/places.module';
     AiService,
     ParseInputStep,
     ExtractIntentStep,
+    AiPlacesFallbackService,
     SearchPlacesStep,
     SelectCandidatesStep,
     OptimizeRouteStep,

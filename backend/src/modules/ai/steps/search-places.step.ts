@@ -1,6 +1,8 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { PlacesService } from '../../places/places.service';
 import { PipelineContext } from '../interfaces/pipeline-result.interface';
+import { AiPlacesFallbackService } from '../services/ai-places-fallback.service';
+import { PlaceResult } from '../interfaces/place.interface';
 
 const FALLBACK_QUERIES: Record<string, string> = {
   attraction: '관광지 명소 볼거리',
@@ -10,29 +12,53 @@ const FALLBACK_QUERIES: Record<string, string> = {
   food: '맛집',
 };
 
+const MAX_RESULTS_PER_QUERY = 5;
+const AI_MIN_RESULTS = 2;
+
+function mergePlaces(
+  primary: PlaceResult[],
+  fallback: PlaceResult[],
+): PlaceResult[] {
+  const seen = new Set(primary.map((p) => p.name));
+  const merged = [...primary];
+  for (const place of fallback) {
+    if (seen.has(place.name)) continue;
+    merged.push(place);
+    seen.add(place.name);
+  }
+  return merged.slice(0, MAX_RESULTS_PER_QUERY);
+}
+
 @Injectable()
 export class SearchPlacesStep {
   private readonly logger = new Logger(SearchPlacesStep.name);
 
-  constructor(private readonly placesService: PlacesService) {}
+  constructor(
+    private readonly placesService: PlacesService,
+    private readonly aiPlacesFallbackService: AiPlacesFallbackService,
+  ) {}
 
   async execute(ctx: PipelineContext): Promise<void> {
     const intent = ctx.intent!;
     ctx.rawPlaces = {};
 
     for (const activity of intent.activities) {
+      let aiAugmented = false;
       let places = await this.placesService.searchNearby(
         activity.naverQuery,
         activity.type,
-        5,
+        MAX_RESULTS_PER_QUERY,
       );
 
-      // 결과 0개 시 넓은 폴백 검색어로 1회 재시도
       if (places.length === 0) {
         const fallbackQ = FALLBACK_QUERIES[activity.type];
         if (fallbackQ) {
           const retryQuery = `${intent.location} ${fallbackQ}`;
-          const retry = await this.placesService.searchNearby(retryQuery, activity.type, 5);
+          const retry = await this.placesService.searchNearby(
+            retryQuery,
+            activity.type,
+            MAX_RESULTS_PER_QUERY,
+          );
           if (retry.length > 0) {
             places = retry;
             this.logger.warn(
@@ -42,14 +68,36 @@ export class SearchPlacesStep {
         }
       }
 
-      // 같은 type이 여러 activities에 있을 때 결과를 누적 (덮어쓰지 않음)
+      if (places.length < AI_MIN_RESULTS) {
+        const aiPlaces = await this.aiPlacesFallbackService.suggestPlaces({
+          location: intent.location,
+          activityType: activity.type,
+          originalQuery: activity.naverQuery,
+          rawInput: ctx.rawInput,
+          lat: intent.lat,
+          lng: intent.lng,
+          limit: MAX_RESULTS_PER_QUERY,
+        });
+        if (aiPlaces.length > 0) {
+          aiAugmented = true;
+          places = mergePlaces(places, aiPlaces);
+          this.logger.warn(
+            `[${activity.type}] AI 폴백${places.length === aiPlaces.length ? ' 대체' : ' 보강'} — ${aiPlaces.length}개 활용`,
+          );
+        }
+      }
+
       ctx.rawPlaces[activity.type] = [
         ...(ctx.rawPlaces[activity.type] ?? []),
         ...places,
       ];
+
+      const placeLog =
+        places
+          .map((p, i) => `  ${i + 1}. ${p.name} (${p.address})`)
+          .join('\n') || '  (결과 없음)';
       this.logger.log(
-        `[${activity.type}] ${places.length}개 검색됨: ${activity.naverQuery}\n` +
-        places.map((p, i) => `  ${i + 1}. ${p.name} (${p.address})`).join('\n'),
+        `[${activity.type}] ${places.length}개 검색됨${aiAugmented ? ' (AI 보강)' : ''}: ${activity.naverQuery}\n${placeLog}`,
       );
     }
 

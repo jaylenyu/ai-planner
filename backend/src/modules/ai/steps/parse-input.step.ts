@@ -3,70 +3,76 @@ import OpenAI from 'openai';
 import { ConfigService } from '@nestjs/config';
 import { PipelineContext } from '../interfaces/pipeline-result.interface';
 import { ParsedInput } from '../interfaces/intent.interface';
-
-// 알려진 지역명 (폴백용)
-const KNOWN_LOCATIONS = [
-  '강남','홍대','이태원','명동','여의도','신촌','건대','성수동','잠실','종로',
-  '인사동','압구정','청담','합정','망원','용산','동대문','서울',
-  '부산','해운대','광안리','제주','전주','대구','광주','수원','인천','대전',
-  '춘천','강릉','속초','경주','여수','통영','울산','청주',
-];
-
-const LOCATION_ALIAS: Record<string, string> = {
-  연남동: '홍대', 망리단길: '홍대', 익선동: '종로',
-  해방촌: '이태원', 경리단길: '이태원', 성수: '성수동', 뚝섬: '성수동',
-};
+import {
+  KNOWN_LOCATIONS,
+  LOCATION_ALIAS,
+  normalizeLocation,
+  stripLocationParticles,
+} from '../utils/location.util';
 
 /** 사용자 입력에서 지역명을 간단히 추출 (GPT 폴백용) */
 function extractLocationFallback(input: string): string {
+  const text = input ?? '';
   for (const [alias, canonical] of Object.entries(LOCATION_ALIAS)) {
-    if (input.includes(alias)) return canonical;
+    if (text.includes(alias)) return canonical;
   }
   for (const loc of KNOWN_LOCATIONS) {
-    if (input.includes(loc)) return loc;
+    if (text.includes(loc)) return loc;
   }
-  // 행정구역 접미사 패턴 (예: 청도군, 보령시, 당진시)
-  const adminMatch = input.match(/[가-힣]{2,6}(?:군|시|구|읍|면)/);
-  if (adminMatch) return adminMatch[0];
-  // "X에서 활동" 패턴 — "에서"를 명시적으로 매칭해 캡처 그룹에 포함되지 않도록
-  // (예: "상주에서 데이트", "당진에서 여행")
-  const eseoTripMatch = input.match(
-    /([가-힣]{2,4})에서\s*(?:여행|일정|데이트|코스|먹|놀|점심|저녁|맛집|카페)/,
+  const adminMatch = text.match(/[가-힣]{2,6}(?:군|시|구|읍|면)/);
+  if (adminMatch) return normalizeLocation(adminMatch[0]);
+  const eseoTripMatch = text.match(
+    /([가-힣]{2,6})에서\s*(?:여행|일정|데이트|코스|먹|놀|점심|저녁|맛집|카페)/,
   );
-  if (eseoTripMatch) return eseoTripMatch[1];
-  // "X 활동" 패턴 — 공백 + 활동 키워드 (예: 당진 여행, 보령 일정)
-  const tripMatch = input.match(
-    /([가-힣]{2,4})\s+(?:여행|일정|데이트|코스)/,
-  );
-  if (tripMatch) return tripMatch[1];
-  // "X에서" 단순 패턴 — "에서"를 명시적으로 매칭
-  const locationMatch = input.match(/([가-힣]{2,4})에서/);
-  if (locationMatch) return locationMatch[1];
+  if (eseoTripMatch) return normalizeLocation(eseoTripMatch[1]);
+  const tripMatch = text.match(/([가-힣]{2,6})\s+(?:여행|일정|데이트|코스)/);
+  if (tripMatch) return normalizeLocation(tripMatch[1]);
+  const locationMatch = text.match(/([가-힣]{2,6})에서/);
+  if (locationMatch) return normalizeLocation(locationMatch[1]);
+  const stripped = stripLocationParticles(text);
+  if (stripped.length >= 2) return normalizeLocation(stripped);
   return '서울';
-}
-
-/** location에서 한국어 조사("에서", "에", "은/는") 후미 제거 */
-function stripLocationParticles(loc: string): string {
-  return loc
-    .replace(/에서$/, '')
-    .replace(/에$/, '')
-    .replace(/[은는이가]$/, '')
-    .trim();
 }
 
 // 폴백용 활동 키워드 (ACTIVITY_QUERY_MAP 키 기준, 우선순위 순)
 const ACTIVITY_KEYWORDS = [
-  '점심', '저녁', '브런치', '맛집', '한식', '일식', '중식', '양식', '고기',
-  '해산물', '치킨', '파스타', '피자', '술',
-  '카페', '커피', '디저트',
-  '영화', '볼링', '쇼핑', '노래방', '방탈출', '클라이밍',
-  '전시', '박물관', '뮤지컬',
-  '산책', '공원', '한강',
+  '점심',
+  '저녁',
+  '브런치',
+  '맛집',
+  '한식',
+  '일식',
+  '중식',
+  '양식',
+  '고기',
+  '해산물',
+  '치킨',
+  '파스타',
+  '피자',
+  '술',
+  '카페',
+  '커피',
+  '디저트',
+  '영화',
+  '볼링',
+  '쇼핑',
+  '노래방',
+  '방탈출',
+  '클라이밍',
+  '전시',
+  '박물관',
+  '뮤지컬',
+  '산책',
+  '공원',
+  '한강',
 ];
 
 /** 사용자 입력에서 활동 키워드를 직접 스캔 (GPT 폴백용) */
-function extractActivitiesFallback(input: string, mode: 'date' | 'trip'): string[] {
-  const found = ACTIVITY_KEYWORDS.filter(k => input.includes(k));
+function extractActivitiesFallback(
+  input: string,
+  mode: 'date' | 'trip',
+): string[] {
+  const found = ACTIVITY_KEYWORDS.filter((k) => input.includes(k));
   if (found.length >= 2) return found.slice(0, 4);
   return mode === 'date' ? ['맛집', '카페'] : ['맛집', '산책'];
 }
@@ -90,17 +96,6 @@ export class ParseInputStep {
   }
 
   async execute(ctx: PipelineContext): Promise<void> {
-    function normalizeLocation(loc: string): string {
-      let normalized = loc.trim();
-      // 조사/접미사 제거
-      normalized = normalized.replace(/에서$|에$|은$|는$|이$|가$|로$|으로$|쪽$|근처$|주변$/g, '');
-      // 별칭 맵 재적용
-      if (LOCATION_ALIAS[normalized]) {
-        normalized = LOCATION_ALIAS[normalized];
-      }
-      return normalized.trim();
-    }
-
     // 짧은 프롬프트로 토큰 절약
     const systemPrompt = `여행/데이트 요청을 JSON으로 변환. 반드시 아래 형식만 출력:
 {"location":"지역명","activities":["활동1","활동2"],"timeOfDay":"morning|afternoon|evening|full-day","preferences":[]}
@@ -133,7 +128,9 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
       } else {
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
-          this.logger.warn(`JSON 블록 없음 (원본: ${content.slice(0, 80)}) — 폴백 사용`);
+          this.logger.warn(
+            `JSON 블록 없음 (원본: ${content.slice(0, 80)}) — 폴백 사용`,
+          );
         } else {
           const candidate = JSON.parse(jsonMatch[0]) as ParsedInput;
           if (candidate.location && candidate.activities?.length) {
@@ -142,7 +139,9 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
             if (parsed.location === '서울' && !ctx.rawInput.includes('서울')) {
               const fallbackLoc = extractLocationFallback(ctx.rawInput);
               if (fallbackLoc !== '서울') {
-                this.logger.warn(`GPT location 교정: "서울" → "${fallbackLoc}"`);
+                this.logger.warn(
+                  `GPT location 교정: "서울" → "${fallbackLoc}"`,
+                );
                 parsed.location = fallbackLoc;
               }
             }
@@ -160,10 +159,10 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
       const timeOfDay = ctx.rawInput.match(/저녁|밤|야간/)
         ? 'evening'
         : ctx.rawInput.match(/아침|오전|브런치/)
-        ? 'morning'
-        : ctx.rawInput.match(/점심|낮|오후/)
-        ? 'afternoon'
-        : 'full-day';
+          ? 'morning'
+          : ctx.rawInput.match(/점심|낮|오후/)
+            ? 'afternoon'
+            : 'full-day';
 
       parsed = { location, activities, timeOfDay, preferences: [] };
       this.logger.warn(`폴백 파싱 결과: ${JSON.stringify(parsed)}`);

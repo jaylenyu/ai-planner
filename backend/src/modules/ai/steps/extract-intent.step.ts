@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { PipelineContext } from '../interfaces/pipeline-result.interface';
 import { ActivityIntent } from '../interfaces/intent.interface';
 import { PlacesService } from '../../places/places.service';
+import { normalizeLocation } from '../utils/location.util';
 
 const LOCATION_COORDS: Record<string, { lat: number; lng: number }> = {
   // 서울 주요 지역
@@ -56,11 +57,40 @@ const LOCATION_COORDS: Record<string, { lat: number; lng: number }> = {
 
 /** 지역명이 아닌 일반 명사들 (필터링용) */
 const LOCATION_STOP_WORDS = new Set([
-  '여행', '일정', '데이트', '코스', '추천', '음식', '먹을', '해줘',
-  '뭐해', '뭐하지', '뭐할', '가자', '갈래', '해보자', '봅시다',
-  '살펴봐', '추천해', '점심', '저녁', '브런치', '맛집', '카페',
-  '영화', '볼링', '쇼핑', '노래방', '방탈출', '클라이밍',
-  '전시', '박물관', '뮤지컬', '산책', '공원', '한강',
+  '여행',
+  '일정',
+  '데이트',
+  '코스',
+  '추천',
+  '음식',
+  '먹을',
+  '해줘',
+  '뭐해',
+  '뭐하지',
+  '뭐할',
+  '가자',
+  '갈래',
+  '해보자',
+  '봅시다',
+  '살펴봐',
+  '추천해',
+  '점심',
+  '저녁',
+  '브런치',
+  '맛집',
+  '카페',
+  '영화',
+  '볼링',
+  '쇼핑',
+  '노래방',
+  '방탈출',
+  '클라이밍',
+  '전시',
+  '박물관',
+  '뮤지컬',
+  '산책',
+  '공원',
+  '한강',
 ]);
 
 const ACTIVITY_QUERY_MAP: Record<string, { query: string; type: string }> = {
@@ -113,47 +143,25 @@ export class ExtractIntentStep {
 
   constructor(private readonly placesService: PlacesService) {}
 
-  function normalizeLocation(loc: string): string {
-  let normalized = loc.trim();
-  normalized = normalized.replace(/에서$|에$|은$|는$|이$|가$|로$|으로$|쪽$|근처$|주변$/g, '');
-  const aliasMap: Record<string, string> = {
-    연남동: '홍대',
-    망리단길: '홍대',
-    익선동: '종로',
-    해방촌: '이태원',
-    경리단길: '이태원',
-    성수: '성수동',
-    뚝섬: '성수동',
-  };
-  if (aliasMap[normalized]) {
-    normalized = aliasMap[normalized];
-  }
-  return normalized.trim();
-}
+  async execute(ctx: PipelineContext): Promise<void> {
+    ctx.parsed!.location = normalizeLocation(ctx.parsed!.location);
 
-async execute(ctx: PipelineContext): Promise<void> {
-  ctx.parsed!.location = normalizeLocation(ctx.parsed!.location);
+    const parsed = ctx.parsed!;
 
-  const parsed = ctx.parsed!;
-
-  // 위치 → 좌표 (Naver 지오코딩 검증 포함)
-  let { coords, resolvedLocation } = await this.resolveCoordsWithValidation(
-    parsed.location,
-    ctx.rawInput,
-  );
-
-  resolvedLocation = normalizeLocation(resolvedLocation);
-
-  // parsed.location을 resolvedLocation으로 업데이트
-  // (SearchPlacesStep에서 사용될 location 쿼리 기준이 됨)
-  if (resolvedLocation !== parsed.location) {
-    this.logger.log(
-      `location 업데이트: "${parsed.location}" → "${resolvedLocation}"`,
+    let { coords, resolvedLocation } = await this.resolveCoordsWithValidation(
+      parsed.location,
+      ctx.rawInput,
     );
+
+    resolvedLocation = normalizeLocation(resolvedLocation);
+
+    if (resolvedLocation !== parsed.location) {
+      this.logger.log(
+        `location 업데이트: "${parsed.location}" → "${resolvedLocation}"`,
+      );
       parsed.location = resolvedLocation;
     }
 
-    // 활동 → Naver 검색어
     const activities: ActivityIntent[] = parsed.activities
       .map((act) => this.resolveActivity(act, parsed.location))
       .filter((a): a is ActivityIntent => a !== null);
@@ -162,60 +170,8 @@ async execute(ctx: PipelineContext): Promise<void> {
       throw new BadRequestException('인식 가능한 활동이 없습니다.');
     }
 
-    // 모드별 활동 순서 보장
     const ordered = this.orderByMode(activities, ctx.mode);
 
-    // 모드별 최소 장소 수 미달 시 기본 활동으로 채우기
-    // trip: 최소 4개, date: 최소 3개
-    const MODE_MIN: Record<string, number> = { trip: 4, date: 3 };
-    const MODE_FILLERS: Record<string, string[]> = {
-      trip: ['맛집', '카페', '산책', '전시'],
-      date: ['카페', '산책', '맛집'],
-    };
-    const minCount = MODE_MIN[ctx.mode] ?? 3;
-    const fillers = MODE_FILLERS[ctx.mode] ?? [];
-    const existingTypes = new Set(ordered.map((a) => a.type));
-    for (const filler of fillers) {
-      if (ordered.length >= minCount) break;
-      const resolved = this.resolveActivity(filler, parsed.location);
-      if (resolved && !existingTypes.has(resolved.type)) {
-        ordered.push(resolved);
-        existingTypes.add(resolved.type);
-        this.logger.log(`[자동 추가] ${filler} (${resolved.type})`);
-      }
-    }
-
-    const times = TIME_MAP[parsed.timeOfDay] ?? TIME_MAP['evening'];
-
-    ctx.intent = {
-      location: resolvedLocation,
-      lat: coords.lat,
-      lng: coords.lng,
-      mode: ctx.mode,
-      activities: ordered,
-      startTime: times.start,
-      endTime: times.end,
-    };
-
-    this.logger.log(
-      `의도 추출 완료: ${parsed.location} / ${ordered.map((a) => a.type).join(' → ')}`,
-    );
-  }
-
-    // 활동 → Naver 검색어
-    const activities: ActivityIntent[] = parsed.activities
-      .map((act) => this.resolveActivity(act, parsed.location))
-      .filter((a): a is ActivityIntent => a !== null);
-
-    if (activities.length === 0) {
-      throw new BadRequestException('인식 가능한 활동이 없습니다.');
-    }
-
-    // 모드별 활동 순서 보장
-    const ordered = this.orderByMode(activities, ctx.mode);
-
-    // 모드별 최소 장소 수 미달 시 기본 활동으로 채우기
-    // trip: 최소 4개, date: 최소 3개
     const MODE_MIN: Record<string, number> = { trip: 4, date: 3 };
     const MODE_FILLERS: Record<string, string[]> = {
       trip: ['맛집', '카페', '산책', '전시'],
@@ -266,10 +222,7 @@ async execute(ctx: PipelineContext): Promise<void> {
       };
     }
     for (const [key, coords] of Object.entries(LOCATION_COORDS)) {
-      if (
-        initialLocation.includes(key) ||
-        key.includes(initialLocation)
-      ) {
+      if (initialLocation.includes(key) || key.includes(initialLocation)) {
         return { coords, resolvedLocation: initialLocation };
       }
     }
