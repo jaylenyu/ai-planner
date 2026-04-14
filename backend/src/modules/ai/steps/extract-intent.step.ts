@@ -148,12 +148,10 @@ export class ExtractIntentStep {
 
     const parsed = ctx.parsed!;
 
-    let { coords, resolvedLocation } = await this.resolveCoordsWithValidation(
-      parsed.location,
-      ctx.rawInput,
-    );
+    const { coords, resolvedLocation: rawResolvedLocation } =
+      await this.resolveCoordsWithValidation(parsed.location, ctx.rawInput);
 
-    resolvedLocation = normalizeLocation(resolvedLocation);
+    const resolvedLocation = normalizeLocation(rawResolvedLocation);
 
     if (resolvedLocation !== parsed.location) {
       this.logger.log(

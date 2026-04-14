@@ -140,7 +140,7 @@ export class AiPlacesFallbackService {
   private parseNumber(value?: number | string): number {
     if (typeof value === 'number') return value;
     if (typeof value === 'string') {
-      const parsed = Number(value.replace(/[^0-9.\-]/g, ''));
+      const parsed = Number(value.replace(/[^0-9.-]/g, ''));
       return Number.isNaN(parsed) ? NaN : parsed;
     }
     return NaN;
