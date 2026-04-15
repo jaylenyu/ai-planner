@@ -147,6 +147,19 @@ jobs:
           timeout: 120s
           script: |
             set -e
+            COMPOSE_FILE=~/infra/docker-compose.ai-planner.prod.yml
+            ENV_FILE=~/ai-planner/.env
+            if grep -q "^KAKAO_REST_API_KEY=" "$ENV_FILE" 2>/dev/null; then
+              sed -i "s|^KAKAO_REST_API_KEY=.*|KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}|" "$ENV_FILE"
+            else
+              echo "KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}" >> "$ENV_FILE"
+            fi
+            if ! grep -q "^[[:space:]]*KAKAO_REST_API_KEY:" "$COMPOSE_FILE"; then
+              sed -i '/NAVER_CLIENT_SECRET:/a\      KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY}' "$COMPOSE_FILE"
+            fi
+            GITHUB_REPOSITORY_OWNER=${{ github.repository_owner }} \
+            KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }} \
+            docker compose -p ai-planner -f "$COMPOSE_FILE" --env-file "$ENV_FILE" config >/dev/null
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker pull ${{ env.IMAGE_BACKEND }}:latest
             docker pull ${{ env.IMAGE_FRONTEND }}:latest
@@ -154,15 +167,15 @@ jobs:
             KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }} \
             docker compose \
               -p ai-planner \
-              -f ~/infra/docker-compose.ai-planner.prod.yml \
-              --env-file ~/ai-planner/.env \
+              -f "$COMPOSE_FILE" \
+              --env-file "$ENV_FILE" \
               down --remove-orphans || true
             GITHUB_REPOSITORY_OWNER=${{ github.repository_owner }} \
             KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }} \
             docker compose \
               -p ai-planner \
-              -f ~/infra/docker-compose.ai-planner.prod.yml \
-              --env-file ~/ai-planner/.env \
+              -f "$COMPOSE_FILE" \
+              --env-file "$ENV_FILE" \
               up -d --no-build
             docker image prune -f
 
