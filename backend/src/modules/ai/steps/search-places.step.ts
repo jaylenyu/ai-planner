@@ -22,26 +22,41 @@ function normalizePlaceKey(name: string): string {
 export class SearchPlacesStep {
   private readonly logger = new Logger(SearchPlacesStep.name);
 
-  constructor(
-    private readonly placesService: PlacesService,
-  ) {}
+  constructor(private readonly placesService: PlacesService) {}
 
   async execute(ctx: PipelineContext): Promise<void> {
     const intent = ctx.intent!;
     ctx.rawPlaces = {};
+    const preferences = ctx.parsed?.preferences ?? [];
 
     for (const activity of intent.activities) {
-      const [naverPlaces, kakaoPlaces] = await Promise.all([
-        this.searchNaverPlaces(activity.naverQuery, activity.type, intent),
-        this.placesService.searchNearbyKakao(
-          activity.naverQuery,
-          intent.lat,
-          intent.lng,
-          MAX_RESULTS_PER_SOURCE,
-        ),
-      ]);
+      const queries = this.buildQueries(
+        activity.naverQuery,
+        intent.location,
+        activity.type,
+        preferences,
+      );
+      const naverMerged: PlaceResult[] = [];
+      const kakaoMerged: PlaceResult[] = [];
 
-      const merged = this.mergeSources(naverPlaces, kakaoPlaces);
+      for (const query of queries) {
+        const [naverPlaces, kakaoPlaces] = await Promise.all([
+          this.searchNaverPlaces(query, activity.type, intent),
+          this.placesService.searchNearbyKakao(
+            query,
+            intent.lat,
+            intent.lng,
+            MAX_RESULTS_PER_SOURCE,
+          ),
+        ]);
+        naverMerged.push(...naverPlaces);
+        kakaoMerged.push(...kakaoPlaces);
+      }
+
+      const dedupedNaver = this.mergeSources(naverMerged, []);
+      const dedupedKakao = this.mergeSources([], kakaoMerged);
+
+      const merged = this.mergeSources(dedupedNaver, dedupedKakao);
 
       ctx.rawPlaces[activity.type] = [
         ...(ctx.rawPlaces[activity.type] ?? []),
@@ -56,7 +71,7 @@ export class SearchPlacesStep {
           )
           .join('\n') || '  (결과 없음)';
       this.logger.log(
-        `[${activity.type}] 통합 ${merged.length}개 (Naver ${naverPlaces.length}, Kakao ${kakaoPlaces.length}): ${activity.naverQuery}\n${placeLog}`,
+        `[${activity.type}] 통합 ${merged.length}개 (Naver ${dedupedNaver.length}, Kakao ${dedupedKakao.length}): ${queries[0]}${queries.length > 1 ? ` [menu queries +${queries.length - 1}]` : ''}\n${placeLog}`,
       );
     }
 
@@ -66,6 +81,23 @@ export class SearchPlacesStep {
         '해당 지역에서 장소를 찾지 못했습니다. 다른 지역이나 활동을 입력해보세요.',
       );
     }
+  }
+
+  private buildQueries(
+    baseQuery: string,
+    location: string,
+    activityType: string,
+    preferences: string[],
+  ): string[] {
+    if (activityType !== 'food' || preferences.length === 0) {
+      return [baseQuery];
+    }
+
+    const menuQueries = preferences.flatMap((keyword) => [
+      `${location} ${keyword}`,
+      `${location} ${keyword} 맛집`,
+    ]);
+    return [...new Set([baseQuery, ...menuQueries])];
   }
 
   private async searchNaverPlaces(

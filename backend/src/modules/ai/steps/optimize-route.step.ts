@@ -2,6 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PipelineContext } from '../interfaces/pipeline-result.interface';
 import { OrderedPlace } from '../interfaces/place.interface';
 
+type RoutePlace = Omit<
+  OrderedPlace,
+  'order' | 'distanceFromPrev' | 'travelMinutes'
+>;
+
 export function haversine(
   lat1: number,
   lng1: number,
@@ -22,6 +27,10 @@ export function haversine(
 @Injectable()
 export class OptimizeRouteStep {
   private readonly logger = new Logger(OptimizeRouteStep.name);
+
+  private rand(ctx: PipelineContext): number {
+    return ctx.randomFn ? ctx.randomFn() : Math.random();
+  }
 
   execute(ctx: PipelineContext): void {
     const intent = ctx.intent!;
@@ -46,16 +55,47 @@ export class OptimizeRouteStep {
       return;
     }
 
-    // Nearest Neighbor (시작점: intent 위치)
+    const starts: OrderedPlace[][] = [];
+    // 1) 결정론적 NN 1회
+    starts.push(this.nearestNeighbor(places, intent.lat, intent.lng));
+    // 2) 랜덤 초기해 다중 생성
+    const randomTryCount = Math.min(12, Math.max(4, places.length * 3));
+    for (let i = 0; i < randomTryCount; i += 1) {
+      const shuffled = this.shuffle(places, () => this.rand(ctx));
+      starts.push(this.makeOrdered(shuffled, intent.lat, intent.lng));
+    }
+
+    const optimized = starts.map((start) =>
+      this.twoOpt(start, intent.lat, intent.lng),
+    );
+    const ranked = optimized
+      .map((route) => ({
+        route,
+        dist: this.totalDistance(route, intent.lat, intent.lng),
+      }))
+      .sort((a, b) => a.dist - b.dist);
+    const topCount = Math.min(3, ranked.length);
+    const winner = ranked[Math.floor(this.rand(ctx) * topCount)].route;
+
+    ctx.orderedPlaces = winner;
+    this.logger.log(
+      `경로 최적화 완료: ${winner.map((p) => p.name).join(' → ')}`,
+    );
+  }
+
+  private nearestNeighbor(
+    places: RoutePlace[],
+    startLat: number,
+    startLng: number,
+  ): OrderedPlace[] {
     const unvisited = [...places];
     const ordered: OrderedPlace[] = [];
-    let currentLat = intent.lat;
-    let currentLng = intent.lng;
+    let currentLat = startLat;
+    let currentLng = startLng;
 
     while (unvisited.length > 0) {
       let minDist = Infinity;
       let minIdx = 0;
-
       unvisited.forEach((p, i) => {
         const d = haversine(currentLat, currentLng, p.lat, p.lng);
         if (d < minDist) {
@@ -63,27 +103,46 @@ export class OptimizeRouteStep {
           minIdx = i;
         }
       });
-
       const next = unvisited.splice(minIdx, 1)[0];
-      const travelMinutes = Math.ceil((minDist / 5) * 60); // 도보 5km/h
-
       ordered.push({
         ...next,
         order: ordered.length + 1,
         distanceFromPrev: minDist,
-        travelMinutes,
+        travelMinutes: Math.ceil((minDist / 5) * 60),
       });
-
       currentLat = next.lat;
       currentLng = next.lng;
     }
+    return ordered;
+  }
 
-    // 2-opt 개선으로 전체 이동거리 최소화 시도
-    const improved = this.twoOpt(ordered, intent.lat, intent.lng);
-    ctx.orderedPlaces = improved;
-    this.logger.log(
-      `경로 최적화 완료: ${improved.map((p) => p.name).join(' → ')}`,
-    );
+  private makeOrdered(
+    sequence: RoutePlace[],
+    startLat: number,
+    startLng: number,
+  ): OrderedPlace[] {
+    let prevLat = startLat;
+    let prevLng = startLng;
+    return sequence.map((place, idx) => {
+      const dist = haversine(prevLat, prevLng, place.lat, place.lng);
+      prevLat = place.lat;
+      prevLng = place.lng;
+      return {
+        ...place,
+        order: idx + 1,
+        distanceFromPrev: dist,
+        travelMinutes: Math.ceil((dist / 5) * 60),
+      };
+    });
+  }
+
+  private shuffle<T>(arr: T[], rand: () => number): T[] {
+    const out = [...arr];
+    for (let i = out.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(rand() * (i + 1));
+      [out[i], out[j]] = [out[j], out[i]];
+    }
+    return out;
   }
 
   private totalDistance(

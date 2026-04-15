@@ -15,6 +15,8 @@ export interface ScheduleItem {
 export interface PipelineContext {
   rawInput: string;
   mode: 'date' | 'trip';
+  /** 요청 단위 랜덤 함수 (미지정 시 Math.random 사용) */
+  randomFn?: () => number;
   parsed?: ParsedInput;
   intent?: IntentPayload;
   locationCandidates?: LocationCandidateLog[];

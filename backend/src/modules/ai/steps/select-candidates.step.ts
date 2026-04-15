@@ -24,8 +24,7 @@ function scoreCandidate(
   distanceKm: number,
   mode: 'date' | 'trip',
 ): number {
-  const base =
-    place.source === 'naver' || place.source === 'kakao' ? 1 : 0.85;
+  const base = place.source === 'naver' || place.source === 'kakao' ? 1 : 0.85;
   const distancePenalty = distanceKm / (mode === 'date' ? 4 : 6);
   const linkBonus = place.link ? 0.02 : 0;
   return base + linkBonus - distancePenalty;
@@ -34,6 +33,10 @@ function scoreCandidate(
 @Injectable()
 export class SelectCandidatesStep {
   private readonly logger = new Logger(SelectCandidatesStep.name);
+
+  private rand(ctx: PipelineContext): number {
+    return ctx.randomFn ? ctx.randomFn() : Math.random();
+  }
 
   execute(ctx: PipelineContext): void {
     const intent = ctx.intent!;
@@ -46,8 +49,10 @@ export class SelectCandidatesStep {
     let centerLng = intent.lng;
     if (allPlaces.length >= 3) {
       // 1) 1차 중심
-      const meanLat = allPlaces.reduce((s, p) => s + p.lat, 0) / allPlaces.length;
-      const meanLng = allPlaces.reduce((s, p) => s + p.lng, 0) / allPlaces.length;
+      const meanLat =
+        allPlaces.reduce((s, p) => s + p.lat, 0) / allPlaces.length;
+      const meanLng =
+        allPlaces.reduce((s, p) => s + p.lng, 0) / allPlaces.length;
       // 2) 중심으로부터의 거리 계산 후 중앙 80%만 사용해 재평균(간단한 트림)
       const withDist = allPlaces
         .map((p) => ({ p, d: haversine(meanLat, meanLng, p.lat, p.lng) }))
@@ -107,22 +112,21 @@ export class SelectCandidatesStep {
         this.logger.warn(`[${type}] 반경 ${usedRadius}km로 확장하여 후보 검색`);
       }
 
-      const scored = filtered
-        .map((place) => {
-          const distance = haversine(centerLat, centerLng, place.lat, place.lng);
-          const score = scoreCandidate(place, distance, intent.mode);
-          return { place, distance, score };
-        })
-        .sort((a, b) => b.score - a.score || a.distance - b.distance);
+      const scored = filtered.map((place) => {
+        const distance = haversine(centerLat, centerLng, place.lat, place.lng);
+        const score = scoreCandidate(place, distance, intent.mode);
+        return { place, distance, score };
+      });
 
       const picks: PlaceResult[] = [];
-      for (const entry of scored) {
-        if (picks.length >= needed) break;
-        if (!usedNames.has(entry.place.name)) {
-          entry.place.score = entry.score;
-          picks.push(entry.place);
-          usedNames.add(entry.place.name);
-        }
+      const pool = [...scored];
+      while (pool.length > 0 && picks.length < needed) {
+        const idx = Math.floor(this.rand(ctx) * pool.length);
+        const [entry] = pool.splice(idx, 1);
+        if (usedNames.has(entry.place.name)) continue;
+        entry.place.score = entry.score;
+        picks.push(entry.place);
+        usedNames.add(entry.place.name);
       }
 
       if (picks.length === 0) {

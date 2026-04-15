@@ -164,4 +164,30 @@ describe('ParseInputStep — resolveLocation', () => {
 
     expect(['부산', '해운대']).toContain(ctx.parsed!.location);
   });
+
+  it('원문 메뉴어는 preferences에 보강된다', async () => {
+    const { step, mockCreate } = makeStep();
+    mockCreate.mockReturnValue(
+      Promise.resolve({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                location: '연남동',
+                activities: ['양식', '카페'],
+                timeOfDay: 'full-day',
+                preferences: [],
+              }),
+            },
+            finish_reason: 'stop',
+          },
+        ],
+      }),
+    );
+    const ctx = makeCtx('연남동에서 피자먹고싶어');
+
+    await step.execute(ctx);
+
+    expect(ctx.parsed?.preferences).toContain('피자');
+  });
 });
