@@ -244,10 +244,7 @@ jobs:
               exit 1
             fi
 
-            curl -sS -X POST "http://localhost:4000/api/plan/generate" \
-              -H "Authorization: Bearer $TOKEN" \
-              -H "Content-Type: application/json" \
-              --data '{"rawInput":"연남동에서 피자 먹고 싶어.","mode":"date"}' >/tmp/plan-generate-smoke.json
+            docker exec -e TOKEN="$TOKEN" ai-planner-backend node -e "(async()=>{const r=await fetch('http://localhost:4000/api/plan/generate',{method:'POST',headers:{Authorization:'Bearer '+process.env.TOKEN,'Content-Type':'application/json'},body:JSON.stringify({rawInput:'연남동에서 피자 먹고 싶어.',mode:'date'})}); if(!r.ok){console.error('SMOKE_STATUS_'+r.status); process.exit(1);} console.log('SMOKE_STATUS_'+r.status);})().catch((e)=>{console.error(e?.message||e);process.exit(1);});"
 
             sleep 2
             LOGS=$(docker logs --since "$START_TS" ai-planner-backend 2>&1 || true)
