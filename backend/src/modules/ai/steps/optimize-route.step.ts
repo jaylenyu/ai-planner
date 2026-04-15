@@ -24,6 +24,10 @@ export function haversine(
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+function roundUpToTen(minutes: number): number {
+  return Math.ceil(minutes / 10) * 10;
+}
+
 @Injectable()
 export class OptimizeRouteStep {
   private readonly logger = new Logger(OptimizeRouteStep.name);
@@ -36,22 +40,35 @@ export class OptimizeRouteStep {
     const intent = ctx.intent!;
     const candidates = ctx.candidates!;
 
-    // 활동 순서(intent.activities)에서 type별 후보 매핑 (같은 type은 인덱스 기반으로 다른 장소 할당)
-    const typeIndex: Record<string, number> = {};
     const places = intent.activities
       .map((activity) => {
-        const list = candidates[activity.type];
+        const list = candidates[activity.slotId];
         if (!list?.length) return null;
-        const idx = typeIndex[activity.type] ?? 0;
-        typeIndex[activity.type] = idx + 1;
-        const place = list[idx];
+        const place = list[0];
         if (!place) return null;
-        return { ...place, type: activity.type };
+        return {
+          ...place,
+          slotId: activity.slotId,
+          type: activity.type,
+          anchorMinutes: activity.anchorMinutes,
+          required: activity.required,
+        };
       })
       .filter((p): p is NonNullable<typeof p> => p !== null);
 
     if (places.length === 0) {
       ctx.orderedPlaces = [];
+      return;
+    }
+
+    // 흐름 모드: 사용자 순서 보존, TSP 재정렬 금지
+    const locked = intent.activities.some((a) => a.orderLocked === true);
+    if (locked) {
+      const ordered = this.makeOrdered(places, intent.lat, intent.lng);
+      ctx.orderedPlaces = ordered;
+      this.logger.log(
+        `경로 최적화 생략(흐름 모드): ${ordered.map((p) => p.name).join(' → ')}`,
+      );
       return;
     }
 
@@ -108,7 +125,7 @@ export class OptimizeRouteStep {
         ...next,
         order: ordered.length + 1,
         distanceFromPrev: minDist,
-        travelMinutes: Math.ceil((minDist / 5) * 60),
+        travelMinutes: roundUpToTen(Math.ceil((minDist / 5) * 60)),
       });
       currentLat = next.lat;
       currentLng = next.lng;
@@ -131,7 +148,7 @@ export class OptimizeRouteStep {
         ...place,
         order: idx + 1,
         distanceFromPrev: dist,
-        travelMinutes: Math.ceil((dist / 5) * 60),
+        travelMinutes: roundUpToTen(Math.ceil((dist / 5) * 60)),
       };
     });
   }
@@ -199,7 +216,7 @@ export class OptimizeRouteStep {
         ...place,
         order: idx + 1,
         distanceFromPrev: dist,
-        travelMinutes: Math.ceil((dist / 5) * 60),
+        travelMinutes: roundUpToTen(Math.ceil((dist / 5) * 60)),
       };
     });
   }

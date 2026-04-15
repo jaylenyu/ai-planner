@@ -10,8 +10,11 @@ export interface PlaceResult {
 }
 
 export interface OrderedPlace extends PlaceResult {
+  slotId: string;
   order: number;
   type: string;
   distanceFromPrev: number;
   travelMinutes: number;
+  anchorMinutes?: number;
+  required?: boolean;
 }

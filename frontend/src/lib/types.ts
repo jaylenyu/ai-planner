@@ -15,6 +15,7 @@ export interface PlanResult {
   items: PlanItem[];
   polyline: [number, number][];
   totalDurationMin: number;
+  unsupportedHints: string[];
 }
 
 export interface AuthResponse {

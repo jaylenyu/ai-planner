@@ -50,6 +50,7 @@ export class AiService {
       items: ctx.scheduleItems!,
       polyline: ctx.polyline!,
       totalDurationMin: endMin - startMin,
+      unsupportedHints: ctx.unsupportedHints ?? [],
     };
   }
 

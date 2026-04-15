@@ -76,23 +76,6 @@ const steps = [
   },
 ];
 
-const testimonials = [
-  {
-    quote:
-      "Dayplan 덕분에 팀 워크숍 코스를 짜는 시간이 1/5로 줄었습니다. 장소별 디테일이 많아서 바로 예약까지 이어졌어요.",
-    name: "이상훈",
-    role: "스타트업 COO",
-    initials: "이",
-  },
-  {
-    quote:
-      "AI 추천이라 걱정했는데 실제로 다녀와 보니 취향을 잘 반영해 줬어요. 특히 이동 동선이 매끄러워 만족도가 높았습니다.",
-    name: "정다혜",
-    role: "제품 디자이너",
-    initials: "정",
-  },
-];
-
 const previewItems = [
   { time: "11:00", name: "먼데이투선데이 브런치", dot: "bg-red-400" },
   { time: "13:00", name: "아트하우스 전시 관람", dot: "bg-cyan-400" },

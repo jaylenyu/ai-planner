@@ -185,6 +185,16 @@ export default function PlanPage() {
               </div>
               <h2 className="text-lg font-bold text-stone-800">일정이 완성됐어요!</h2>
             </div>
+            {result.unsupportedHints.length > 0 && (
+              <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+                <p className="font-semibold">아직 반영되지 않은 조건이 있어요</p>
+                <ul className="mt-2 flex flex-col gap-1 text-amber-800">
+                  {result.unsupportedHints.map((hint) => (
+                    <li key={hint}>- {hint}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               {/* Schedule */}
               <AppCard padding="md" className="order-2 lg:order-1">

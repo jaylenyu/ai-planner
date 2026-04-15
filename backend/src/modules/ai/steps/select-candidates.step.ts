@@ -2,6 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PipelineContext } from '../interfaces/pipeline-result.interface';
 import { PlaceResult } from '../interfaces/place.interface';
 
+const CHAIN_PATTERN =
+  /(스타벅스|이디야|투썸|빽다방|커피빈|메가커피|탐앤탐스|할리스)/;
+
 function haversine(
   lat1: number,
   lng1: number,
@@ -23,11 +26,120 @@ function scoreCandidate(
   place: PlaceResult,
   distanceKm: number,
   mode: 'date' | 'trip',
+  preferences: string[],
+  options: { chainPenalty: boolean; compactRoute: boolean },
 ): number {
   const base = place.source === 'naver' || place.source === 'kakao' ? 1 : 0.85;
-  const distancePenalty = distanceKm / (mode === 'date' ? 4 : 6);
+  const divisor = options.compactRoute
+    ? mode === 'date'
+      ? 2
+      : 3
+    : mode === 'date'
+      ? 4
+      : 6;
+  const distancePenalty = distanceKm / divisor;
   const linkBonus = place.link ? 0.02 : 0;
-  return base + linkBonus - distancePenalty;
+  const preferenceBonus = preferences.reduce((bonus, keyword) => {
+    const normalized = keyword.replace(/\s+/g, '').toLowerCase();
+    const name = place.name.replace(/\s+/g, '').toLowerCase();
+    const category = place.category.replace(/\s+/g, '').toLowerCase();
+    const address = place.address.replace(/\s+/g, '').toLowerCase();
+
+    if (!normalized) return bonus;
+    if (name.includes(normalized)) return bonus + 0.8;
+    if (category.includes(normalized)) return bonus + 0.45;
+    if (address.includes(normalized)) return bonus + 0.2;
+    return bonus;
+  }, 0);
+  const chainPenalty =
+    options.chainPenalty && CHAIN_PATTERN.test(place.name) ? 0.5 : 0;
+
+  return base + linkBonus + preferenceBonus - distancePenalty - chainPenalty;
+}
+
+function normalizeText(value: string): string {
+  return value.replace(/\s+/g, '').toLowerCase();
+}
+
+function joinedPlaceText(place: PlaceResult): string {
+  return normalizeText(`${place.name} ${place.category} ${place.address}`);
+}
+
+function isCafeLike(place: PlaceResult): boolean {
+  const text = joinedPlaceText(place);
+  return [
+    '카페',
+    '커피',
+    '디저트',
+    '베이커리',
+    '빵집',
+    '케이크',
+    '아이스크림',
+    '주스',
+    '스무디',
+    '티',
+    '라떼',
+    '에이드',
+  ].some((keyword) => text.includes(keyword));
+}
+
+function isFoodLike(place: PlaceResult): boolean {
+  const text = joinedPlaceText(place);
+  return [
+    '식당',
+    '맛집',
+    '한식',
+    '중식',
+    '일식',
+    '양식',
+    '고기',
+    '해장국',
+    '국밥',
+    '감자탕',
+    '설렁탕',
+    '탕',
+    '찌개',
+    '전골',
+    '파스타',
+    '피자',
+    '치킨',
+    '버거',
+    '스테이크',
+    '초밥',
+    '회',
+    '스시',
+    '라멘',
+    '분식',
+    '곱창',
+    '막창',
+    '갈비',
+    '삼겹살',
+    '백반',
+    '한정식',
+    '국수',
+    '이자카야',
+    '술집',
+    '와인바',
+    '펍',
+  ].some((keyword) => text.includes(keyword));
+}
+
+function estimateSpreadKm(places: PlaceResult[]): number {
+  if (places.length < 2) return 0;
+
+  let minLat = places[0].lat;
+  let maxLat = places[0].lat;
+  let minLng = places[0].lng;
+  let maxLng = places[0].lng;
+
+  for (const place of places) {
+    minLat = Math.min(minLat, place.lat);
+    maxLat = Math.max(maxLat, place.lat);
+    minLng = Math.min(minLng, place.lng);
+    maxLng = Math.max(maxLng, place.lng);
+  }
+
+  return haversine(minLat, minLng, maxLat, maxLng);
 }
 
 @Injectable()
@@ -41,28 +153,34 @@ export class SelectCandidatesStep {
   execute(ctx: PipelineContext): void {
     const intent = ctx.intent!;
     const rawPlaces = ctx.rawPlaces!;
+    const preferences = ctx.parsed?.preferences ?? [];
+    const compactRoute = ctx.parsed?.softConstraints?.compactRoute ?? false;
+    const chainPenalty = ctx.parsed?.chainPenalty ?? false;
+    const locked = intent.activities.some((activity) => activity.orderLocked);
     ctx.candidates = {};
 
-    // 유효 중심 계산: rawPlaces의 중심(centroid)을 구해 초기 geocode 오차를 보정
     const allPlaces = Object.values(rawPlaces).flat();
-    let centerLat = intent.lat;
-    let centerLng = intent.lng;
+    let baseCenterLat = intent.lat;
+    let baseCenterLng = intent.lng;
     if (allPlaces.length >= 3) {
-      // 1) 1차 중심
       const meanLat =
-        allPlaces.reduce((s, p) => s + p.lat, 0) / allPlaces.length;
+        allPlaces.reduce((sum, place) => sum + place.lat, 0) / allPlaces.length;
       const meanLng =
-        allPlaces.reduce((s, p) => s + p.lng, 0) / allPlaces.length;
-      // 2) 중심으로부터의 거리 계산 후 중앙 80%만 사용해 재평균(간단한 트림)
+        allPlaces.reduce((sum, place) => sum + place.lng, 0) / allPlaces.length;
       const withDist = allPlaces
-        .map((p) => ({ p, d: haversine(meanLat, meanLng, p.lat, p.lng) }))
-        .sort((a, b) => a.d - b.d);
+        .map((place) => ({
+          place,
+          distance: haversine(meanLat, meanLng, place.lat, place.lng),
+        }))
+        .sort((a, b) => a.distance - b.distance);
       const keep = Math.max(3, Math.floor(withDist.length * 0.8));
-      const trimmed = withDist.slice(0, keep).map((x) => x.p);
-      const tLat = trimmed.reduce((s, p) => s + p.lat, 0) / trimmed.length;
-      const tLng = trimmed.reduce((s, p) => s + p.lng, 0) / trimmed.length;
+      const trimmed = withDist.slice(0, keep).map((entry) => entry.place);
+      const tLat =
+        trimmed.reduce((sum, place) => sum + place.lat, 0) / trimmed.length;
+      const tLng =
+        trimmed.reduce((sum, place) => sum + place.lng, 0) / trimmed.length;
       const driftKm = haversine(intent.lat, intent.lng, tLat, tLng);
-      const threshold = intent.mode === 'date' ? 3 : 5; // date는 3km, trip은 5km 허용
+      const threshold = intent.mode === 'date' ? 3 : 5;
       if (driftKm > threshold) {
         this.logger.warn(
           `유효 중심 보정: intent(${intent.lat.toFixed(4)},${intent.lng.toFixed(
@@ -71,79 +189,150 @@ export class SelectCandidatesStep {
             2,
           )}km)`,
         );
-        centerLat = tLat;
-        centerLng = tLng;
+        baseCenterLat = tLat;
+        baseCenterLng = tLng;
       }
     }
 
-    // type별 필요 개수 계산 (food가 2개 activities면 2개 선택)
-    const typeCounts: Record<string, number> = {};
-    for (const a of intent.activities) {
-      typeCounts[a.type] = (typeCounts[a.type] ?? 0) + 1;
+    const spreadKm = estimateSpreadKm(allPlaces);
+    const wideRegion = spreadKm > 12;
+    const radiusSteps = wideRegion
+      ? intent.mode === 'date'
+        ? [5, 10, 20]
+        : [5, 10, 20, 30]
+      : intent.mode === 'date'
+        ? [3, 5]
+        : [3, 5, 10];
+
+    if (wideRegion) {
+      this.logger.log(
+        `넓은 지역 감지: spread ${spreadKm.toFixed(2)}km, radius ${radiusSteps.join('→')}km`,
+      );
     }
 
-    // 전체 중복 방지용 이름 집합
     const usedNames = new Set<string>();
+    let currentCenterLat = baseCenterLat;
+    let currentCenterLng = baseCenterLng;
+    const dynamicCenter = locked || compactRoute;
 
-    for (const [type, places] of Object.entries(rawPlaces)) {
-      if (!places.length) continue;
+    for (const activity of intent.activities) {
+      const places = rawPlaces[activity.slotId] ?? [];
+      if (places.length === 0) continue;
 
-      const needed = typeCounts[type] ?? 1;
+      const centerLat = dynamicCenter ? currentCenterLat : baseCenterLat;
+      const centerLng = dynamicCenter ? currentCenterLng : baseCenterLng;
 
-      // 반경 확장: date는 짧은 동선 유지(3→5km), trip은 넓게(3→5→10km)
-      const RADIUS_STEPS = intent.mode === 'date' ? [3, 5] : [3, 5, 10];
       let filtered: PlaceResult[] = [];
-      let usedRadius = RADIUS_STEPS[0];
-      for (const radius of RADIUS_STEPS) {
+      let usedRadius = radiusSteps[0];
+      for (const radius of radiusSteps) {
         filtered = places.filter(
-          (p) => haversine(centerLat, centerLng, p.lat, p.lng) <= radius,
+          (place) =>
+            haversine(centerLat, centerLng, place.lat, place.lng) <= radius,
         );
         usedRadius = radius;
         if (filtered.length > 0) break;
       }
 
       if (filtered.length === 0) {
+        const nearest = [...places].sort(
+          (a, b) =>
+            haversine(centerLat, centerLng, a.lat, a.lng) -
+            haversine(centerLat, centerLng, b.lat, b.lng),
+        )[0];
+        if (!nearest) {
+          this.logger.warn(
+            `[${activity.slotId}] 반경 ${usedRadius}km 내 후보 없음 — 활동 제외`,
+          );
+          continue;
+        }
+        filtered = [nearest];
         this.logger.warn(
-          `[${type}] 반경 ${usedRadius}km 내 후보 없음 — 활동 제외`,
+          `[${activity.slotId}] 반경 ${usedRadius}km 내 후보 없음 — 가장 가까운 후보로 대체: ${nearest.name}`,
         );
-        continue;
       }
+
       if (usedRadius > 3) {
-        this.logger.warn(`[${type}] 반경 ${usedRadius}km로 확장하여 후보 검색`);
+        this.logger.warn(
+          `[${activity.slotId}] 반경 ${usedRadius}km로 확장하여 후보 검색`,
+        );
       }
+
+      const typeSpecific = filtered.filter((place) => {
+        if (activity.type === 'food') {
+          return !isCafeLike(place) || isFoodLike(place);
+        }
+        if (activity.type === 'cafe') {
+          return !isFoodLike(place) || isCafeLike(place);
+        }
+        return true;
+      });
+      if (typeSpecific.length > 0) filtered = typeSpecific;
 
       const scored = filtered.map((place) => {
         const distance = haversine(centerLat, centerLng, place.lat, place.lng);
-        const score = scoreCandidate(place, distance, intent.mode);
+        const score = scoreCandidate(
+          place,
+          distance,
+          intent.mode,
+          preferences,
+          {
+            chainPenalty,
+            compactRoute,
+          },
+        );
         return { place, distance, score };
       });
 
-      const picks: PlaceResult[] = [];
-      const pool = [...scored];
-      while (pool.length > 0 && picks.length < needed) {
-        const idx = Math.floor(this.rand(ctx) * pool.length);
-        const [entry] = pool.splice(idx, 1);
+      const pool = [...scored].sort(
+        (a, b) => b.score - a.score || a.distance - b.distance,
+      );
+      let picked: PlaceResult | undefined;
+      while (pool.length > 0) {
+        const topScore = pool[0].score;
+        const tied = pool.filter(
+          (entry) => Math.abs(entry.score - topScore) < 1e-6,
+        );
+        const choicePool = tied.length > 1 ? tied : [pool[0]];
+        const idx = Math.floor(this.rand(ctx) * choicePool.length);
+        const entry = choicePool[idx] ?? choicePool[0];
+        const removeIdx = pool.findIndex(
+          (candidate) => candidate.place.name === entry.place.name,
+        );
+        if (removeIdx >= 0) pool.splice(removeIdx, 1);
         if (usedNames.has(entry.place.name)) continue;
         entry.place.score = entry.score;
-        picks.push(entry.place);
-        usedNames.add(entry.place.name);
+        picked = entry.place;
+        break;
       }
 
-      if (picks.length === 0) {
-        this.logger.warn(`[${type}] 중복 제외 후 후보 없음 — 활동 제외`);
+      if (!picked) {
+        this.logger.warn(
+          `[${activity.slotId}] 중복 제외 후 후보 없음 — 활동 제외`,
+        );
         continue;
       }
 
-      ctx.candidates[type] = picks;
-      picks.forEach((pick) => {
-        const dist = haversine(centerLat, centerLng, pick.lat, pick.lng);
-        const score = pick.score ?? scoreCandidate(pick, dist, intent.mode);
-        this.logger.log(
-          `[${type}] 선택: ${pick.name} (${dist.toFixed(2)}km, score ${score.toFixed(
-            2,
-          )}, source=${pick.source ?? 'mix'})`,
-        );
-      });
+      ctx.candidates[activity.slotId] = [picked];
+      usedNames.add(picked.name);
+
+      const dist = haversine(centerLat, centerLng, picked.lat, picked.lng);
+      const score =
+        picked.score !== undefined
+          ? picked.score
+          : scoreCandidate(picked, dist, intent.mode, preferences, {
+              chainPenalty,
+              compactRoute,
+            });
+      this.logger.log(
+        `[${activity.slotId}] 선택: ${picked.name} (${dist.toFixed(
+          2,
+        )}km, score ${score.toFixed(2)}, source=${picked.source ?? 'mix'})`,
+      );
+
+      if (dynamicCenter) {
+        currentCenterLat = picked.lat;
+        currentCenterLng = picked.lng;
+      }
     }
   }
 }

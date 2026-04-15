@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { PlacesService } from '../../places/places.service';
 import { PipelineContext } from '../interfaces/pipeline-result.interface';
 import { PlaceResult } from '../interfaces/place.interface';
+import { ActivityIntent } from '../interfaces/intent.interface';
 
 const FALLBACK_QUERIES: Record<string, string> = {
   attraction: '관광지 명소 볼거리',
@@ -13,6 +14,19 @@ const FALLBACK_QUERIES: Record<string, string> = {
 
 const MAX_RESULTS_PER_SOURCE = 5;
 const MAX_MERGED_RESULTS = 10;
+const GENERIC_FOOD_SLOT_QUERIES = new Set([
+  '맛집',
+  '한식',
+  '일식',
+  '중식',
+  '양식',
+  '고기',
+  '해산물',
+  '치킨',
+  '저녁 맛집',
+  '점심 맛집',
+  '브런치 카페',
+]);
 
 function normalizePlaceKey(name: string): string {
   return name.replace(/\s+/g, '').toLowerCase();
@@ -31,9 +45,8 @@ export class SearchPlacesStep {
 
     for (const activity of intent.activities) {
       const queries = this.buildQueries(
-        activity.naverQuery,
-        intent.location,
-        activity.type,
+        activity,
+        intent.searchLocation,
         preferences,
       );
       const naverMerged: PlaceResult[] = [];
@@ -58,10 +71,7 @@ export class SearchPlacesStep {
 
       const merged = this.mergeSources(dedupedNaver, dedupedKakao);
 
-      ctx.rawPlaces[activity.type] = [
-        ...(ctx.rawPlaces[activity.type] ?? []),
-        ...merged,
-      ];
+      ctx.rawPlaces[activity.slotId] = merged;
 
       const placeLog =
         merged
@@ -71,7 +81,7 @@ export class SearchPlacesStep {
           )
           .join('\n') || '  (결과 없음)';
       this.logger.log(
-        `[${activity.type}] 통합 ${merged.length}개 (Naver ${dedupedNaver.length}, Kakao ${dedupedKakao.length}): ${queries[0]}${queries.length > 1 ? ` [menu queries +${queries.length - 1}]` : ''}\n${placeLog}`,
+        `[${activity.slotId} ${activity.type}] 통합 ${merged.length}개 (Naver ${dedupedNaver.length}, Kakao ${dedupedKakao.length}): ${queries[0]}${queries.length > 1 ? ` [menu queries +${queries.length - 1}]` : ''}\n${placeLog}`,
       );
     }
 
@@ -84,20 +94,30 @@ export class SearchPlacesStep {
   }
 
   private buildQueries(
-    baseQuery: string,
+    activity: ActivityIntent,
     location: string,
-    activityType: string,
     preferences: string[],
   ): string[] {
-    if (activityType !== 'food' || preferences.length === 0) {
-      return [baseQuery];
+    if (activity.type !== 'food' || preferences.length === 0) {
+      return [activity.naverQuery];
+    }
+
+    if (activity.orderLocked) {
+      return [activity.naverQuery];
+    }
+
+    if (
+      activity.slotQuery &&
+      !GENERIC_FOOD_SLOT_QUERIES.has(activity.slotQuery)
+    ) {
+      return [activity.naverQuery];
     }
 
     const menuQueries = preferences.flatMap((keyword) => [
       `${location} ${keyword}`,
       `${location} ${keyword} 맛집`,
     ]);
-    return [...new Set([baseQuery, ...menuQueries])];
+    return [...new Set([...menuQueries, activity.naverQuery])];
   }
 
   private async searchNaverPlaces(
@@ -114,7 +134,7 @@ export class SearchPlacesStep {
     if (results.length === 0) {
       const fallbackQ = FALLBACK_QUERIES[activityType];
       if (fallbackQ) {
-        const retryQuery = `${intent.location} ${fallbackQ}`;
+        const retryQuery = `${intent.searchLocation} ${fallbackQ}`;
         const retry = await this.placesService.searchNearby(
           retryQuery,
           activityType,

@@ -17,11 +17,11 @@ const MODE_CONFIG: { mode: PlanMode; emoji: string; label: string; desc: string 
 ];
 
 const EXAMPLES = [
-  { text: '강남에서 저녁에 파스타 먹고 영화 보고 싶어', emoji: '🍝' },
-  { text: '홍대에서 친구들이랑 하루 일정 짜줘', emoji: '🎸' },
-  { text: '이태원에서 데이트 코스 추천해줘', emoji: '💕' },
-  { text: '성수동 카페 투어하고 맛있는 거 가고 싶어', emoji: '☕' },
-  { text: '여의도 벚꽃 보고 맛있는 거 먹자', emoji: '🌸' },
+  { text: '강남에서 데이트할 건데, 저녁은 파스타 먹고 영화 보는 코스로 짜줘', emoji: '🍝' },
+  { text: '홍대에서 친구 3명이 놀 건데, 맛집 1곳, 카페 1곳, 액티비티 1곳 포함해서 하루 코스 짜줘', emoji: '🎸' },
+  { text: '이태원에서 데이트할 건데, 저녁 맛집 1곳, 분위기 좋은 카페 1곳, 산책 코스까지 추천해줘', emoji: '💕' },
+  { text: '성수동에서 카페 2곳이랑 맛집 1곳 포함해서, 사진 찍기 좋은 코스로 짜줘', emoji: '☕' },
+  { text: '여의도에서 벚꽃 산책하고 맛집 1곳 가는 코스 짜줘. 저녁 8시 전에 끝나게 해줘', emoji: '🌸' },
 ];
 
 export function PlanInputForm({ onSubmit, loading, scrollToResults }: PlanInputFormProps) {

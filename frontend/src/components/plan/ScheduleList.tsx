@@ -19,6 +19,10 @@ const TYPE_COLORS: Record<string, { text: string; dot: string; badge: string }> 
 
 const DEFAULT_COLOR = { text: 'text-stone-600', dot: 'bg-stone-400', badge: 'bg-stone-50 border-stone-100 text-stone-600' };
 
+function formatDistanceKm(distanceKm: number): string {
+  return `${distanceKm.toFixed(1)}km`;
+}
+
 export function ScheduleList({ items, summary, totalDurationMin }: ScheduleListProps) {
   const hours = Math.floor(totalDurationMin / 60);
   const minutes = totalDurationMin % 60;
@@ -87,7 +91,7 @@ export function ScheduleList({ items, summary, totalDurationMin }: ScheduleListP
                         <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                         </svg>
-                        이전 장소에서 {(item.distanceFromPrev * 1000).toFixed(0)}m
+                        이전 장소에서 {formatDistanceKm(item.distanceFromPrev)}
                       </p>
                     )}
                   </div>

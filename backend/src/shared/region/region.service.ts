@@ -1,6 +1,7 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
+import { existsSync } from 'fs';
 import { readFileSync } from 'fs';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { RegionDataset, RegionRecord } from './region.types';
 
 // 위치 조사/어미 — 한글 청크 끝에서 제거해 지역명 원형을 복원
@@ -37,7 +38,7 @@ export class RegionService implements OnModuleInit {
 
   onModuleInit(): void {
     if (this.ready) return;
-    const filePath = join(__dirname, 'regions.json');
+    const filePath = this.resolveRegionsFilePath();
     const raw = readFileSync(filePath, 'utf-8');
     const data = JSON.parse(raw) as RegionDataset;
 
@@ -51,6 +52,24 @@ export class RegionService implements OnModuleInit {
     });
 
     this.ready = true;
+  }
+
+  private resolveRegionsFilePath(): string {
+    const candidates = [
+      join(__dirname, 'regions.json'),
+      resolve(process.cwd(), 'src/shared/region/regions.json'),
+      resolve(process.cwd(), 'dist/src/shared/region/regions.json'),
+    ];
+
+    for (const candidate of candidates) {
+      if (existsSync(candidate)) {
+        return candidate;
+      }
+    }
+
+    throw new Error(
+      `regions.json 파일을 찾을 수 없습니다. 시도한 경로: ${candidates.join(', ')}`,
+    );
   }
 
   getRegion(input: string): RegionRecord | null {

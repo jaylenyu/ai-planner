@@ -165,6 +165,62 @@ describe('ParseInputStep — resolveLocation', () => {
     expect(['부산', '해운대']).toContain(ctx.parsed!.location);
   });
 
+  it('원문에 시간 흐름이 있으면 flow 슬롯이 순서대로 채워진다', async () => {
+    const { step, mockCreate } = makeStep();
+    mockCreate.mockReturnValue(
+      Promise.resolve({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                location: '부천',
+                activities: ['맛집', '카페', '저녁', '산책'],
+                timeOfDay: 'full-day',
+                preferences: [],
+              }),
+            },
+            finish_reason: 'stop',
+          },
+        ],
+      }),
+    );
+    const ctx = makeCtx(
+      '오늘 부천에서 맛집갔다가 이쁜 카페가고싶어. 저녁은 이자카야를 가고싶고, 저녁먹고 근처 산책했으면 좋겠어',
+    );
+
+    await step.execute(ctx);
+
+    const flow = ctx.parsed?.flow;
+    expect(flow).toBeDefined();
+    expect(flow!.map((s) => s.type)).toEqual(['food', 'cafe', 'food', 'rest']);
+    expect(flow!.map((s) => s.slotId)).toEqual([
+      'slot-0',
+      'slot-1',
+      'slot-2',
+      'slot-3',
+    ]);
+    expect(flow!.map((s) => s.slotQuery)).toEqual([
+      '맛집',
+      '카페',
+      '이자카야',
+      '산책',
+    ]);
+
+    expect(flow![0].anchorMinutes).toBe(720);
+    expect(flow![2].anchorMinutes).toBe(1080);
+    expect(flow![0].keyword).toBe('맛집');
+  });
+
+  it('시간 흐름이 없는 문장은 flow 미설정', async () => {
+    const { step, mockCreate } = makeStep();
+    mockCreate.mockReturnValue(gptOk('강남'));
+    const ctx = makeCtx('강남에서 데이트 코스 추천해줘');
+
+    await step.execute(ctx);
+
+    expect(ctx.parsed?.flow).toBeUndefined();
+  });
+
   it('원문 메뉴어는 preferences에 보강된다', async () => {
     const { step, mockCreate } = makeStep();
     mockCreate.mockReturnValue(
@@ -189,5 +245,43 @@ describe('ParseInputStep — resolveLocation', () => {
     await step.execute(ctx);
 
     expect(ctx.parsed?.preferences).toContain('피자');
+  });
+
+  it('결정적 제약과 unsupportedHints를 함께 추출한다', async () => {
+    const { step, mockCreate } = makeStep();
+    mockCreate.mockReturnValue(gptOk('부산', ['맛집', '카페']));
+    const ctx = makeCtx(
+      '비 오는 날 부산에서 맛집 2곳이랑 카페 1곳, 해운대 근처로 동선 최소화해서 저녁 8시 전에 끝나게 해줘. 예산 5만원이야',
+    );
+
+    await step.execute(ctx);
+
+    expect(ctx.parsed?.softConstraints).toMatchObject({
+      indoorOnly: true,
+      endByMinutes: 1200,
+      anchorArea: '해운대',
+      compactRoute: true,
+    });
+    expect(ctx.parsed?.requestedCounts).toEqual({ food: 2, cafe: 1 });
+    expect(ctx.parsed?.unsupportedHints).toContain(
+      '예산 제약은 아직 지원되지 않습니다.',
+    );
+    expect(ctx.unsupportedHints).toContain(
+      '예산 제약은 아직 지원되지 않습니다.',
+    );
+  });
+
+  it('테마와 스타일 preset을 결정적으로 보강한다', async () => {
+    const { step, mockCreate } = makeStep();
+    mockCreate.mockReturnValue(gptOk('부산', ['맛집', '카페']));
+    const ctx = makeCtx(
+      '부산에서 바다 보고 카페 가고 싶어. 감성적인 데이트 코스 추천해줘',
+    );
+
+    await step.execute(ctx);
+
+    expect(ctx.parsed?.themes).toContain('seaside');
+    expect(ctx.parsed?.stylePresets).toContain('romantic');
+    expect(ctx.parsed?.fillerStrategy).toBe('cafe-heavy');
   });
 });

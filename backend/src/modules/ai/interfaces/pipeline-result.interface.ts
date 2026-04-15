@@ -28,6 +28,7 @@ export interface PipelineContext {
   scheduleItems?: ScheduleItem[];
   polyline?: [number, number][];
   summary?: string;
+  unsupportedHints?: string[];
 }
 
 export interface LocationCandidateLog {
@@ -42,4 +43,5 @@ export interface PipelineResult {
   items: ScheduleItem[];
   polyline: [number, number][];
   totalDurationMin: number;
+  unsupportedHints: string[];
 }

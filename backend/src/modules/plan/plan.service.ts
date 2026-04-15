@@ -51,6 +51,7 @@ export class PlanService {
       items: result.items,
       polyline: result.polyline,
       totalDurationMin: result.totalDurationMin,
+      unsupportedHints: result.unsupportedHints,
     };
   }
 }
