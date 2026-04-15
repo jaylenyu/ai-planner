@@ -57,10 +57,29 @@ describe('RegionService — scanAll / resolveBest', () => {
     });
 
     it('dong이 sigungu보다 우선 ("성수동" vs "성동" 동시 포함 시)', () => {
-      // 둘 다 포함되는 텍스트에서 dong 타입 우선
       const result = service.resolveBest('성수동 성동구 카페');
-      // dong 타입인 성수동이 우선
       expect(result).toBe('성수동');
+    });
+
+    it('"뚝섬역 근처" → landmark "뚝섬" 반환 (landmark > dong 우선)', () => {
+      const result = service.resolveBest('뚝섬역 근처 카페');
+      expect(result).toBe('뚝섬');
+    });
+
+    it('"강남역에서 저녁" → landmark "강남" 반환', () => {
+      const result = service.resolveBest('강남역에서 저녁');
+      expect(result).toBe('강남');
+    });
+
+    it('"홍대입구역 데이트" → landmark "홍대입구" 반환', () => {
+      const result = service.resolveBest('홍대입구역 데이트');
+      expect(result).toBe('홍대입구');
+    });
+
+    it('landmark 레코드에 좌표가 있다', () => {
+      const match = service.scanAll('강남역').find(m => m.region.type === 'landmark');
+      expect(match?.region.lat).toBeDefined();
+      expect(match?.region.lng).toBeDefined();
     });
   });
 

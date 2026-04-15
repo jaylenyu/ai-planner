@@ -137,10 +137,15 @@ def load_subway_landmarks(csv_path: Path) -> List[dict]:
             reader = csv.DictReader(f)
             headers = reader.fieldnames or []
 
-            # 컬럼 자동 감지
-            name_col = next((h for h in headers if '역명' in h or 'station' in h.lower()), None)
-            lat_col  = next((h for h in headers if '위도' in h or 'lat' in h.lower()), None)
-            lng_col  = next((h for h in headers if '경도' in h or 'lng' in h.lower() or 'lon' in h.lower()), None)
+            # 컬럼 감지 — 공공데이터포털 "전국 도시철도역" 형식 우선
+            # 역한글명칭, 환승역X좌표(경도), 환승역Y좌표(위도)
+            name_col = next((h for h in headers if h in ('역한글명칭', '역명') or
+                             '역명' in h or 'station' in h.lower()), None)
+            # X좌표 = 경도(lng), Y좌표 = 위도(lat) — 공공데이터 관례
+            lng_col = next((h for h in headers if 'X좌표' in h or '경도' in h or
+                            'lng' in h.lower() or 'lon' in h.lower()), None)
+            lat_col = next((h for h in headers if 'Y좌표' in h or '위도' in h or
+                            'lat' in h.lower()), None)
 
             if not name_col:
                 print(f'WARNING: subway CSV 컬럼 미인식 (headers: {headers[:5]}) — landmark 건너뜀')

@@ -161,7 +161,9 @@ export class RegionService implements OnModuleInit {
     });
 
     const { token, region } = matches[0];
-    if (region.type === 'dong' || region.type === 'landmark') {
+    // dong: shortName은 sigungu 이름이므로 matched token 반환 (성동 대신 성수동 보존)
+    // landmark/sigungu/sido: shortName이 canonical name
+    if (region.type === 'dong') {
       return token;
     }
     return region.shortName;
