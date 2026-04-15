@@ -148,25 +148,14 @@ jobs:
           script: |
             set -e
             ENV_FILE=~/ai-planner/.env
-            COMPOSE_FILE=~/infra/docker-compose.ai-planner.prod.yml
 
-            # 1) .env upsert
+            # 1) .env upsert (compose env_file: 방식 대응)
             if grep -q "^KAKAO_REST_API_KEY=" "$ENV_FILE" 2>/dev/null; then
               sed -i "s|^KAKAO_REST_API_KEY=.*|KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}|" "$ENV_FILE"
             else
               echo "KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}" >> "$ENV_FILE"
             fi
-            echo "[deploy] .env KAKAO line: $(grep '^KAKAO_REST_API_KEY=' $ENV_FILE)"
-
-            # 2) compose 파일에 KAKAO_REST_API_KEY 없으면 sed로 추가
-            if ! grep -q "KAKAO_REST_API_KEY" "$COMPOSE_FILE"; then
-              echo "[deploy] compose 파일 패치 중..."
-              sed -i '/NAVER_SEARCH_CLIENT_SECRET/a\      - KAKAO_REST_API_KEY=$\{KAKAO_REST_API_KEY\}' "$COMPOSE_FILE" || \
-              sed -i '/NAVER_SEARCH_CLIENT_ID/a\      - KAKAO_REST_API_KEY=$\{KAKAO_REST_API_KEY\}' "$COMPOSE_FILE" || \
-              echo "[deploy] WARNING: compose 파일 패치 실패 — env_file 방식이거나 직접 수정 필요"
-            else
-              echo "[deploy] compose 파일에 KAKAO_REST_API_KEY 이미 존재"
-            fi
+            echo "[deploy] .env KAKAO_REST_API_KEY 등록 완료"
 
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker pull ${{ env.IMAGE_BACKEND }}:latest
@@ -221,6 +210,9 @@ jobs:
             echo "Deploy complete!"
             docker compose -p ai-planner -f ~/infra/docker-compose.ai-planner.prod.yml ps
             # Kakao 키 컨테이너 전달 여부 확인
-            docker exec ai-planner-backend printenv KAKAO_REST_API_KEY 2>/dev/null \
-              && echo "[verify] KAKAO_REST_API_KEY: OK" \
-              || echo "[verify] KAKAO_REST_API_KEY: MISSING in container"
+            if docker exec ai-planner-backend printenv KAKAO_REST_API_KEY 2>/dev/null | grep -q .; then
+              echo "[verify] KAKAO_REST_API_KEY: OK in container"
+            else
+              echo "[verify] KAKAO_REST_API_KEY: MISSING — compose 파일 확인 필요:"
+              grep -A 40 "backend:" ~/infra/docker-compose.ai-planner.prod.yml | head -50
+            fi
