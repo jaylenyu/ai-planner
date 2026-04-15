@@ -42,7 +42,7 @@ export class ApiBudgetService implements OnModuleInit {
     private readonly prisma: PrismaService,
   ) {
     this.dailyLimit = parseInt(
-      this.configService.get<string>('DAILY_API_LIMIT', '10'),
+      this.configService.get<string>('DAILY_API_LIMIT', '500'),
     );
     this.monthlyBudget = parseFloat(
       this.configService.get<string>('MONTHLY_API_BUDGET', '1.5'),

@@ -14,11 +14,13 @@ export const API_BASE_URL = normalizedApiUrl.endsWith('/api')
 
 export class ApiError extends Error {
   status: number;
+  payload?: unknown;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, payload?: unknown) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.payload = payload;
   }
 }
 
@@ -72,15 +74,17 @@ async function request<T>(path: string, options: RequestInit = {}, retry = true)
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     let message = '요청 실패';
+    let payload: unknown;
     if (text) {
       try {
         const parsed = JSON.parse(text) as { message?: string };
+        payload = parsed;
         if (parsed?.message) message = parsed.message;
       } catch {
         message = text;
       }
     }
-    throw new ApiError(message, res.status);
+    throw new ApiError(message, res.status, payload);
   }
 
   if (res.status === 204 || res.status === 205) {

@@ -17,10 +17,11 @@ export class ApiBudgetController {
     const monthlyBudget = await this.apiBudgetService.checkMonthlyBudget();
     return {
       limits: {
-        daily: 10, // Hardcoded for now, should come from config
+        daily: 500,
         monthlyBudget: monthlyBudget.budget,
       },
-      message: 'Free tier: 10 AI requests per day, shared $1.50 monthly budget',
+      message:
+        'Free tier: 500 AI requests per day, shared $1.50 monthly budget',
     };
   }
 }

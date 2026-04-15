@@ -14,7 +14,7 @@ import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
 
 export default function PlanPage() {
-  const { generate, status, result, error } = usePlanGenerate();
+  const { generate, status, result, error, dailyLimitError } = usePlanGenerate();
   const { isLoggedIn, logout } = useAuth();
   const { plans, loading: plansLoading, refetch } = usePlanList();
   const [hasSubmitted, setHasSubmitted] = useState(false);
@@ -148,13 +148,30 @@ export default function PlanPage() {
         {/* Error */}
         {status === 'error' && error && (
           <section className="py-4 animate-fade-in">
-            <div className="rounded-2xl bg-red-50 border border-red-200 px-5 py-4 text-sm text-red-700 flex items-center gap-3">
-              <span className="text-xl">⚠️</span>
-              <div>
-                <p className="font-semibold">오류가 발생했어요</p>
-                <p className="text-red-600 mt-0.5">{error}</p>
+            {dailyLimitError ? (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-5 text-sm text-amber-900">
+                <div className="flex items-start gap-3">
+                  <span className="text-xl">⏳</span>
+                  <div>
+                    <p className="font-semibold">오늘 AI 사용량이 모두 소진되었어요</p>
+                    <p className="mt-1 text-amber-800">
+                      오늘 사용량 {dailyLimitError.used}회로 일일 제한 {dailyLimitError.limit}회에 도달했습니다.
+                    </p>
+                    <p className="mt-1 text-amber-700">
+                      새로운 일정 생성은 내일 다시 이용할 수 있어요.
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="rounded-2xl bg-red-50 border border-red-200 px-5 py-4 text-sm text-red-700 flex items-center gap-3">
+                <span className="text-xl">⚠️</span>
+                <div>
+                  <p className="font-semibold">오류가 발생했어요</p>
+                  <p className="text-red-600 mt-0.5">{error}</p>
+                </div>
+              </div>
+            )}
           </section>
         )}
         {/* Results */}
