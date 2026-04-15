@@ -147,8 +147,10 @@ jobs:
           timeout: 120s
           script: |
             set -e
-            # GitHub secrets → EC2 .env 동기화 (없으면 추가, 있으면 교체)
             ENV_FILE=~/ai-planner/.env
+            COMPOSE_FILE=~/infra/docker-compose.ai-planner.prod.yml
+
+            # 1) .env 파일 upsert
             upsert_env() {
               local key="$1" val="$2"
               if grep -q "^${key}=" "$ENV_FILE" 2>/dev/null; then
@@ -158,6 +160,37 @@ jobs:
               fi
             }
             upsert_env KAKAO_REST_API_KEY "${{ secrets.KAKAO_REST_API_KEY }}"
+            echo "[deploy] .env KAKAO_REST_API_KEY: $(grep KAKAO_REST_API_KEY $ENV_FILE | head -1 | cut -c1-40)..."
+
+            # 2) compose 파일에 KAKAO_REST_API_KEY 환경변수 항목이 없으면 자동 추가
+            if ! grep -q "KAKAO_REST_API_KEY" "$COMPOSE_FILE"; then
+              echo "[deploy] compose 파일에 KAKAO_REST_API_KEY 없음 — 자동 패치"
+              # backend 서비스의 environment 블록에 추가 (NAVER_SEARCH_CLIENT_SECRET 다음 줄)
+              python3 -c "
+            import re, sys
+            with open('$COMPOSE_FILE') as f:
+                txt = f.read()
+            # environment 섹션의 마지막 항목 뒤에 삽입
+            patched = re.sub(
+                r'(NAVER_SEARCH_CLIENT_SECRET[^\n]*)',
+                r'\1\n      - KAKAO_REST_API_KEY=\${KAKAO_REST_API_KEY}',
+                txt, count=1
+            )
+            if patched == txt:
+                # fallback: NAVER_SEARCH_CLIENT_ID 뒤에 삽입
+                patched = re.sub(
+                    r'(NAVER_SEARCH_CLIENT_ID[^\n]*)',
+                    r'\1\n      - KAKAO_REST_API_KEY=\${KAKAO_REST_API_KEY}',
+                    txt, count=1
+                )
+            with open('$COMPOSE_FILE', 'w') as f:
+                f.write(patched)
+            print('patched OK')
+            "
+            else
+              echo "[deploy] compose 파일에 KAKAO_REST_API_KEY 이미 존재"
+            fi
+
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker pull ${{ env.IMAGE_BACKEND }}:latest
             docker pull ${{ env.IMAGE_FRONTEND }}:latest
@@ -165,6 +198,7 @@ jobs:
             docker stop ai-planner-backend ai-planner-frontend 2>/dev/null || true
             docker rm -f ai-planner-backend ai-planner-frontend 2>/dev/null || true
             GITHUB_REPOSITORY_OWNER=${{ github.repository_owner }} \
+            KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }} \
             docker compose \
               -p ai-planner \
               -f ~/infra/docker-compose.ai-planner.prod.yml \
@@ -210,3 +244,7 @@ jobs:
             echo "Frontend healthy!"
             echo "Deploy complete!"
             docker compose -p ai-planner -f ~/infra/docker-compose.ai-planner.prod.yml ps
+            # Kakao 키 컨테이너 전달 여부 확인
+            docker exec ai-planner-backend printenv KAKAO_REST_API_KEY 2>/dev/null \
+              && echo "[verify] KAKAO_REST_API_KEY: OK" \
+              || echo "[verify] KAKAO_REST_API_KEY: MISSING in container"
