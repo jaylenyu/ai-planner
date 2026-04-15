@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Optional, Dict
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_CSV = Path('/Users/jaylenyu/Downloads/국토교통부_법정동코드_20250805.csv')
+DEFAULT_CSV = ROOT / 'data' / 'legal_dong.csv'
 TARGET_JSON = ROOT / 'src' / 'shared' / 'region' / 'regions.json'
 
 CUSTOM_ALIAS_BY_FULL = {

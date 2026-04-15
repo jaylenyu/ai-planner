@@ -83,6 +83,11 @@ Check out a few resources that may come in handy when working with NestJS:
 - To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
 - Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
 
+## Region Data
+
+법정동 CSV 업데이트 시 `npm run regions:build` 실행 → `src/shared/region/regions.json` 재생성.
+CSV 원본: `backend/data/legal_dong.csv` (행안부 법정동코드).
+
 ## Support
 
 Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
