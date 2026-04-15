@@ -101,8 +101,7 @@ export class RegionService implements OnModuleInit {
       const stripped = stripParticles(chunk);
 
       // 조사 제거 버전을 먼저 시도, 원본도 시도
-      const candidates =
-        stripped === chunk ? [chunk] : [stripped, chunk];
+      const candidates = stripped === chunk ? [chunk] : [stripped, chunk];
 
       let matched = false;
       for (const candidate of candidates) {
@@ -119,11 +118,7 @@ export class RegionService implements OnModuleInit {
       // 전체 청크 매칭 실패 시 부분 문자열 탐색 (최장 우선).
       // "홍대입구에서먹자" 같이 조사가 중간에 끼인 경우 대비.
       if (!matched) {
-        outer: for (
-          let len = Math.min(chunk.length - 1, 8);
-          len >= 2;
-          len--
-        ) {
+        outer: for (let len = Math.min(chunk.length - 1, 8); len >= 2; len--) {
           for (let start = 0; start + len <= chunk.length; start++) {
             const sub = chunk.slice(start, start + len);
             const region = this.aliasMap.get(sub);

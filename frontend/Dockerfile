@@ -1,10 +1,4 @@
-# Stage 1: Dependencies
-FROM node:22-alpine AS deps
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production --omit=dev
-
-# Stage 2: Builder
+# Stage 1: Builder
 FROM node:22-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
@@ -20,7 +14,7 @@ ENV NEXT_PUBLIC_POSTHOG_KEY=$NEXT_PUBLIC_POSTHOG_KEY
 ENV NEXT_PUBLIC_POSTHOG_HOST=$NEXT_PUBLIC_POSTHOG_HOST
 RUN npm run build
 
-# Stage 3: Production runner
+# Stage 2: Production runner
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production

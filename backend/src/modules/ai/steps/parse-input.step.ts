@@ -363,7 +363,8 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
           if (candidate.location && candidate.activities?.length) {
             candidate.preferences = Array.isArray(candidate.preferences)
               ? candidate.preferences.filter(
-                  (p): p is string => typeof p === 'string' && p.trim().length > 0,
+                  (p): p is string =>
+                    typeof p === 'string' && p.trim().length > 0,
                 )
               : [];
             parsed = candidate;

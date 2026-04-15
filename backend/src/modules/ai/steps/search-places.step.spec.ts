@@ -31,7 +31,9 @@ describe('SearchPlacesStep', () => {
         lat: 37.55,
         lng: 126.93,
         mode: 'date',
-        activities: [{ type: 'food', naverQuery: '연남동 양식 레스토랑 스테이크' }],
+        activities: [
+          { type: 'food', naverQuery: '연남동 양식 레스토랑 스테이크' },
+        ],
         startTime: '10:00',
         endTime: '20:00',
       },

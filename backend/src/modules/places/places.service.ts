@@ -79,10 +79,8 @@ export class PlacesService {
     this.clientId = this.config.get<string>('NAVER_SEARCH_CLIENT_ID') ?? '';
     this.clientSecret =
       this.config.get<string>('NAVER_SEARCH_CLIENT_SECRET') ?? '';
-    this.kakaoRestApiKey =
-      this.config.get<string>('KAKAO_REST_API_KEY') ?? '';
+    this.kakaoRestApiKey = this.config.get<string>('KAKAO_REST_API_KEY') ?? '';
   }
-
 
   private async getCachedPlaces(key: string): Promise<PlaceResult[] | null> {
     if (!this.redisService.isEnabled()) return null;
@@ -200,7 +198,9 @@ export class PlacesService {
     display = 5,
   ): Promise<PlaceResult[]> {
     if (!this.kakaoRestApiKey) {
-      this.logger.warn(`Kakao REST API 키 없음 — 빈 결과 반환 (query: ${query})`);
+      this.logger.warn(
+        `Kakao REST API 키 없음 — 빈 결과 반환 (query: ${query})`,
+      );
       return [];
     }
 
@@ -222,9 +222,7 @@ export class PlacesService {
       });
 
       if (!response.ok) {
-        this.logger.warn(
-          `Kakao API 오류 ${response.status} (query: ${query})`,
-        );
+        this.logger.warn(`Kakao API 오류 ${response.status} (query: ${query})`);
         return [];
       }
 
@@ -364,8 +362,8 @@ export class PlacesService {
 
 interface KakaoLocalItem {
   place_name: string;
-  x: string;             // 경도 (lng)
-  y: string;             // 위도 (lat)
+  x: string; // 경도 (lng)
+  y: string; // 위도 (lat)
   category_name: string;
   address_name: string;
   road_address_name: string;

@@ -71,7 +71,11 @@ export class ExtractIntentStep {
     // parse-input에서 resolveBest로 이미 동 해상도 보존.
     // sigungu로 뭉개지지 않도록 registry 정규화는 dong 타입인 경우 스킵.
     const registryRegion = this.regionService.getRegion(parsed.location);
-    if (registryRegion && registryRegion.type !== 'dong' && registryRegion.type !== 'landmark') {
+    if (
+      registryRegion &&
+      registryRegion.type !== 'dong' &&
+      registryRegion.type !== 'landmark'
+    ) {
       parsed.location = registryRegion.shortName;
     }
 
@@ -143,8 +147,6 @@ export class ExtractIntentStep {
       `의도 추출 완료: ${parsed.location} / ${ordered.map((a) => a.type).join(' → ')}`,
     );
   }
-
-  
 
   private async resolveCoordsWithValidation(
     initialLocation: string,
