@@ -147,21 +147,16 @@ jobs:
           timeout: 120s
           script: |
             set -e
-            ENV_FILE=~/ai-planner/.env
-
-            # 1) .env upsert (compose env_file: 방식 대응)
-            if grep -q "^KAKAO_REST_API_KEY=" "$ENV_FILE" 2>/dev/null; then
-              sed -i "s|^KAKAO_REST_API_KEY=.*|KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}|" "$ENV_FILE"
-            else
-              echo "KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}" >> "$ENV_FILE"
-            fi
-            echo "[deploy] .env KAKAO_REST_API_KEY 등록 완료"
-
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker pull ${{ env.IMAGE_BACKEND }}:latest
             docker pull ${{ env.IMAGE_FRONTEND }}:latest
-            docker stop ai-planner-backend ai-planner-frontend 2>/dev/null || true
-            docker rm -f ai-planner-backend ai-planner-frontend 2>/dev/null || true
+            GITHUB_REPOSITORY_OWNER=${{ github.repository_owner }} \
+            KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }} \
+            docker compose \
+              -p ai-planner \
+              -f ~/infra/docker-compose.ai-planner.prod.yml \
+              --env-file ~/ai-planner/.env \
+              down --remove-orphans || true
             GITHUB_REPOSITORY_OWNER=${{ github.repository_owner }} \
             KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }} \
             docker compose \
@@ -215,4 +210,49 @@ jobs:
             else
               echo "[verify] KAKAO_REST_API_KEY: MISSING — compose 파일 확인 필요:"
               grep -A 40 "backend:" ~/infra/docker-compose.ai-planner.prod.yml | head -50
+              exit 1
             fi
+
+      - name: Smoke test Kakao place search
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          timeout: 180s
+          script: |
+            set -e
+            START_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+            TOKEN=$(docker exec ai-planner-backend node -e "const {PrismaClient}=require('@prisma/client'); const jwt=require('jsonwebtoken'); (async()=>{ const prisma=new PrismaClient(); const user=await prisma.user.findFirst({select:{id:true,email:true}}); if(!user){console.error('NO_USER'); process.exit(2);} if(!process.env.JWT_SECRET){console.error('NO_JWT_SECRET'); process.exit(3);} const token=jwt.sign({sub:user.id,email:user.email}, process.env.JWT_SECRET, {expiresIn:'10m'}); console.log(token); await prisma.\$disconnect(); })().catch(async(e)=>{console.error(e?.message||e); process.exit(4);});")
+            if [ -z "$TOKEN" ]; then
+              echo "[smoke] token generation failed"
+              exit 1
+            fi
+
+            curl -sS -X POST "http://localhost:4000/api/plan/generate" \
+              -H "Authorization: Bearer $TOKEN" \
+              -H "Content-Type: application/json" \
+              --data '{"rawInput":"연남동에서 피자 먹고 싶어.","mode":"date"}' >/tmp/plan-generate-smoke.json
+
+            sleep 2
+            LOGS=$(docker logs --since "$START_TS" ai-planner-backend 2>&1 || true)
+            echo "$LOGS" | tail -120
+
+            if echo "$LOGS" | grep -q "Kakao REST API 키 없음"; then
+              echo "[smoke] FAIL: Kakao REST API key warning exists"
+              exit 1
+            fi
+
+            if ! echo "$LOGS" | grep -Eq "\\[food\\] 통합 [0-9]+개 \\(Naver [0-9]+, Kakao [1-9][0-9]*\\)"; then
+              echo "[smoke] FAIL: food merge log does not show Kakao >= 1"
+              exit 1
+            fi
+
+            if echo "$LOGS" | grep -q "source=ai"; then
+              echo "[smoke] FAIL: source=ai detected"
+              exit 1
+            fi
+
+            echo "[smoke] PASS: Kakao results included, no missing-key warning, no source=ai"
