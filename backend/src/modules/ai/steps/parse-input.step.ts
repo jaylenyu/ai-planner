@@ -6,21 +6,8 @@ import {
   LocationCandidateLog,
 } from '../interfaces/pipeline-result.interface';
 import { ParsedInput } from '../interfaces/intent.interface';
-import {
-  LOCATION_STOP_WORDS,
-  stripLocationParticles,
-} from '../utils/location.util';
+import { stripLocationParticles } from '../utils/location.util';
 import { RegionService } from '../../../shared/region/region.service';
-import { AliasLearningService } from '../../../shared/region/alias-learning.service';
-
-interface LocationSeed {
-  value?: string | null;
-  source: string;
-  weight: number;
-}
-
-// 구(區) 단위로 뭉개지 말고 원형을 유지해야 할 세분화 동(洞) 토큰.
-const PRESERVE_SPECIFIC = new Set(['성수동']);
 
 // 폴백용 활동 키워드 (ACTIVITY_QUERY_MAP 키 기준, 우선순위 순)
 const ACTIVITY_KEYWORDS = [
@@ -73,7 +60,6 @@ export class ParseInputStep {
   constructor(
     private readonly config: ConfigService,
     private readonly regionService: RegionService,
-    private readonly aliasLearning: AliasLearningService,
   ) {
     const apiKey = this.config.get<string>('OPENROUTER_API_KEY');
     if (!apiKey) throw new Error('OPENROUTER_API_KEY가 설정되지 않았습니다.');
@@ -88,7 +74,6 @@ export class ParseInputStep {
   }
 
   async execute(ctx: PipelineContext): Promise<void> {
-    // 짧은 프롬프트로 토큰 절약
     const systemPrompt = `여행/데이트 요청을 JSON으로 변환. 반드시 아래 형식만 출력:
 {"location":"지역명","activities":["활동1","활동2"],"timeOfDay":"morning|afternoon|evening|full-day","preferences":[]}
 
@@ -98,7 +83,7 @@ activities 2~4개 (목록에서만): 한식 일식 중식 양식 고기 해산�
 timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening, 그외→full-day`;
 
     let parsed: ParsedInput | null = null;
-    let gptSucceeded = false;
+    let gptLocation: string | null = null;
 
     try {
       const response = await this.openai.chat.completions.create({
@@ -128,7 +113,7 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
           const candidate = JSON.parse(jsonMatch[0]) as ParsedInput;
           if (candidate.location && candidate.activities?.length) {
             parsed = candidate;
-            gptSucceeded = true;
+            gptLocation = candidate.location;
           }
         }
       }
@@ -136,7 +121,6 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
       this.logger.warn(`GPT 호출 실패: ${(err as Error).message} — 폴백 사용`);
     }
 
-    // GPT 실패 시 키워드 기반 폴백 (location은 resolveLocation이 텍스트에서 직접 추출)
     if (!parsed) {
       const activities = extractActivitiesFallback(ctx.rawInput, ctx.mode);
       const timeOfDay = ctx.rawInput.match(/저녁|밤|야간/)
@@ -151,146 +135,66 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
       this.logger.warn(`폴백 파싱 결과: ${JSON.stringify(parsed)}`);
     }
 
-    // GPT seed는 원문에 실제로 등장한 값일 때만 사용 (환각 방지).
-    // 예: "강남에서 ..." 입력에 GPT가 "진주"를 뱉어도 무시.
-    const seeds: LocationSeed[] = [];
-    if (gptSucceeded && parsed.location) {
-      const stripped = stripLocationParticles(parsed.location) ?? parsed.location;
-      const appearsInInput =
-        ctx.rawInput.includes(parsed.location) || ctx.rawInput.includes(stripped);
-      if (appearsInInput) {
-        seeds.push({ value: parsed.location, source: 'gpt', weight: 0.95 });
-      } else {
-        this.logger.warn(
-          `GPT location "${parsed.location}"이 rawInput에 없어 seed에서 제외`,
-        );
-      }
-    }
-    const resolvedLocation = this.resolveLocation(ctx, seeds);
-    parsed.location = resolvedLocation;
+    parsed.location = this.resolveLocation(ctx, gptLocation);
     ctx.parsed = parsed;
     this.logger.log(`파싱 완료: ${JSON.stringify(parsed)}`);
   }
 
-  private resolveLocation(ctx: PipelineContext, seeds: LocationSeed[]): string {
-    const text = ctx.rawInput ?? '';
-    const candidates = new Map<string, LocationCandidateLog>();
-    const unrecognizedTokens = new Set<string>(); // registry miss 토큰 (alias 학습 대상)
-
-    const pushCandidate = (
-      rawValue: string | null,
+  /**
+   * location 해석 우선순위:
+   * 1. Deterministic trie scan (regionService.resolveBest) — 95%+ 케이스
+   * 2. GPT location 검증 (rawInput 포함 여부 + resolveBest 재정규화)
+   * 3. 서울 fallback
+   */
+  private resolveLocation(
+    ctx: PipelineContext,
+    gptLocation: string | null,
+  ): string {
+    const log = (
+      value: string,
       source: string,
-      base: number,
-    ) => {
-      if (!rawValue) return;
-      const stripped = stripLocationParticles(rawValue);
-      if (!stripped || LOCATION_STOP_WORDS.has(stripped)) return;
-      // 원문에 "성수동" 같은 세분화 토큰이 있으면 shortName(성동)으로 뭉개지 않고 그대로 사용.
-      if (PRESERVE_SPECIFIC.has(stripped)) {
-        let score = base + 0.1;
-        if (text.includes(`${stripped}에서`)) score += 0.15;
-        const existing = candidates.get(stripped);
-        if (!existing || existing.score < score) {
-          candidates.set(stripped, {
-            value: stripped,
-            source: `${source}:preserve`,
-            score,
-            raw: stripped,
-          });
-        }
-        return;
-      }
-      const normalized = this.regionService.normalize(stripped);
-      if (!normalized) {
-        // registry에 없지만 지명처럼 생긴 토큰은 gpt/regex source에서만 후보로 추가.
-        // token/strip source는 "추천해줘" 같은 일반어가 섞여 노이즈가 크므로 제외.
-        if (
-          /^[가-힣]{2,10}$/.test(stripped) &&
-          (source === 'gpt' || source === 'regex')
-        ) {
-          unrecognizedTokens.add(stripped);
-          let rawScore = 0.5;
-          if (text.includes(`${stripped}에서`)) rawScore += 0.15;
-          if (text.includes(`${stripped} `)) rawScore += 0.05;
-          if (stripped.length <= 2) rawScore -= 0.1;
-          const existing = candidates.get(stripped);
-          if (!existing || existing.score < rawScore) {
-            candidates.set(stripped, {
-              value: stripped,
-              source: `${source}:unrecognized`,
-              score: rawScore,
-              raw: stripped,
-            });
-          }
-        }
-        return;
-      }
-      let score = base;
-      if (text.includes(`${normalized}에서`)) score += 0.15;
-      if (text.includes(`${normalized} `)) score += 0.05;
-      if (normalized.length <= 2) score -= 0.1;
-      const existing = candidates.get(normalized);
-      if (!existing || existing.score < score) {
-        candidates.set(normalized, {
-          value: normalized,
-          source,
-          score,
-          raw: stripped,
-        });
-      }
-    };
+      score: number,
+    ): LocationCandidateLog => ({ value, source, score, raw: value });
 
-    seeds.forEach((seed) =>
-      pushCandidate(seed.value ?? null, seed.source, seed.weight),
-    );
-
-    this.regionService.extractCandidates(text).forEach((candidate) => {
-      pushCandidate(candidate, 'text-scan', 0.85);
-    });
-
-    PRESERVE_SPECIFIC.forEach((token) => {
-      if (text.includes(token)) pushCandidate(token, 'preserve-scan', 0.95);
-    });
-
-    const patterns = [
-      /([가-힣]{2,6})에서\s*(?:여행|일정|데이트|코스|먹|놀|점심|저녁|맛집|카페)/g,
-      /([가-힣]{2,6})\s+(?:여행|일정|데이트|코스)/g,
-      /([가-힣]{2,6})에서/g,
-      /([가-힣]{2,6})(?:군|시|구|읍|면)/g,
-    ];
-
-    patterns.forEach((pattern) => {
-      let match: RegExpExecArray | null;
-      while ((match = pattern.exec(text)) !== null) {
-        pushCandidate(match[1], 'regex', 0.75);
-      }
-      pattern.lastIndex = 0;
-    });
-
-    text.split(/\s+/).forEach((token) => {
-      pushCandidate(token, 'token', 0.4);
-    });
-
-    pushCandidate(stripLocationParticles(text), 'strip', 0.35);
-
-    if (candidates.size === 0) {
-      pushCandidate('서울', 'default', 0.3);
+    // Step 1: 결정적 스캔 — registry 기반 최장 매칭
+    const best = this.regionService.resolveBest(ctx.rawInput);
+    if (best) {
+      ctx.locationCandidates = [log(best, 'trie', 1.0)];
+      return best;
     }
 
-    const sorted = Array.from(candidates.values()).sort(
-      (a, b) => b.score - a.score,
-    );
+    // Step 2: GPT location 검증
+    if (gptLocation) {
+      const stripped =
+        stripLocationParticles(gptLocation) || gptLocation;
+      const appearsInInput =
+        ctx.rawInput.includes(gptLocation) ||
+        ctx.rawInput.includes(stripped);
 
-    ctx.locationCandidates = sorted;
+      if (appearsInInput) {
+        // GPT 출력을 registry로 재정규화 (환각 차단)
+        const normalized = this.regionService.resolveBest(gptLocation);
+        if (normalized) {
+          ctx.locationCandidates = [
+            log(normalized, 'gpt:validated', 0.9),
+          ];
+          return normalized;
+        }
+        // Registry miss: alias-learning 파이프라인에 토큰 전달
+        ctx.unrecognizedLocationToken = stripped;
+        ctx.locationCandidates = [
+          log(stripped, 'gpt:unrecognized', 0.5),
+        ];
+        return stripped;
+      }
 
-    const winner = sorted[0]?.value ?? '서울';
-
-    // registry miss 토큰 중 winner가 된 것만 PipelineContext에 기록.
-    // alias 학습은 extract-intent에서 geocode 성공 확인 후 수행 (잘못된 canonical 방지).
-    if (unrecognizedTokens.has(winner)) {
-      ctx.unrecognizedLocationToken = winner;
+      this.logger.warn(
+        `GPT location "${gptLocation}" 이 rawInput에 없어 무시`,
+      );
     }
 
-    return winner;
+    // Step 3: 서울 fallback
+    ctx.locationCandidates = [log('서울', 'fallback', 0.3)];
+    return '서울';
   }
 }

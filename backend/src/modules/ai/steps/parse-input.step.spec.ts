@@ -2,39 +2,27 @@ import { ParseInputStep } from './parse-input.step';
 import { PipelineContext } from '../interfaces/pipeline-result.interface';
 import { RegionService } from '../../../shared/region/region.service';
 
-// 테스트용 소형 region 레지스트리
-const MOCK_REGIONS: Record<string, string> = {
-  서울: '서울',
-  강남: '강남',
-  홍대: '홍대',
-  연남동: '홍대', // alias → canonical
-  부산: '부산',
-  해운대: '해운대',
-  성수동: '성수동',
-  이태원: '이태원',
-  제주: '제주',
-};
-
 function makeCtx(rawInput: string): PipelineContext {
   return { rawInput, mode: 'date' } as PipelineContext;
 }
 
-function makeStep(): {
-  step: ParseInputStep;
-  mockCreate: jest.Mock;
-} {
+function makeStep(): { step: ParseInputStep; mockCreate: jest.Mock } {
+  // resolveBest를 직접 mock — 새 아키텍처의 핵심 interface
   const regionService = {
-    normalize: jest.fn((input: string) => MOCK_REGIONS[input] ?? null),
-    extractCandidates: jest.fn((text: string) => {
-      const found: string[] = [];
-      const seen = new Set<string>();
-      for (const [alias, canonical] of Object.entries(MOCK_REGIONS)) {
-        if (text.includes(alias) && !seen.has(canonical)) {
-          seen.add(canonical);
-          found.push(canonical);
-        }
+    resolveBest: jest.fn((text: string) => {
+      const TABLE: Record<string, string> = {
+        강남: '강남',
+        부산: '부산',
+        해운대: '해운대',
+        성수동: '성수동',
+        이태원: '이태원',
+        제주: '제주',
+        연남동: '연남동',
+      };
+      for (const [alias, result] of Object.entries(TABLE)) {
+        if (text.includes(alias)) return result;
       }
-      return found;
+      return null;
     }),
   } as unknown as RegionService;
 
@@ -44,13 +32,8 @@ function makeStep(): {
     ),
   };
 
-  const aliasLearning = {
-    logUnrecognized: jest.fn().mockResolvedValue(undefined),
-  } as any;
+  const step = new ParseInputStep(config as any, regionService);
 
-  const step = new ParseInputStep(config as any, regionService, aliasLearning);
-
-  // OpenAI 인스턴스의 create를 mock으로 교체
   const mockCreate = jest.fn();
   (step as any).openai = {
     chat: { completions: { create: mockCreate } },
@@ -59,7 +42,6 @@ function makeStep(): {
   return { step, mockCreate };
 }
 
-// GPT 성공 응답 헬퍼
 function gptOk(location: string, activities = ['맛집', '카페']) {
   return Promise.resolve({
     choices: [
@@ -78,12 +60,10 @@ function gptOk(location: string, activities = ['맛집', '카페']) {
   });
 }
 
-// GPT 실패 헬퍼
 function gptFail() {
   return Promise.reject(new Error('API 오류'));
 }
 
-// GPT 빈 응답 헬퍼
 function gptEmpty() {
   return Promise.resolve({
     choices: [{ message: { content: '' }, finish_reason: 'stop' }],
@@ -91,39 +71,47 @@ function gptEmpty() {
 }
 
 describe('ParseInputStep — resolveLocation', () => {
-  it('GPT가 유효한 지역을 반환하면 그 값을 사용한다', async () => {
+  it('rawInput에 지역이 있으면 trie scan이 우선한다', async () => {
     const { step, mockCreate } = makeStep();
-    mockCreate.mockReturnValue(gptOk('강남'));
-    const ctx = makeCtx('강남 근처 데이트 코스 추천해줘');
+    // GPT가 다른 지역을 반환해도 trie scan 결과가 이긴다
+    mockCreate.mockReturnValue(gptOk('진주'));
+    const ctx = makeCtx('강남에서 저녁 먹고 싶어');
 
     await step.execute(ctx);
 
     expect(ctx.parsed!.location).toBe('강남');
+    expect(ctx.locationCandidates![0].source).toBe('trie');
   });
 
-  it('alias는 canonical 이름으로 정규화된다 (연남동 → 홍대)', async () => {
+  it('trie miss 시 GPT location이 rawInput에 있으면 validated로 사용한다', async () => {
     const { step, mockCreate } = makeStep();
-    mockCreate.mockReturnValue(gptOk('연남동'));
-    const ctx = makeCtx('연남동 카페 투어');
+    mockCreate.mockReturnValue(gptOk('용리단길'));
+    const ctx = makeCtx('용리단길 맛집 추천해줘');
+    // resolveBest가 null 반환 (registry에 없는 신조어)
+    (step as any).regionService.resolveBest = jest.fn().mockReturnValue(null);
 
     await step.execute(ctx);
 
-    expect(ctx.parsed!.location).toBe('홍대');
+    // GPT가 제시하고 rawInput에도 있으므로 unrecognized로 채택
+    expect(ctx.parsed!.location).toBe('용리단길');
+    expect(ctx.unrecognizedLocationToken).toBe('용리단길');
   });
 
-  it('GPT가 stop-word를 지역으로 반환하면 text-scan으로 넘어간다', async () => {
+  it('GPT location이 rawInput에 없으면 환각으로 버리고 fallback', async () => {
     const { step, mockCreate } = makeStep();
-    // GPT가 '당일치기'를 지역으로 반환 → normalize 결과 null
-    mockCreate.mockReturnValue(gptOk('당일치기'));
-    const ctx = makeCtx('부산 당일치기 여행');
+    mockCreate.mockReturnValue(gptOk('진주'));
+    const ctx = makeCtx('강남에서 맛집 추천');
+    // trie miss 강제
+    (step as any).regionService.resolveBest = jest.fn().mockReturnValue(null);
 
     await step.execute(ctx);
 
-    // text-scan이 '부산'을 잡아야 함
-    expect(ctx.parsed!.location).toBe('부산');
+    // "진주"는 rawInput에 없으므로 환각으로 드롭 → fallback
+    expect(ctx.parsed!.location).toBe('서울');
+    expect(ctx.locationCandidates![0].source).toBe('fallback');
   });
 
-  it('GPT 호출 실패 시 text-scan으로 location을 추출한다', async () => {
+  it('GPT 호출 실패 시 trie scan으로 location을 추출한다', async () => {
     const { step, mockCreate } = makeStep();
     mockCreate.mockReturnValue(gptFail());
     const ctx = makeCtx('해운대 맛집 여행');
@@ -131,9 +119,10 @@ describe('ParseInputStep — resolveLocation', () => {
     await step.execute(ctx);
 
     expect(ctx.parsed!.location).toBe('해운대');
+    expect(ctx.locationCandidates![0].source).toBe('trie');
   });
 
-  it('GPT 빈 응답 시 text-scan으로 location을 추출한다', async () => {
+  it('GPT 빈 응답 시 trie scan으로 location을 추출한다', async () => {
     const { step, mockCreate } = makeStep();
     mockCreate.mockReturnValue(gptEmpty());
     const ctx = makeCtx('이태원에서 저녁 먹고 싶어');
@@ -143,58 +132,30 @@ describe('ParseInputStep — resolveLocation', () => {
     expect(ctx.parsed!.location).toBe('이태원');
   });
 
-  it('GPT 실패 + 텍스트에 지역 없으면 서울로 fallback', async () => {
+  it('trie miss + GPT 실패 시 서울로 fallback', async () => {
     const { step, mockCreate } = makeStep();
     mockCreate.mockReturnValue(gptFail());
     const ctx = makeCtx('당일치기 여행 추천해줘');
+    (step as any).regionService.resolveBest = jest.fn().mockReturnValue(null);
 
     await step.execute(ctx);
 
     expect(ctx.parsed!.location).toBe('서울');
+    expect(ctx.locationCandidates![0].source).toBe('fallback');
   });
 
-  it('GPT 성공 시 locationCandidates 로그에 gpt source가 포함된다', async () => {
+  it('locationCandidates는 항상 1개 이상 채워진다', async () => {
     const { step, mockCreate } = makeStep();
     mockCreate.mockReturnValue(gptOk('제주'));
     const ctx = makeCtx('제주도 여행 일정');
 
     await step.execute(ctx);
 
-    const gptCandidate = ctx.locationCandidates?.find(
-      (c) => c.source === 'gpt',
-    );
-    expect(gptCandidate).toBeDefined();
-    // 기본 weight 0.95, 2글자 페널티(-0.1) 적용 가능하므로 0.8 이상으로 검증
-    expect(gptCandidate!.score).toBeGreaterThanOrEqual(0.8);
+    expect(ctx.locationCandidates).toBeDefined();
+    expect(ctx.locationCandidates!.length).toBeGreaterThan(0);
   });
 
-  it('GPT 실패 시 locationCandidates에 gpt source가 없다', async () => {
-    const { step, mockCreate } = makeStep();
-    mockCreate.mockReturnValue(gptFail());
-    const ctx = makeCtx('서울 강남 데이트');
-
-    await step.execute(ctx);
-
-    const gptCandidate = ctx.locationCandidates?.find(
-      (c) => c.source === 'gpt',
-    );
-    expect(gptCandidate).toBeUndefined();
-  });
-
-  it('locationCandidates는 점수 내림차순으로 정렬된다', async () => {
-    const { step, mockCreate } = makeStep();
-    mockCreate.mockReturnValue(gptOk('서울'));
-    const ctx = makeCtx('서울 강남 데이트');
-
-    await step.execute(ctx);
-
-    const scores = ctx.locationCandidates?.map((c) => c.score) ?? [];
-    for (let i = 1; i < scores.length; i++) {
-      expect(scores[i - 1]).toBeGreaterThanOrEqual(scores[i]);
-    }
-  });
-
-  it('GPT가 빈 location을 반환하면 text-scan을 사용한다', async () => {
+  it('GPT가 빈 location을 반환하면 trie scan이 동작한다', async () => {
     const { step, mockCreate } = makeStep();
     mockCreate.mockReturnValue(gptOk(''));
     const ctx = makeCtx('부산 해운대 여행');
