@@ -2,7 +2,7 @@ import csv
 import json
 import sys
 from pathlib import Path
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Set
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CSV = ROOT / 'data' / 'legal_dong.csv'
@@ -114,6 +114,76 @@ def row_to_region(row: Dict[str, str]) -> Optional[Dict]:
     }
 
 
+SUBWAY_CSV = ROOT / 'data' / 'subway_stations.csv'
+
+
+def load_subway_landmarks(csv_path: Path) -> List[dict]:
+    """
+    전국 도시철도역 CSV → type='landmark' 레코드 리스트.
+
+    공공데이터포털 "전국 도시철도역 현황" CSV 예상 컬럼:
+      역명, 노선명, 위도, 경도  (또는 영문 컬럼명 혼용)
+
+    컬럼이 다를 경우 이 함수 내 컬럼명만 수정.
+    """
+    if not csv_path.exists():
+        return []
+
+    landmarks = []
+    seen_names: set = set()
+
+    try:
+        with csv_path.open('r', encoding='utf-8-sig') as f:
+            reader = csv.DictReader(f)
+            headers = reader.fieldnames or []
+
+            # 컬럼 자동 감지
+            name_col = next((h for h in headers if '역명' in h or 'station' in h.lower()), None)
+            lat_col  = next((h for h in headers if '위도' in h or 'lat' in h.lower()), None)
+            lng_col  = next((h for h in headers if '경도' in h or 'lng' in h.lower() or 'lon' in h.lower()), None)
+
+            if not name_col:
+                print(f'WARNING: subway CSV 컬럼 미인식 (headers: {headers[:5]}) — landmark 건너뜀')
+                return []
+
+            for row in reader:
+                name = (row.get(name_col) or '').strip()
+                if not name or name in seen_names:
+                    continue
+                seen_names.add(name)
+
+                lat = lng = None
+                try:
+                    if lat_col and lng_col:
+                        lat = float(row[lat_col])
+                        lng = float(row[lng_col])
+                except (ValueError, KeyError):
+                    pass
+
+                station_name = name if name.endswith('역') else f'{name}역'
+                short_name = name.rstrip('역')
+                aliases = list({station_name, short_name, name})
+
+                record: dict = {
+                    'code': f'LM-{name}',
+                    'name': station_name,
+                    'shortName': short_name,
+                    'type': 'landmark',
+                    'aliases': sorted(aliases),
+                }
+                if lat and lng:
+                    record['lat'] = round(lat, 6)
+                    record['lng'] = round(lng, 6)
+                landmarks.append(record)
+
+    except Exception as exc:
+        print(f'WARNING: subway CSV 로드 실패 ({exc}) — landmark 건너뜀')
+        return []
+
+    print(f'Loaded {len(landmarks)} subway landmarks ← {csv_path.name}')
+    return landmarks
+
+
 def generate(csv_path: Path, output_path: Path) -> None:
     regions: list[dict] = []
     with csv_path.open('r', encoding='cp949') as f:
@@ -123,6 +193,13 @@ def generate(csv_path: Path, output_path: Path) -> None:
             if region:
                 regions.append(region)
     regions.sort(key=lambda r: r['code'])
+
+    # 지하철역 landmark 병합 (subway_stations.csv가 있을 때만)
+    landmarks = load_subway_landmarks(SUBWAY_CSV)
+    if landmarks:
+        regions.extend(landmarks)
+        print(f'Total after landmark merge: {len(regions)} records')
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
         json.dumps({'regions': regions}, ensure_ascii=False, indent=2),

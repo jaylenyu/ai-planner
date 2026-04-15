@@ -43,3 +43,4 @@ Thumbs.db
 # TypeScript
 *.tsbuildinfo
 awscliv2.zip
+backend/data/region_coords_cache.json

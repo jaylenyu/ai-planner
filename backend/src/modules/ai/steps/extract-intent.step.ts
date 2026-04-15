@@ -153,6 +153,18 @@ export class ExtractIntentStep {
     coords: { lat: number; lng: number };
     resolvedLocation: string;
   }> {
+    // Step 0: regions.json에 좌표가 있으면 geocode 호출 없이 즉시 반환
+    const regionRecord = this.regionService.getRegion(initialLocation);
+    if (regionRecord?.lat && regionRecord?.lng) {
+      this.logger.log(
+        `regions.json 좌표 사용: ${initialLocation} (${regionRecord.lat.toFixed(4)},${regionRecord.lng.toFixed(4)})`,
+      );
+      return {
+        coords: { lat: regionRecord.lat, lng: regionRecord.lng },
+        resolvedLocation: initialLocation,
+      };
+    }
+
     // Step 1: 동적 지오코딩 시도 (RegionService를 통과한 location에 대해)
     // geocodeCity는 시청/군청/구청/터미널/역 순으로 시도해 행정 랜드마크 기반 좌표 반환
     const resolved = await this.placesService.geocodeCity(initialLocation);
@@ -181,16 +193,7 @@ export class ExtractIntentStep {
       }
     }
 
-    // Step 3: 정적 좌표 테이블 최종 시도 (API 인증 오류/키 누락 등 대비)
-    const staticHit = this.placesService.geocodeCityStatic(initialLocation);
-    if (staticHit) {
-      this.logger.warn(
-        `동적 지오코딩 실패 — 정적 좌표 사용: ${initialLocation} (${staticHit.lat},${staticHit.lng})`,
-      );
-      return { coords: staticHit, resolvedLocation: initialLocation };
-    }
-
-    // Step 4: 모든 시도 실패 시 서울 fallback
+    // Step 3: 모든 시도 실패 시 서울 fallback
     this.logger.warn(`좌표 해석 실패, 서울로 fallback: ${initialLocation}`);
     return {
       coords: SEOUL_FALLBACK_COORDS,
