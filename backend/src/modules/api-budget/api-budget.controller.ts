@@ -1,6 +1,9 @@
 import { Controller, Get, UseGuards, Request } from '@nestjs/common';
+import type { Request as ExpressRequest } from 'express';
 import { ApiBudgetService } from '../../services/api-budget.service';
 import { JwtAuthGuard } from '../auth/auth.guard';
+
+type AuthedRequest = ExpressRequest & { user?: { id?: string } };
 
 @Controller('budget')
 export class ApiBudgetController {
@@ -8,8 +11,8 @@ export class ApiBudgetController {
 
   @Get('usage')
   @UseGuards(JwtAuthGuard)
-  async getUsage(@Request() req) {
-    return await this.apiBudgetService.getUsageStats(req.user.id);
+  async getUsage(@Request() req: AuthedRequest) {
+    return await this.apiBudgetService.getUsageStats(req.user?.id);
   }
 
   @Get('limits')

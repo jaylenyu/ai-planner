@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import type { SignOptions } from 'jsonwebtoken';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -36,7 +37,8 @@ export class AuthService {
     const access_token = this.jwtService.sign(
       { sub: userId, email },
       {
-        expiresIn: (this.config.get<string>('JWT_EXPIRES_IN') ?? '15m') as any,
+        expiresIn: (this.config.get<string>('JWT_EXPIRES_IN') ??
+          '15m') as SignOptions['expiresIn'],
       },
     );
 

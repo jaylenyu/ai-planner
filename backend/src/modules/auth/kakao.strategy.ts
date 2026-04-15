@@ -4,7 +4,16 @@ import { ConfigService } from '@nestjs/config';
 import { Strategy } from 'passport-kakao';
 import { OAuthAccountService } from './oauth-account.service';
 
-type DoneFn = (error: any, user?: any) => void;
+type DoneFn = (error: Error | null, user?: unknown) => void;
+
+type KakaoProfile = {
+  id?: string | number;
+  _json?: {
+    kakao_account?: {
+      email?: string | null;
+    };
+  };
+};
 
 @Injectable()
 export class KakaoStrategy extends PassportStrategy(Strategy, 'kakao') {
@@ -22,15 +31,15 @@ export class KakaoStrategy extends PassportStrategy(Strategy, 'kakao') {
   async validate(
     _accessToken: string,
     _refreshToken: string,
-    profile: any,
+    profile: KakaoProfile,
     done: DoneFn,
   ) {
     try {
-      const kakaoId = String(profile?.id ?? '');
+      const kakaoId = String(profile.id ?? '');
       if (!kakaoId)
         return done(new Error('카카오 사용자 정보를 가져올 수 없습니다.'));
 
-      const email: string | null = profile?._json?.kakao_account?.email ?? null;
+      const email: string | null = profile._json?.kakao_account?.email ?? null;
       const user = await this.oauthAccount.findOrLinkOrCreate(
         'kakao',
         kakaoId,
@@ -38,7 +47,7 @@ export class KakaoStrategy extends PassportStrategy(Strategy, 'kakao') {
       );
       done(null, user);
     } catch (err) {
-      done(err);
+      done(err instanceof Error ? err : new Error(String(err)));
     }
   }
 }
