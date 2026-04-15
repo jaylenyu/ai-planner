@@ -1,12 +1,22 @@
+import { ConfigService } from '@nestjs/config';
 import { ParseInputStep } from './parse-input.step';
 import { PipelineContext } from '../interfaces/pipeline-result.interface';
 import { RegionService } from '../../../shared/region/region.service';
+
+type StepPrivates = {
+  openai: { chat: { completions: { create: jest.Mock } } };
+  regionService: { resolveBest: jest.Mock };
+};
 
 function makeCtx(rawInput: string): PipelineContext {
   return { rawInput, mode: 'date' } as PipelineContext;
 }
 
-function makeStep(): { step: ParseInputStep; mockCreate: jest.Mock } {
+function makeStep(): {
+  step: ParseInputStep;
+  stepP: StepPrivates;
+  mockCreate: jest.Mock;
+} {
   // resolveBest를 직접 mock — 새 아키텍처의 핵심 interface
   const regionService = {
     resolveBest: jest.fn((text: string) => {
@@ -30,16 +40,17 @@ function makeStep(): { step: ParseInputStep; mockCreate: jest.Mock } {
     get: jest.fn((key: string) =>
       key === 'OPENROUTER_API_KEY' ? 'test-key' : undefined,
     ),
-  };
+  } as unknown as ConfigService;
 
-  const step = new ParseInputStep(config as any, regionService);
+  const step = new ParseInputStep(config, regionService);
 
   const mockCreate = jest.fn();
-  (step as any).openai = {
+  const stepP = step as unknown as StepPrivates;
+  stepP.openai = {
     chat: { completions: { create: mockCreate } },
   };
 
-  return { step, mockCreate };
+  return { step, stepP, mockCreate };
 }
 
 function gptOk(location: string, activities = ['맛집', '카페']) {
@@ -84,11 +95,11 @@ describe('ParseInputStep — resolveLocation', () => {
   });
 
   it('trie miss 시 GPT location이 rawInput에 있으면 validated로 사용한다', async () => {
-    const { step, mockCreate } = makeStep();
+    const { step, stepP, mockCreate } = makeStep();
     mockCreate.mockReturnValue(gptOk('용리단길'));
     const ctx = makeCtx('용리단길 맛집 추천해줘');
     // resolveBest가 null 반환 (registry에 없는 신조어)
-    (step as any).regionService.resolveBest = jest.fn().mockReturnValue(null);
+    stepP.regionService.resolveBest = jest.fn().mockReturnValue(null);
 
     await step.execute(ctx);
 
@@ -98,11 +109,11 @@ describe('ParseInputStep — resolveLocation', () => {
   });
 
   it('GPT location이 rawInput에 없으면 환각으로 버리고 fallback', async () => {
-    const { step, mockCreate } = makeStep();
+    const { step, stepP, mockCreate } = makeStep();
     mockCreate.mockReturnValue(gptOk('진주'));
     const ctx = makeCtx('강남에서 맛집 추천');
     // trie miss 강제
-    (step as any).regionService.resolveBest = jest.fn().mockReturnValue(null);
+    stepP.regionService.resolveBest = jest.fn().mockReturnValue(null);
 
     await step.execute(ctx);
 
@@ -133,10 +144,10 @@ describe('ParseInputStep — resolveLocation', () => {
   });
 
   it('trie miss + GPT 실패 시 서울로 fallback', async () => {
-    const { step, mockCreate } = makeStep();
+    const { step, stepP, mockCreate } = makeStep();
     mockCreate.mockReturnValue(gptFail());
     const ctx = makeCtx('당일치기 여행 추천해줘');
-    (step as any).regionService.resolveBest = jest.fn().mockReturnValue(null);
+    stepP.regionService.resolveBest = jest.fn().mockReturnValue(null);
 
     await step.execute(ctx);
 

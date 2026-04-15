@@ -14,6 +14,7 @@ env:
   REGISTRY: ghcr.io
   IMAGE_BACKEND: ghcr.io/${{ github.repository_owner }}/ai-planner-backend
   IMAGE_FRONTEND: ghcr.io/${{ github.repository_owner }}/ai-planner-frontend
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   changes:

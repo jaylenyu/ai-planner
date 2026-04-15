@@ -5,10 +5,15 @@ import { RegionService } from '../../../shared/region/region.service';
 import { AliasLearningService } from '../../../shared/region/alias-learning.service';
 
 function makeStep() {
-  const placesService = {
+  const placesService: {
+    geocodeCity: jest.Mock;
+  } = {
     geocodeCity: jest.fn(),
   };
-  const regionService = {
+  const regionService: {
+    getRegion: jest.Mock;
+    normalize: jest.Mock;
+  } = {
     getRegion: jest.fn((name: string) => ({
       type: 'dong',
       shortName: name,
@@ -129,14 +134,14 @@ describe('ExtractIntentStep', () => {
 
   it('anchorArea가 있으면 location은 유지하고 searchLocation만 바꾼다', async () => {
     const { step, placesService, regionService } = makeStep();
-    placesService.geocodeCity = jest
-      .fn()
-      .mockImplementation(async (name: string) => {
-        if (name === '서울') return { lat: 37.5665, lng: 126.978 };
-        if (name === '해운대') return { lat: 35.1587, lng: 129.1604 };
-        return null;
-      });
-    (regionService as any).getRegion = jest.fn((name: string) =>
+    placesService.geocodeCity.mockImplementation((name: string) => {
+      if (name === '서울')
+        return Promise.resolve({ lat: 37.5665, lng: 126.978 });
+      if (name === '해운대')
+        return Promise.resolve({ lat: 35.1587, lng: 129.1604 });
+      return Promise.resolve(null);
+    });
+    regionService.getRegion = jest.fn((name: string) =>
       name === '서울' ? { type: 'city', shortName: '서울' } : undefined,
     );
 

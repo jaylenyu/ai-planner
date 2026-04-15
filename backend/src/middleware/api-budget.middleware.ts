@@ -20,7 +20,8 @@ export class ApiBudgetMiddleware implements NestMiddleware {
       return next();
     }
 
-    const userId = (req as any).user?.id || 'anonymous';
+    const authedReq = req as Request & { user?: { id?: string } };
+    const userId = authedReq.user?.id ?? 'anonymous';
     const rawIp =
       req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
     const ipAddress = (Array.isArray(rawIp) ? rawIp[0] : rawIp) ?? 'unknown';
@@ -92,7 +93,8 @@ export class ApiBudgetMiddleware implements NestMiddleware {
       if (error instanceof HttpException) {
         throw error;
       }
-      this.logger.error(`API budget middleware error: ${error.message}`);
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`API budget middleware error: ${message}`);
       // Allow request to proceed if budget service fails (fail-open for availability)
       next();
     }
