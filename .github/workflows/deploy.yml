@@ -150,43 +150,20 @@ jobs:
             ENV_FILE=~/ai-planner/.env
             COMPOSE_FILE=~/infra/docker-compose.ai-planner.prod.yml
 
-            # 1) .env 파일 upsert
-            upsert_env() {
-              local key="$1" val="$2"
-              if grep -q "^${key}=" "$ENV_FILE" 2>/dev/null; then
-                sed -i "s|^${key}=.*|${key}=${val}|" "$ENV_FILE"
-              else
-                echo "${key}=${val}" >> "$ENV_FILE"
-              fi
-            }
-            upsert_env KAKAO_REST_API_KEY "${{ secrets.KAKAO_REST_API_KEY }}"
-            echo "[deploy] .env KAKAO_REST_API_KEY: $(grep KAKAO_REST_API_KEY $ENV_FILE | head -1 | cut -c1-40)..."
+            # 1) .env upsert
+            if grep -q "^KAKAO_REST_API_KEY=" "$ENV_FILE" 2>/dev/null; then
+              sed -i "s|^KAKAO_REST_API_KEY=.*|KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}|" "$ENV_FILE"
+            else
+              echo "KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}" >> "$ENV_FILE"
+            fi
+            echo "[deploy] .env KAKAO line: $(grep '^KAKAO_REST_API_KEY=' $ENV_FILE)"
 
-            # 2) compose 파일에 KAKAO_REST_API_KEY 환경변수 항목이 없으면 자동 추가
+            # 2) compose 파일에 KAKAO_REST_API_KEY 없으면 sed로 추가
             if ! grep -q "KAKAO_REST_API_KEY" "$COMPOSE_FILE"; then
-              echo "[deploy] compose 파일에 KAKAO_REST_API_KEY 없음 — 자동 패치"
-              # backend 서비스의 environment 블록에 추가 (NAVER_SEARCH_CLIENT_SECRET 다음 줄)
-              python3 -c "
-            import re, sys
-            with open('$COMPOSE_FILE') as f:
-                txt = f.read()
-            # environment 섹션의 마지막 항목 뒤에 삽입
-            patched = re.sub(
-                r'(NAVER_SEARCH_CLIENT_SECRET[^\n]*)',
-                r'\1\n      - KAKAO_REST_API_KEY=\${KAKAO_REST_API_KEY}',
-                txt, count=1
-            )
-            if patched == txt:
-                # fallback: NAVER_SEARCH_CLIENT_ID 뒤에 삽입
-                patched = re.sub(
-                    r'(NAVER_SEARCH_CLIENT_ID[^\n]*)',
-                    r'\1\n      - KAKAO_REST_API_KEY=\${KAKAO_REST_API_KEY}',
-                    txt, count=1
-                )
-            with open('$COMPOSE_FILE', 'w') as f:
-                f.write(patched)
-            print('patched OK')
-            "
+              echo "[deploy] compose 파일 패치 중..."
+              sed -i '/NAVER_SEARCH_CLIENT_SECRET/a\      - KAKAO_REST_API_KEY=$\{KAKAO_REST_API_KEY\}' "$COMPOSE_FILE" || \
+              sed -i '/NAVER_SEARCH_CLIENT_ID/a\      - KAKAO_REST_API_KEY=$\{KAKAO_REST_API_KEY\}' "$COMPOSE_FILE" || \
+              echo "[deploy] WARNING: compose 파일 패치 실패 — env_file 방식이거나 직접 수정 필요"
             else
               echo "[deploy] compose 파일에 KAKAO_REST_API_KEY 이미 존재"
             fi
@@ -194,7 +171,6 @@ jobs:
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker pull ${{ env.IMAGE_BACKEND }}:latest
             docker pull ${{ env.IMAGE_FRONTEND }}:latest
-            # 기존 컨테이너 안전하게 중지 후 새 compose로 전환
             docker stop ai-planner-backend ai-planner-frontend 2>/dev/null || true
             docker rm -f ai-planner-backend ai-planner-frontend 2>/dev/null || true
             GITHUB_REPOSITORY_OWNER=${{ github.repository_owner }} \
