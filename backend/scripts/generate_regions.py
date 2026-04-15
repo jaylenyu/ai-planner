@@ -1,8 +1,10 @@
 import csv
 import json
+import math
+import re
 import sys
 from pathlib import Path
-from typing import List, Optional, Dict, Set
+from typing import List, Optional, Dict
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CSV = ROOT / 'data' / 'legal_dong.csv'
@@ -114,71 +116,176 @@ def row_to_region(row: Dict[str, str]) -> Optional[Dict]:
     }
 
 
-SUBWAY_CSV = ROOT / 'data' / 'subway_stations.csv'
+# ─── 지하철역 landmark 로딩 ───────────────────────────────────────────────────
+
+ALL_SUBWAY_CSV = ROOT / 'data' / 'all_subway_stations.csv'
+
+
+def korea_tm_to_wgs84(x: float, y: float) -> tuple[float, float]:
+    """
+    EPSG:2097 (Korea Central Belt, Bessel 1841) TM 좌표 → WGS84 위경도 변환.
+
+    파라미터:
+      lat_0=38°N, lon_0=127°E, false_easting=200000, false_northing=500000
+      Bessel 1841: a=6377397.155m, f=1/299.1528128
+
+    정확도: 약 50~200m (pyproj 없이 1차 근사).
+    """
+    a = 6377397.155            # Bessel semi-major axis (m)
+    f = 1.0 / 299.1528128
+    e2 = 2 * f - f * f        # eccentricity squared
+    lat0 = math.radians(38.0)  # central latitude
+    lon0 = math.radians(127.0) # central meridian
+    x0 = 200000.0              # false easting
+    y0 = 500000.0              # false northing
+
+    # Northing 역산: 위도 1도 ≈ 자오선 호장
+    # M(lat0) 계산 (자오선 호장 at origin)
+    def meridional_arc(lat: float) -> float:
+        e2_ = e2
+        n = f / (2 - f)
+        A0 = 1 - e2_ / 4 - 3 * e2_ ** 2 / 64
+        A2 = 3 / 8 * (e2_ + e2_ ** 2 / 4)
+        A4 = 15 / 256 * e2_ ** 2
+        return a * (A0 * lat - A2 * math.sin(2 * lat) + A4 * math.sin(4 * lat))
+
+    M0 = meridional_arc(lat0)
+    M = M0 + (y - y0)          # northing to meridional arc
+
+    # 역산 (Bowring 반복법 1회)
+    mu = M / (a * (1 - e2 / 4 - 3 * e2 ** 2 / 64))
+    e1 = (1 - math.sqrt(1 - e2)) / (1 + math.sqrt(1 - e2))
+    phi1 = mu + (3 * e1 / 2 - 27 * e1 ** 3 / 32) * math.sin(2 * mu) \
+              + (21 * e1 ** 2 / 16) * math.sin(4 * mu) \
+              - (151 * e1 ** 3 / 96) * math.sin(6 * mu)
+
+    N1 = a / math.sqrt(1 - e2 * math.sin(phi1) ** 2)
+    T1 = math.tan(phi1) ** 2
+    C1 = e2 / (1 - e2) * math.cos(phi1) ** 2
+    R1 = a * (1 - e2) / (1 - e2 * math.sin(phi1) ** 2) ** 1.5
+    D = (x - x0) / N1
+
+    lat_rad = phi1 - (N1 * math.tan(phi1) / R1) * (
+        D ** 2 / 2
+        - (5 + 3 * T1 + 10 * C1 - 4 * C1 ** 2 - 9 * e2 / (1 - e2)) * D ** 4 / 24
+    )
+    lon_rad = lon0 + (
+        D
+        - (1 + 2 * T1 + C1) * D ** 3 / 6
+    ) / math.cos(phi1)
+
+    return round(math.degrees(lat_rad), 6), round(math.degrees(lon_rad), 6)
+
+
+def parse_sigungu_from_address(address: str) -> Optional[str]:
+    """
+    기본주소에서 시군구 수준 단위를 추출해 canonicalize.
+    예: "서울특별시 성동구 행당동" → "성동"
+        "서울 마포구 동교동 165" → "마포"
+        "서울특별시 강남구 선릉로 580" → "강남"
+    """
+    if not address:
+        return None
+    parts = address.strip().split()
+    # 첫 번째 토큰 = 시도, 두 번째 토큰 = 시군구
+    if len(parts) < 2:
+        return None
+    sigungu = parts[1]
+    if sigungu.endswith(('구', '시', '군')):
+        return canonicalize(sigungu)
+    return None
 
 
 def load_subway_landmarks(csv_path: Path) -> List[dict]:
     """
-    전국 도시철도역 CSV → type='landmark' 레코드 리스트.
+    all_subway_stations.csv → type='landmark' 레코드 리스트.
 
-    공공데이터포털 "전국 도시철도역 현황" CSV 예상 컬럼:
-      역명, 노선명, 위도, 경도  (또는 영문 컬럼명 혼용)
+    사용 컬럼:
+      지하철역명  — 역 이름 (일부 괄호 포함 가능, e.g. "신촌(경의중앙선)")
+      기본주소    — 행정 주소 (시군구 파싱용)
+      지하철역X좌표 — EPSG:2097 easting (m)
+      지하철역Y좌표 — EPSG:2097 northing (m)
 
-    컬럼이 다를 경우 이 함수 내 컬럼명만 수정.
+    처리:
+      - 역명에서 괄호 부분 제거 → base_name (shortName / alias)
+      - base_name 기준으로 중복 제거 (여러 호선 동일역)
+      - X/Y를 WGS84 lat/lng으로 변환
+      - 기본주소에서 시군구 파싱 → parentRegion (검색 힌트용)
     """
     if not csv_path.exists():
+        print(f'WARNING: {csv_path.name} 없음 — landmark 건너뜀')
         return []
 
     landmarks = []
-    seen_names: set = set()
+    seen_base: set[str] = set()
 
     try:
         with csv_path.open('r', encoding='utf-8-sig') as f:
             reader = csv.DictReader(f)
-            headers = reader.fieldnames or []
 
-            # 컬럼 감지 — 공공데이터포털 "전국 도시철도역" 형식 우선
-            # 역한글명칭, 환승역X좌표(경도), 환승역Y좌표(위도)
-            name_col = next((h for h in headers if h in ('역한글명칭', '역명') or
-                             '역명' in h or 'station' in h.lower()), None)
-            # X좌표 = 경도(lng), Y좌표 = 위도(lat) — 공공데이터 관례
-            lng_col = next((h for h in headers if 'X좌표' in h or '경도' in h or
-                            'lng' in h.lower() or 'lon' in h.lower()), None)
-            lat_col = next((h for h in headers if 'Y좌표' in h or '위도' in h or
-                            'lat' in h.lower()), None)
+            # BOM 또는 공백 포함 헤더 정규화
+            raw_headers = reader.fieldnames or []
+            header_map = {h.strip().lstrip('\ufeff'): h for h in raw_headers}
+
+            def get_col(name: str) -> Optional[str]:
+                return header_map.get(name)
+
+            name_col = get_col('지하철역명')
+            addr_col = get_col('기본주소')
+            x_col    = get_col('지하철역X좌표')
+            y_col    = get_col('지하철역Y좌표')
 
             if not name_col:
-                print(f'WARNING: subway CSV 컬럼 미인식 (headers: {headers[:5]}) — landmark 건너뜀')
+                print(f'WARNING: 지하철역명 컬럼 미인식 — landmark 건너뜀')
                 return []
 
             for row in reader:
-                name = (row.get(name_col) or '').strip()
-                if not name or name in seen_names:
+                raw_name = (row.get(name_col) or '').strip().lstrip('\ufeff')
+                if not raw_name:
                     continue
-                seen_names.add(name)
 
+                # 괄호 제거 → base_name (e.g. "신촌(경의중앙선)" → "신촌")
+                base_name = re.sub(r'\(.*?\)', '', raw_name).strip()
+                if not base_name or base_name in seen_base:
+                    continue
+                seen_base.add(base_name)
+
+                # WGS84 변환
                 lat = lng = None
                 try:
-                    if lat_col and lng_col:
-                        lat = float(row[lat_col])
-                        lng = float(row[lng_col])
+                    if x_col and y_col:
+                        x_val = float((row.get(x_col) or '').strip().lstrip('\ufeff'))
+                        y_val = float((row.get(y_col) or '').strip().lstrip('\ufeff'))
+                        if x_val and y_val:
+                            lat, lng = korea_tm_to_wgs84(x_val, y_val)
                 except (ValueError, KeyError):
                     pass
 
-                station_name = name if name.endswith('역') else f'{name}역'
-                short_name = name.rstrip('역')
-                aliases = list({station_name, short_name, name})
+                # 기본주소 → parentRegion (시군구)
+                address = (row.get(addr_col) or '').strip().lstrip('\ufeff') if addr_col else ''
+                parent_region = parse_sigungu_from_address(address)
+
+                # aliases: base_name, base_name+'역', 원본(괄호 포함), 원본+'역'
+                aliases: set[str] = {base_name, base_name + '역'}
+                if raw_name != base_name:
+                    aliases.add(raw_name)
+                    aliases.add(raw_name + '역')
 
                 record: dict = {
-                    'code': f'LM-{name}',
-                    'name': station_name,
-                    'shortName': short_name,
+                    'code': f'LM-{base_name}',
+                    'name': base_name + '역',
+                    'shortName': base_name,
                     'type': 'landmark',
                     'aliases': sorted(aliases),
                 }
                 if lat and lng:
-                    record['lat'] = round(lat, 6)
-                    record['lng'] = round(lng, 6)
+                    record['lat'] = lat
+                    record['lng'] = lng
+                if parent_region:
+                    record['parentRegion'] = parent_region
+                if address:
+                    record['address'] = address
+
                 landmarks.append(record)
 
     except Exception as exc:
@@ -199,8 +306,7 @@ def generate(csv_path: Path, output_path: Path) -> None:
                 regions.append(region)
     regions.sort(key=lambda r: r['code'])
 
-    # 지하철역 landmark 병합 (subway_stations.csv가 있을 때만)
-    landmarks = load_subway_landmarks(SUBWAY_CSV)
+    landmarks = load_subway_landmarks(ALL_SUBWAY_CSV)
     if landmarks:
         regions.extend(landmarks)
         print(f'Total after landmark merge: {len(regions)} records')

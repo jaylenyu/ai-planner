@@ -9,7 +9,7 @@ export interface PlaceResult {
   category: string;
   address: string;
   link?: string;
-  source?: 'naver' | 'ai';
+  source?: 'naver' | 'kakao' | 'ai';
   score?: number;
 }
 
@@ -67,6 +67,7 @@ export class PlacesService {
   private readonly logger = new Logger(PlacesService.name);
   private readonly clientId: string;
   private readonly clientSecret: string;
+  private readonly kakaoRestApiKey: string;
   private rateLimitCache = new TTLCache<boolean>(5 * 60 * 1000); // 5분 TTL
   private searchCache = new TTLCache<PlaceResult[]>(5 * 60 * 1000); // 5분 TTL
   private naverUnauthorized = false; // 401 감지 시 정적 폴백 사용
@@ -78,6 +79,8 @@ export class PlacesService {
     this.clientId = this.config.get<string>('NAVER_SEARCH_CLIENT_ID') ?? '';
     this.clientSecret =
       this.config.get<string>('NAVER_SEARCH_CLIENT_SECRET') ?? '';
+    this.kakaoRestApiKey =
+      this.config.get<string>('KAKAO_REST_API_KEY') ?? '';
   }
 
 
@@ -188,6 +191,60 @@ export class PlacesService {
     }
 
     return [];
+  }
+
+  async searchNearbyKakao(
+    query: string,
+    lat: number,
+    lng: number,
+    display = 5,
+  ): Promise<PlaceResult[]> {
+    if (!this.kakaoRestApiKey) {
+      this.logger.warn(`Kakao REST API 키 없음 — 빈 결과 반환 (query: ${query})`);
+      return [];
+    }
+
+    const cacheKey = `kakao:${query}:${lat.toFixed(4)}:${lng.toFixed(4)}:${display}`;
+    const redisCached = await this.getCachedPlaces(cacheKey);
+    if (redisCached) return redisCached;
+
+    try {
+      const params = new URLSearchParams({
+        query,
+        x: String(lng),
+        y: String(lat),
+        radius: '5000',
+        size: String(display),
+      });
+      const url = `https://dapi.kakao.com/v2/local/search/keyword.json?${params}`;
+      const response = await fetch(url, {
+        headers: { Authorization: `KakaoAK ${this.kakaoRestApiKey}` },
+      });
+
+      if (!response.ok) {
+        this.logger.warn(
+          `Kakao API 오류 ${response.status} (query: ${query})`,
+        );
+        return [];
+      }
+
+      const data = (await response.json()) as { documents: KakaoLocalItem[] };
+      const places = (data.documents ?? []).map((item) => ({
+        name: item.place_name,
+        lat: parseFloat(item.y),
+        lng: parseFloat(item.x),
+        category: item.category_name,
+        address: item.road_address_name || item.address_name,
+        link: item.place_url,
+        source: 'kakao' as const,
+      }));
+
+      await this.cachePlaces(cacheKey, places);
+      return places;
+    } catch (err) {
+      this.logger.warn(`Kakao API 요청 실패 (query: ${query}): ${err}`);
+      return [];
+    }
   }
 
   async geocodeCity(
@@ -303,6 +360,16 @@ export class PlacesService {
 
     return null;
   }
+}
+
+interface KakaoLocalItem {
+  place_name: string;
+  x: string;             // 경도 (lng)
+  y: string;             // 위도 (lat)
+  category_name: string;
+  address_name: string;
+  road_address_name: string;
+  place_url: string;
 }
 
 interface NaverLocalItem {

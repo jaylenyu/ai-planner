@@ -1,7 +1,6 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { PlacesService } from '../../places/places.service';
 import { PipelineContext } from '../interfaces/pipeline-result.interface';
-import { AiPlacesFallbackService } from '../services/ai-places-fallback.service';
 import { PlaceResult } from '../interfaces/place.interface';
 
 const FALLBACK_QUERIES: Record<string, string> = {
@@ -12,7 +11,7 @@ const FALLBACK_QUERIES: Record<string, string> = {
   food: '맛집',
 };
 
-const MAX_RESULTS_PER_SOURCE = 6;
+const MAX_RESULTS_PER_SOURCE = 5;
 const MAX_MERGED_RESULTS = 10;
 
 function normalizePlaceKey(name: string): string {
@@ -25,7 +24,6 @@ export class SearchPlacesStep {
 
   constructor(
     private readonly placesService: PlacesService,
-    private readonly aiPlacesFallbackService: AiPlacesFallbackService,
   ) {}
 
   async execute(ctx: PipelineContext): Promise<void> {
@@ -33,20 +31,17 @@ export class SearchPlacesStep {
     ctx.rawPlaces = {};
 
     for (const activity of intent.activities) {
-      const [naverPlaces, aiPlaces] = await Promise.all([
+      const [naverPlaces, kakaoPlaces] = await Promise.all([
         this.searchNaverPlaces(activity.naverQuery, activity.type, intent),
-        this.aiPlacesFallbackService.suggestPlaces({
-          location: intent.location,
-          activityType: activity.type,
-          originalQuery: activity.naverQuery,
-          rawInput: ctx.rawInput,
-          lat: intent.lat,
-          lng: intent.lng,
-          limit: MAX_RESULTS_PER_SOURCE,
-        }),
+        this.placesService.searchNearbyKakao(
+          activity.naverQuery,
+          intent.lat,
+          intent.lng,
+          MAX_RESULTS_PER_SOURCE,
+        ),
       ]);
 
-      const merged = this.mergeSources(naverPlaces, aiPlaces);
+      const merged = this.mergeSources(naverPlaces, kakaoPlaces);
 
       ctx.rawPlaces[activity.type] = [
         ...(ctx.rawPlaces[activity.type] ?? []),
@@ -61,7 +56,7 @@ export class SearchPlacesStep {
           )
           .join('\n') || '  (결과 없음)';
       this.logger.log(
-        `[${activity.type}] 통합 ${merged.length}개 (Naver ${naverPlaces.length}, AI ${aiPlaces.length}): ${activity.naverQuery}\n${placeLog}`,
+        `[${activity.type}] 통합 ${merged.length}개 (Naver ${naverPlaces.length}, Kakao ${kakaoPlaces.length}): ${activity.naverQuery}\n${placeLog}`,
       );
     }
 

@@ -25,7 +25,7 @@ function scoreCandidate(
   mode: 'date' | 'trip',
 ): number {
   const base =
-    place.source === 'naver' ? 1 : place.source === 'ai' ? 0.92 : 0.85;
+    place.source === 'naver' || place.source === 'kakao' ? 1 : 0.85;
   const distancePenalty = distanceKm / (mode === 'date' ? 4 : 6);
   const linkBonus = place.link ? 0.02 : 0;
   return base + linkBonus - distancePenalty;

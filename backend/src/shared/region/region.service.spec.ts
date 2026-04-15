@@ -76,6 +76,22 @@ describe('RegionService — scanAll / resolveBest', () => {
       expect(result).toBe('홍대입구');
     });
 
+    it('"왕십리역 근처에서 카페갔다가 맛집 가고싶어" → landmark "왕십리" 반환', () => {
+      const result = service.resolveBest('왕십리역 근처에서 카페갔다가 맛집 가고싶어');
+      expect(result).toBe('왕십리');
+    });
+
+    it('왕십리 landmark에 좌표가 있다', () => {
+      const match = service.scanAll('왕십리역').find(m => m.region.type === 'landmark');
+      expect(match?.region.lat).toBeDefined();
+      expect(match?.region.lng).toBeDefined();
+    });
+
+    it('왕십리 landmark에 parentRegion이 있다', () => {
+      const match = service.scanAll('왕십리역').find(m => m.region.type === 'landmark');
+      expect(match?.region.parentRegion).toBe('성동');
+    });
+
     it('landmark 레코드에 좌표가 있다', () => {
       const match = service.scanAll('강남역').find(m => m.region.type === 'landmark');
       expect(match?.region.lat).toBeDefined();

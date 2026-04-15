@@ -5,7 +5,7 @@ export interface PlaceResult {
   category: string;
   address: string;
   link?: string;
-  source?: 'naver' | 'ai';
+  source?: 'naver' | 'kakao' | 'ai';
   score?: number;
 }
 
