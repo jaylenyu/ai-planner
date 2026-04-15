@@ -139,27 +139,25 @@ jobs:
     steps:
       - name: Pull images and restart containers
         uses: appleboy/ssh-action@v1
-        env:
-          KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
           timeout: 120s
-          envs: KAKAO_REST_API_KEY
           script: |
             set -e
             # GitHub secrets → EC2 .env 동기화 (없으면 추가, 있으면 교체)
             ENV_FILE=~/ai-planner/.env
-            for VAR in KAKAO_REST_API_KEY; do
-              VALUE=$(eval echo \$$VAR)
-              if grep -q "^${VAR}=" "$ENV_FILE" 2>/dev/null; then
-                sed -i "s|^${VAR}=.*|${VAR}=${VALUE}|" "$ENV_FILE"
+            upsert_env() {
+              local key="$1" val="$2"
+              if grep -q "^${key}=" "$ENV_FILE" 2>/dev/null; then
+                sed -i "s|^${key}=.*|${key}=${val}|" "$ENV_FILE"
               else
-                echo "${VAR}=${VALUE}" >> "$ENV_FILE"
+                echo "${key}=${val}" >> "$ENV_FILE"
               fi
-            done
+            }
+            upsert_env KAKAO_REST_API_KEY "${{ secrets.KAKAO_REST_API_KEY }}"
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker pull ${{ env.IMAGE_BACKEND }}:latest
             docker pull ${{ env.IMAGE_FRONTEND }}:latest
