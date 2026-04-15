@@ -146,37 +146,18 @@ jobs:
           port: 22
           timeout: 120s
           script: |
-            set -e
-            COMPOSE_FILE=~/infra/docker-compose.ai-planner.prod.yml
-            ENV_FILE=~/ai-planner/.env
-            if grep -q "^KAKAO_REST_API_KEY=" "$ENV_FILE" 2>/dev/null; then
-              sed -i "s|^KAKAO_REST_API_KEY=.*|KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}|" "$ENV_FILE"
-            else
-              echo "KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}" >> "$ENV_FILE"
-            fi
-            if ! grep -q "^[[:space:]]*KAKAO_REST_API_KEY:" "$COMPOSE_FILE"; then
-              sed -i '/NAVER_CLIENT_SECRET:/a\      KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY}' "$COMPOSE_FILE"
-            fi
-            GITHUB_REPOSITORY_OWNER=${{ github.repository_owner }} \
-            KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }} \
-            docker compose -p ai-planner -f "$COMPOSE_FILE" --env-file "$ENV_FILE" config >/dev/null
+            set -euo pipefail
+            STACK_DIR=/srv/apps/ai-planner
+            COMPOSE_FILE=$STACK_DIR/compose.yml
+            ENV_FILE=$STACK_DIR/.env
+            docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" config >/dev/null
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker pull ${{ env.IMAGE_BACKEND }}:latest
             docker pull ${{ env.IMAGE_FRONTEND }}:latest
-            GITHUB_REPOSITORY_OWNER=${{ github.repository_owner }} \
-            KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }} \
             docker compose \
-              -p ai-planner \
               -f "$COMPOSE_FILE" \
               --env-file "$ENV_FILE" \
-              down --remove-orphans || true
-            GITHUB_REPOSITORY_OWNER=${{ github.repository_owner }} \
-            KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }} \
-            docker compose \
-              -p ai-planner \
-              -f "$COMPOSE_FILE" \
-              --env-file "$ENV_FILE" \
-              up -d --no-build
+              up -d --no-build --remove-orphans
             docker image prune -f
 
       - name: Health check
@@ -216,13 +197,12 @@ jobs:
             done
             echo "Frontend healthy!"
             echo "Deploy complete!"
-            docker compose -p ai-planner -f ~/infra/docker-compose.ai-planner.prod.yml ps
-            # Kakao 키 컨테이너 전달 여부 확인
+            docker compose -f /srv/apps/ai-planner/compose.yml --env-file /srv/apps/ai-planner/.env ps
             if docker exec ai-planner-backend printenv KAKAO_REST_API_KEY 2>/dev/null | grep -q .; then
               echo "[verify] KAKAO_REST_API_KEY: OK in container"
             else
               echo "[verify] KAKAO_REST_API_KEY: MISSING — compose 파일 확인 필요:"
-              grep -A 40 "backend:" ~/infra/docker-compose.ai-planner.prod.yml | head -50
+              grep -A 40 "backend:" /srv/apps/ai-planner/compose.yml | head -50
               exit 1
             fi
             if docker exec ai-planner-backend printenv GOOGLE_CLIENT_ID 2>/dev/null | grep -q . \
@@ -231,7 +211,7 @@ jobs:
               echo "[verify] GOOGLE_OAUTH_ENV: OK in container"
             else
               echo "[verify] GOOGLE_OAUTH_ENV: MISSING — compose/.env 확인 필요:"
-              grep -A 50 "backend:" ~/infra/docker-compose.ai-planner.prod.yml | head -60
+              grep -A 50 "backend:" /srv/apps/ai-planner/compose.yml | head -60
               exit 1
             fi
 
