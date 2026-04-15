@@ -19,6 +19,9 @@ interface LocationSeed {
   weight: number;
 }
 
+// 구(區) 단위로 뭉개지 말고 원형을 유지해야 할 세분화 동(洞) 토큰.
+const PRESERVE_SPECIFIC = new Set(['성수동']);
+
 // 폴백용 활동 키워드 (ACTIVITY_QUERY_MAP 키 기준, 우선순위 순)
 const ACTIVITY_KEYWORDS = [
   '점심',
@@ -148,10 +151,20 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
       this.logger.warn(`폴백 파싱 결과: ${JSON.stringify(parsed)}`);
     }
 
-    // GPT가 성공한 경우에만 location을 seed로 사용. 실패 시 text-scan/regex에서 추출.
+    // GPT seed는 원문에 실제로 등장한 값일 때만 사용 (환각 방지).
+    // 예: "강남에서 ..." 입력에 GPT가 "진주"를 뱉어도 무시.
     const seeds: LocationSeed[] = [];
     if (gptSucceeded && parsed.location) {
-      seeds.push({ value: parsed.location, source: 'gpt', weight: 0.95 });
+      const stripped = stripLocationParticles(parsed.location) ?? parsed.location;
+      const appearsInInput =
+        ctx.rawInput.includes(parsed.location) || ctx.rawInput.includes(stripped);
+      if (appearsInInput) {
+        seeds.push({ value: parsed.location, source: 'gpt', weight: 0.95 });
+      } else {
+        this.logger.warn(
+          `GPT location "${parsed.location}"이 rawInput에 없어 seed에서 제외`,
+        );
+      }
     }
     const resolvedLocation = this.resolveLocation(ctx, seeds);
     parsed.location = resolvedLocation;
@@ -172,6 +185,21 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
       if (!rawValue) return;
       const stripped = stripLocationParticles(rawValue);
       if (!stripped || LOCATION_STOP_WORDS.has(stripped)) return;
+      // 원문에 "성수동" 같은 세분화 토큰이 있으면 shortName(성동)으로 뭉개지 않고 그대로 사용.
+      if (PRESERVE_SPECIFIC.has(stripped)) {
+        let score = base + 0.1;
+        if (text.includes(`${stripped}에서`)) score += 0.15;
+        const existing = candidates.get(stripped);
+        if (!existing || existing.score < score) {
+          candidates.set(stripped, {
+            value: stripped,
+            source: `${source}:preserve`,
+            score,
+            raw: stripped,
+          });
+        }
+        return;
+      }
       const normalized = this.regionService.normalize(stripped);
       if (!normalized) {
         // registry에 없지만 지명처럼 생긴 토큰은 gpt/regex source에서만 후보로 추가.
@@ -218,6 +246,10 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
 
     this.regionService.extractCandidates(text).forEach((candidate) => {
       pushCandidate(candidate, 'text-scan', 0.85);
+    });
+
+    PRESERVE_SPECIFIC.forEach((token) => {
+      if (text.includes(token)) pushCandidate(token, 'preserve-scan', 0.95);
     });
 
     const patterns = [
