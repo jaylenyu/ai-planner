@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import Script from "next/script";
 import { GlobalNav } from "@/components/ui/GlobalNav";
@@ -96,7 +97,9 @@ export default function RootLayout({
           suppressHydrationWarning
         />
         <QueryProvider>
-          <RouteScrollManager />
+          <Suspense fallback={null}>
+            <RouteScrollManager />
+          </Suspense>
           <GlobalNav />
           <div className="flex flex-1 flex-col">{children}</div>
           <Footer />
