@@ -1,0 +1,124 @@
+name: Auto Tag Release
+
+on:
+  pull_request_target:
+    types: [closed]
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: auto-tag-main
+  cancel-in-progress: false
+
+jobs:
+  auto-tag:
+    name: Create SemVer Tag From PR Label
+    if: |
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main with tags
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Resolve release bump
+        id: bump
+        env:
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: |
+          set -euo pipefail
+
+          labels=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH")
+          echo "PR labels:"
+          printf '%s\n' "$labels"
+
+          bump=""
+          if printf '%s\n' "$labels" | grep -qx 'release:major'; then
+            bump="major"
+          elif printf '%s\n' "$labels" | grep -qx 'release:minor'; then
+            bump="minor"
+          elif printf '%s\n' "$labels" | grep -qx 'release:patch'; then
+            bump="patch"
+          fi
+
+          if [ -z "$bump" ]; then
+            echo "No release label found. Skipping tag creation."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          latest_tag=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-version:refname | head -n 1)
+          if [ -z "$latest_tag" ]; then
+            latest_tag="v0.0.0"
+          fi
+
+          version="${latest_tag#v}"
+          IFS='.' read -r major minor patch <<< "$version"
+
+          case "$bump" in
+            major)
+              major=$((major + 1))
+              minor=0
+              patch=0
+              ;;
+            minor)
+              minor=$((minor + 1))
+              patch=0
+              ;;
+            patch)
+              patch=$((patch + 1))
+              ;;
+          esac
+
+          next_tag="v${major}.${minor}.${patch}"
+
+          if git rev-parse "$next_tag" >/dev/null 2>&1; then
+            echo "Tag $next_tag already exists. Skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "bump=$bump" >> "$GITHUB_OUTPUT"
+          echo "latest_tag=$latest_tag" >> "$GITHUB_OUTPUT"
+          echo "next_tag=$next_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push tag
+        if: steps.bump.outputs.skip != 'true'
+        env:
+          NEXT_TAG: ${{ steps.bump.outputs.next_tag }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          set -euo pipefail
+
+          target_sha=$(git rev-parse origin/main)
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git tag -a "$NEXT_TAG" "$target_sha" -m "Release $NEXT_TAG
+
+          Derived from PR #$PR_NUMBER
+          $PR_TITLE
+          $PR_URL"
+          git push origin "$NEXT_TAG"
+
+      - name: Summarize tag result
+        if: always()
+        run: |
+          {
+            echo "## Auto Tag Result"
+            echo ""
+            echo "- PR: #${{ github.event.pull_request.number }}"
+            echo "- Label bump: ${{ steps.bump.outputs.bump || 'none' }}"
+            echo "- Previous tag: ${{ steps.bump.outputs.latest_tag || 'n/a' }}"
+            echo "- New tag: ${{ steps.bump.outputs.next_tag || 'none' }}"
+            echo "- Skipped: ${{ steps.bump.outputs.skip || 'false' }}"
+          } >> "$GITHUB_STEP_SUMMARY"
