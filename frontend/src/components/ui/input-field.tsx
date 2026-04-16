@@ -26,11 +26,11 @@ export const InputField = React.forwardRef<
   return (
     <div className="flex flex-col gap-1.5">
       {label && (
-        <label className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+        <label className="block pb-1 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
           {label}
         </label>
       )}
-      <div className="relative">
+      <div className={cn('relative', error && 'pb-1')}>
         {icon && (
           <div
             className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2"
@@ -70,7 +70,11 @@ export const InputField = React.forwardRef<
           {hint}
         </p>
       )}
-      {error && <p className="text-xs font-medium text-red-500">{error}</p>}
+      {error && (
+        <p className="absolute right-0 top-full mt-0.5 text-right text-xs font-medium text-red-500">
+          {error}
+        </p>
+      )}
     </div>
   );
 });

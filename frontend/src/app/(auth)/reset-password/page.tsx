@@ -3,6 +3,7 @@
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { Check } from 'lucide-react';
 import { api } from '../../../lib/api';
 import { AppLogo } from '@/components/ui/AppLogo';
 
@@ -44,9 +45,7 @@ function ResetPasswordForm() {
       {done ? (
         <div className="text-center py-4">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-50">
-            <svg className="h-7 w-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
+            <Check className="h-7 w-7 text-green-500" aria-hidden="true" />
           </div>
           <h2 className="text-lg font-bold text-stone-900 mb-2">비밀번호가 변경되었습니다</h2>
           <p className="text-sm text-stone-500">로그인 페이지로 이동합니다...</p>

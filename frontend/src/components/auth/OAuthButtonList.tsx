@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactElement } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { X } from 'lucide-react';
 import { API_BASE_URL } from '../../lib/api';
 
 interface OAuthProviderMeta {
@@ -113,21 +114,23 @@ export function OAuthButtonList({ actionLabel, className }: OAuthButtonListProps
             onClick={() => setToastMessage(null)}
             className="ml-2 text-amber-500 transition-colors hover:text-amber-700"
           >
-            X
+            <X className="h-4 w-4" />
             <span className="sr-only">닫기</span>
           </button>
         </div>
       )}
-      {providers.map((provider) => (
-        <a
-          key={provider.id}
-          href={`${API_BASE_URL}/auth/${provider.id}`}
-          className={`flex w-full items-center justify-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium shadow-sm transition-all duration-200 ${provider.className}`}
-        >
-          {provider.icon}
-          {`${provider.name}로 ${actionLabel}`}
-        </a>
-      ))}
+      {providers.map((provider) => {
+        return (
+          <a
+            key={provider.id}
+            href={`${API_BASE_URL}/auth/${provider.id}`}
+            className={`flex w-full items-center justify-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium shadow-sm transition-all duration-200 ${provider.className}`}
+          >
+            {provider.icon}
+            {`${provider.name}로 ${actionLabel}`}
+          </a>
+        );
+      })}
     </div>
   );
 }

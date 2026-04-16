@@ -22,6 +22,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { RequestEmailCodeDto } from './dto/request-email-code.dto';
 import { VerifyEmailCodeDto } from './dto/verify-email-code.dto';
+import { CheckEmailDto } from './dto/check-email.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -57,6 +58,7 @@ export class AuthController {
   ) {
     const ip =
       (req.headers['x-forwarded-for'] as string)?.split(',')[0] ?? req.ip;
+    await this.authService.assertEmailAvailable(dto.email);
     await this.emailVerification.requestCode(
       dto.email,
       dto.captchaToken ?? '',
@@ -70,6 +72,12 @@ export class AuthController {
   async verifyEmailCode(@Body() dto: VerifyEmailCodeDto) {
     await this.emailVerification.verifyCode(dto.email, dto.code);
     return { verified: true };
+  }
+
+  @Post('email/check')
+  @HttpCode(HttpStatus.OK)
+  async checkEmail(@Body() dto: CheckEmailDto) {
+    return this.authService.checkEmailAvailability(dto.email);
   }
 
   // ── 회원가입 / 로그인 ────────────────────────────────────────────

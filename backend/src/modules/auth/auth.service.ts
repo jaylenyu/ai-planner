@@ -72,6 +72,32 @@ export class AuthService {
     return this.generateTokenPair(user.id, user.email);
   }
 
+  async checkEmailAvailability(email: string) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const existing = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (existing) {
+      return {
+        available: false,
+        message: '이미 사용 중인 이메일입니다.',
+      };
+    }
+
+    return {
+      available: true,
+      message: '사용 가능한 이메일입니다.',
+    };
+  }
+
+  async assertEmailAvailable(email: string) {
+    const result = await this.checkEmailAvailability(email);
+    if (!result.available) {
+      throw new ConflictException(result.message);
+    }
+  }
+
   async login(dto: LoginDto, _ip: string) {
     const lockKey = `login_lock:${dto.email}`;
     const failKey = `login_fail:${dto.email}`;

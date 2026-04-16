@@ -192,6 +192,11 @@ export const billingApi = {
 };
 
 export const authApi = {
+  checkEmail: (email: string) =>
+    api.post<{ available: boolean; message: string }>("/auth/email/check", {
+      email,
+    }),
+
   requestEmailCode: (email: string, captchaToken: string) =>
     api.post<{ message: string }>("/auth/email/request-code", {
       email,
