@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { X } from 'lucide-react';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import type { PlanMemo } from '@/lib/types';
 
@@ -46,9 +47,10 @@ export function PlanMemoThread({
                   <button
                     type="button"
                     onClick={() => void onDelete(memo.id)}
-                    className="text-sm font-medium text-red-500"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-stone-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                    aria-label="메모 삭제"
                   >
-                    삭제
+                    <X className="h-4 w-4" />
                   </button>
                 )}
               </div>

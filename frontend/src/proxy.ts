@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const PROTECTED_PATHS = ['/plan', '/library', '/workspace', '/plans'];
+const PROTECTED_PATHS = ['/dashboard', '/plan', '/library', '/workspace', '/plans'];
 const AUTH_PATHS = ['/login', '/register'];
 
 export function proxy(request: NextRequest) {
@@ -29,6 +29,7 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
+    '/dashboard/:path*',
     '/plan/:path*',
     '/library/:path*',
     '/workspace/:path*',

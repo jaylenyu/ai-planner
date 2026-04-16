@@ -1,38 +1,35 @@
 "use client";
 
-import { useRef, useCallback, useState } from "react";
+import { Suspense, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
 import { PlanInputForm } from "@/components/plan/PlanInputForm";
 import { ScheduleList } from "@/components/plan/ScheduleList";
 import { MapView } from "@/components/plan/MapView";
-import { PlanHistory } from "@/components/plan/PlanHistory";
 import { PlaceMapDialog } from "@/components/plan/PlaceMapDialog";
-import { NotificationBell } from "@/components/notification/NotificationBell";
 import { Spinner } from "@/components/ui/Spinner";
 import { AppCard } from "@/components/ui/app-card";
 import { PrimaryButton } from "@/components/ui/primary-button";
 import { usePlanGenerate } from "@/hooks/usePlanGenerate";
-import { usePlanList } from "@/hooks/usePlanList";
 import { useAuth } from "@/hooks/useAuth";
 import { useWorkspace } from "@/hooks/useWorkspace";
+import { queryKeys } from "@/lib/query";
 import type { PlanItem } from "@/lib/types";
 import Link from "next/link";
-import { AppLogo } from "@/components/ui/AppLogo";
+import { Check } from "lucide-react";
 
-export default function PlanPage() {
+function PlanPageContent() {
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const { generate, status, result, error, dailyLimitError } =
     usePlanGenerate();
-  const { isLoggedIn, logout } = useAuth();
-  const { plans, loading: plansLoading, refetch } = usePlanList();
+  const { isLoggedIn } = useAuth();
   const { workspace } = useWorkspace();
   const resultsRef = useRef<HTMLElement>(null); // 결과 섹션 참조
   const [selectedPlace, setSelectedPlace] = useState<PlanItem | null>(null);
   const [saveToWorkspace, setSaveToWorkspace] = useState(false);
-
-  const scrollToResults = useCallback(() => {
-    if (resultsRef.current) {
-      resultsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, []);
+  const draft = searchParams.get("draft") ?? "";
+  const initialMode = searchParams.get("mode") === "trip" ? "trip" : "date";
 
   const handleSubmit = async (rawInput: string, mode: "date" | "trip") => {
     if (!isLoggedIn) return;
@@ -41,7 +38,8 @@ export default function PlanPage() {
       mode,
       saveToWorkspace && workspace ? workspace.id : undefined,
     );
-    refetch();
+    await queryClient.invalidateQueries({ queryKey: ['plans'] });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.workspaceMine });
   };
 
   const renderResultsPanel = () => {
@@ -132,25 +130,18 @@ export default function PlanPage() {
     if (status === "success" && result) {
       return (
         <section ref={resultsRef} className="animate-fade-in-up">
-          <div className="mb-5 flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500">
-              <svg
-                className="h-4 w-4 text-white"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500">
+                <Check className="h-4 w-4 text-white" aria-hidden="true" />
+              </div>
+              <h2 className="text-lg font-bold text-stone-800">
+                일정이 완성됐어요!
+              </h2>
             </div>
-            <h2 className="text-lg font-bold text-stone-800">
-              일정이 완성됐어요!
-            </h2>
+            <PrimaryButton asChild variant="outline" size="sm">
+              <Link href="/library">보관함으로 가기</Link>
+            </PrimaryButton>
           </div>
           {result.unsupportedHints.length > 0 && (
             <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
@@ -168,41 +159,41 @@ export default function PlanPage() {
               공유되었습니다.
             </div>
           )}
-          <div className="grid gap-6 xl:grid-cols-2">
-            <AppCard padding="md" className="h-full">
-              <div className="mb-5 flex items-center gap-2">
-                <span className="text-lg" aria-hidden="true">
-                  📋
-                </span>
-                <h3
-                  className="text-base font-bold"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  일정 상세
-                </h3>
-              </div>
-              <ScheduleList
-                items={result.items}
-                summary={result.summary}
-                totalDurationMin={result.totalDurationMin}
-                onOpenPlace={setSelectedPlace}
-              />
-            </AppCard>
-            <AppCard padding="md" className="h-full overflow-hidden">
-              <div className="mb-5 flex items-center gap-2">
-                <span className="text-lg" aria-hidden="true">
-                  🗺
-                </span>
-                <h3
-                  className="text-base font-bold"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  경로 지도
-                </h3>
-              </div>
-              <MapView items={result.items} polyline={result.polyline} />
-            </AppCard>
+
+          <div className="my-6 h-px bg-stone-100" />
+
+          <div className="my-5 flex items-center gap-2">
+            <span className="text-lg" aria-hidden="true">
+              📋
+            </span>
+            <h3
+              className="text-base font-bold"
+              style={{ color: "var(--text-primary)" }}
+            >
+              일정 상세
+            </h3>
           </div>
+          <ScheduleList
+            items={result.items}
+            summary={result.summary}
+            totalDurationMin={result.totalDurationMin}
+            onOpenPlace={setSelectedPlace}
+          />
+
+          <div className="my-6 h-px bg-stone-100" />
+
+          <div className="mb-5 flex items-center gap-2">
+            <span className="text-lg" aria-hidden="true">
+              🗺
+            </span>
+            <h3
+              className="text-base font-bold"
+              style={{ color: "var(--text-primary)" }}
+            >
+              경로 지도
+            </h3>
+          </div>
+          <MapView items={result.items} polyline={result.polyline} />
         </section>
       );
     }
@@ -224,77 +215,6 @@ export default function PlanPage() {
 
   return (
     <div className="min-h-screen bg-[var(--background)] overflow-x-clip">
-      {/* Header */}
-      <header
-        className="sticky top-0 z-50 glass"
-        style={{ borderBottom: "1px solid var(--divider)" }}
-      >
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
-          <AppLogo size="md" showSubtitle />
-          <div className="flex items-center gap-2">
-            {!isLoggedIn ? (
-              <PrimaryButton
-                asChild
-                variant="brand"
-                size="sm"
-                className="sm:hidden"
-              >
-                <Link href="/login">로그인</Link>
-              </PrimaryButton>
-            ) : (
-              <PrimaryButton
-                variant="outline"
-                size="sm"
-                className="sm:hidden"
-                onClick={() => {
-                  logout();
-                  window.location.href = "/login";
-                }}
-              >
-                로그아웃
-              </PrimaryButton>
-            )}
-
-            <div className="hidden items-center gap-2 sm:flex">
-              {isLoggedIn && <NotificationBell />}
-              <PrimaryButton asChild variant="outline" size="sm">
-                <Link href="/library">보관함</Link>
-              </PrimaryButton>
-              {isLoggedIn && (
-                <PrimaryButton asChild variant="outline" size="sm">
-                  <Link href="/workspace">워크스페이스</Link>
-                </PrimaryButton>
-              )}
-              {isLoggedIn && (
-                <PrimaryButton asChild variant="outline" size="sm">
-                  <Link href="/subscribe">구독</Link>
-                </PrimaryButton>
-              )}
-              {isLoggedIn ? (
-                <PrimaryButton
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    logout();
-                    window.location.href = "/login";
-                  }}
-                >
-                  로그아웃
-                </PrimaryButton>
-              ) : (
-                <div className="flex gap-2">
-                  <PrimaryButton asChild variant="outline" size="sm">
-                    <Link href="/login">로그인</Link>
-                  </PrimaryButton>
-                  <PrimaryButton asChild variant="brand" size="sm">
-                    <Link href="/register">시작하기</Link>
-                  </PrimaryButton>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
       <PlaceMapDialog
         open={!!selectedPlace}
         item={selectedPlace}
@@ -305,69 +225,48 @@ export default function PlanPage() {
       <main id="main" className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
         <section
           ref={resultsRef}
-          className="grid gap-6 lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)] lg:items-start"
+          className="grid grid-cols-1 gap-6 lg:grid-cols-[0.88fr_1.12fr] lg:items-start"
         >
           {/* Input panel */}
-          <AppCard
-            padding="lg"
-            className="min-w-0 hero-pattern lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto"
-          >
-            <div className="mb-8 text-center">
-              <h2 className="text-2xl font-extrabold tracking-tight text-stone-900 sm:text-3xl">
-                오늘 하루, <span className="text-gradient">어디로 갈까요?</span>
-              </h2>
-              <p className="mt-2 text-sm text-stone-500 sm:text-base">
-                자연어 한마디면 AI가 완벽한 일정을 만들어드려요
-              </p>
-            </div>
-            {!isLoggedIn && (
-              <div className="mb-6 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-700 animate-fade-in">
-                <span className="text-xl">🔒</span>
-                <span>
-                  일정을 생성하려면{" "}
-                  <Link
-                    href="/login"
-                    className="font-bold underline underline-offset-2 transition-colors hover:text-amber-800"
-                  >
-                    로그인
-                  </Link>
-                  이 필요합니다.
-                </span>
+          <div className="min-w-0 sticky top-20">
+            <AppCard padding="lg" className="min-w-0 hero-pattern">
+              <div className="mb-8 text-center">
+                <h2 className="text-2xl font-extrabold tracking-tight text-stone-900 sm:text-3xl">
+                  오늘 하루,{" "}
+                  <span className="text-gradient">어디로 갈까요?</span>
+                </h2>
+                <p className="mt-2 text-sm text-stone-500 sm:text-base">
+                  자연어 한마디면 AI가 완벽한 일정을 만들어드려요
+                </p>
               </div>
-            )}
-            <PlanInputForm
-              onSubmit={handleSubmit}
-              loading={status === "loading"}
-              scrollToResults={scrollToResults}
-              shareEnabled={!!workspace}
-              saveToWorkspace={saveToWorkspace}
-              workspaceName={workspace?.name}
-              onChangeSaveToWorkspace={setSaveToWorkspace}
-            />
-          </AppCard>
+              <PlanInputForm
+                key={`${draft}:${initialMode}`}
+                onSubmit={handleSubmit}
+                loading={status === "loading"}
+                shareEnabled={!!workspace}
+                saveToWorkspace={saveToWorkspace}
+                workspaceName={workspace?.name}
+                onChangeSaveToWorkspace={setSaveToWorkspace}
+                initialRawInput={draft}
+                initialMode={initialMode}
+              />
+            </AppCard>
+          </div>
 
           {/* Results panel */}
-          <AppCard
-            padding="lg"
-            className="min-w-0 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto"
-          >
+          <AppCard padding="lg" className="min-w-0">
             {renderResultsPanel()}
           </AppCard>
         </section>
-        {/* History */}
-        {isLoggedIn && (
-          <section className="py-8 border-t border-stone-100">
-            <PlanHistory plans={plans} loading={plansLoading} />
-          </section>
-        )}
       </main>
-      {/* Footer */}
-      <footer className="mt-auto border-t border-stone-100 py-6">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 flex items-center justify-between">
-          <p className="text-xs text-stone-400">DatePlanner © 2026</p>
-          <p className="text-xs text-stone-400">Powered by AI</p>
-        </div>
-      </footer>
     </div>
+  );
+}
+
+export default function PlanPage() {
+  return (
+    <Suspense fallback={null}>
+      <PlanPageContent />
+    </Suspense>
   );
 }

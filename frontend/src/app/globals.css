@@ -88,6 +88,10 @@
   --font-mono: var(--font-mono-stack);
 }
 
+html {
+  overflow-y: scroll;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -101,20 +105,15 @@ body {
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* Hide scrollbars globally while preserving scroll behavior */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #d6d3d1;
-  border-radius: 999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #a8a29e;
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 /* Animations */
@@ -166,6 +165,10 @@ body {
 
 .animate-fade-in {
   animation: fadeIn 0.4s ease-out both;
+}
+
+.animate-fade-in-fast {
+  animation: fadeIn 0.12s ease-out both;
 }
 
 .animate-slide-in-left {
@@ -307,4 +310,8 @@ select {
 }
 .animate-scale-in {
   animation: scaleIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-scale-in-fast {
+  animation: scaleIn 0.16s cubic-bezier(0.16, 1, 0.3, 1) both;
 }

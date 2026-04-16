@@ -1,19 +1,5 @@
 import Link from 'next/link';
-
-const PIN_PATHS = (
-  <>
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-    />
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-    />
-  </>
-);
+import { MapPin } from 'lucide-react';
 
 type Size = 'sm' | 'md' | 'lg';
 
@@ -42,16 +28,7 @@ export function AppLogo({ size = 'md', showSubtitle, href = '/', className = '' 
           boxShadow: 'var(--shadow-brand)',
         }}
       >
-        <svg
-          className={`${s.icon} text-white`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-          aria-hidden="true"
-        >
-          {PIN_PATHS}
-        </svg>
+        <MapPin className={`${s.icon} text-white`} aria-hidden="true" />
       </div>
       {showSubtitle ? (
         <div>

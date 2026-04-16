@@ -1,3 +1,5 @@
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -12,28 +14,27 @@ import { PrimaryButton } from "@/components/ui/primary-button";
 import { AppCard } from "@/components/ui/app-card";
 import { SectionLayout } from "@/components/ui/section-layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AppLogo } from "@/components/ui/AppLogo";
 
 // ── Static data ────────────────────────────────────────────────────────────────
 
 const features = [
   {
-    title: "대화형 일정 브리핑",
-    body: "자연어로 목적을 설명하면 AI가 핵심만 추려서 요약해 줍니다.",
+    title: "자연어 일정 생성",
+    body: "한 줄 입력만 남기면 AI가 장소와 흐름을 읽고 바로 데이트 코스와 여행 일정을 제안합니다.",
     icon: MessageCircle,
     color: "text-orange-500",
     bg: "bg-orange-50",
   },
   {
-    title: "실시간 동선 최적화",
-    body: "지도 데이터와 이동 시간을 통합한 스마트 루트 계산.",
+    title: "시간 흐름 + 동선 최적화",
+    body: "점심, 카페, 저녁, 산책 같은 흐름과 이동 시간을 함께 고려해 자연스러운 코스를 만듭니다.",
     icon: MapIcon,
     color: "text-pink-500",
     bg: "bg-pink-50",
   },
   {
-    title: "상세한 장소 인사이트",
-    body: "입력한 조건에 맞는 장소를 찾아드립니다.",
+    title: "보관함과 커플 공유",
+    body: "저장한 일정을 보관함에서 관리하고, 구독 시 파트너와 공유 일정과 메모를 함께 쓸 수 있습니다.",
     icon: Compass,
     color: "text-violet-500",
     bg: "bg-violet-50",
@@ -42,12 +43,12 @@ const features = [
 
 const stats = [
   {
-    label: "평균 일정 생성 시간",
-    value: "5.5초",
-    detail: "기존 대비 3배 빨라짐",
+    label: "핵심 입력 방식",
+    value: "1줄",
+    detail: "자연어로 바로 시작",
   },
-  { label: "추천 정확도", value: "92%", detail: "사용자 피드백 기준" },
-  { label: "재사용률", value: "78%", detail: "월간 활성 사용자 기준" },
+  { label: "기본 관리", value: "무료", detail: "보관함 · 카테고리 · 삭제" },
+  { label: "공유 기능", value: "유료", detail: "파트너 초대 · 메모 · 수정" },
 ];
 
 const steps = [
@@ -63,17 +64,17 @@ const steps = [
     key: "refine",
     num: "02",
     label: "다듬기",
-    title: "제안 비교 & 커스터마이징",
+    title: "보관함에 저장하고 다듬기",
     description:
-      "AI가 제안한 여러 코스를 탭으로 넘기며 비교하고, 마음에 드는 장소만 골라 담을 수 있습니다.",
+      "생성된 일정은 보관함에 저장되고, 상세 페이지에서 카테고리 분류와 장소 추가·수정·삭제까지 이어서 할 수 있습니다.",
   },
   {
     key: "share",
     num: "03",
     label: "공유",
-    title: "공유와 실행까지 한번에",
+    title: "파트너와 함께 관리하기",
     description:
-      "카카오톡 공유 링크, 캘린더 내보내기, PDF 스냅샷까지 버튼 한 번으로 완료됩니다.",
+      "구독을 활성화하면 워크스페이스를 만들고 파트너를 초대해 공유 일정과 메모를 함께 관리할 수 있습니다.",
   },
 ];
 
@@ -86,63 +87,18 @@ const previewItems = [
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
-export default function Home() {
+export default async function Home() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("ai_planner_token")?.value;
+  if (token) {
+    redirect("/dashboard");
+  }
+
   return (
     <div
       className="min-h-screen bg-white"
       style={{ color: "var(--text-primary)" }}
     >
-      {/* ── NAV ── */}
-      <header
-        className="sticky top-0 z-40 bg-white/80 backdrop-blur-md"
-        style={{ borderBottom: "1px solid var(--divider)" }}
-      >
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          {/* Logo */}
-          <AppLogo size="sm" />
-
-          {/* Desktop nav */}
-          <nav
-            className="hidden items-center gap-6 text-sm md:flex"
-            aria-label="메인 메뉴"
-          >
-            <Link
-              href="#features"
-              className="transition-colors hover:text-[var(--text-primary)]"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              기능 소개
-            </Link>
-            <Link
-              href="#workflow"
-              className="transition-colors hover:text-[var(--text-primary)]"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              작동 방식
-            </Link>
-            {/* 후기 섹션 제거됨 */}
-            <div className="ml-2 flex items-center gap-2">
-              <PrimaryButton asChild variant="outline" size="sm">
-                <Link href="/login">로그인</Link>
-              </PrimaryButton>
-              <PrimaryButton asChild variant="brand" size="sm">
-                <Link href="/register">무료로 시작하기</Link>
-              </PrimaryButton>
-            </div>
-          </nav>
-
-          {/* Mobile CTA */}
-          <PrimaryButton
-            asChild
-            variant="brand"
-            size="sm"
-            className="md:hidden"
-          >
-            <Link href="/register">시작하기</Link>
-          </PrimaryButton>
-        </div>
-      </header>
-
       <main id="main">
         {/* ── HERO ── */}
         <section
@@ -170,8 +126,8 @@ export default function Home() {
                 className="max-w-md text-base leading-relaxed sm:text-lg"
                 style={{ color: "var(--text-secondary)" }}
               >
-                자연어 입력 → 후보 생성 → 동선 최적화 → 공유까지 한 번에. 복잡한
-                엑셀과 지도 앱을 넘나들 필요가 없습니다.
+                자연어 입력 → 일정 생성 → 보관함 정리 → 파트너 공유까지 한 번에.
+                데이트 코스와 당일치기 여행을 더 빠르게 정리할 수 있습니다.
               </p>
               <div className="flex flex-wrap gap-3">
                 <PrimaryButton asChild variant="brand" size="lg">
@@ -181,7 +137,7 @@ export default function Home() {
                   </Link>
                 </PrimaryButton>
                 <PrimaryButton asChild variant="outline" size="lg">
-                  <Link href="/plan">샘플 일정 보기</Link>
+                  <Link href="/login">로그인하고 시작하기</Link>
                 </PrimaryButton>
               </div>
               <ul

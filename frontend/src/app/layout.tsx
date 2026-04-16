@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Script from "next/script";
+import { GlobalNav } from "@/components/ui/GlobalNav";
+import { QueryProvider } from "@/components/providers/QueryProvider";
 import "./globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://date-planner.us";
@@ -91,7 +93,10 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(webSiteJsonLd) }}
           suppressHydrationWarning
         />
-        {children}
+        <QueryProvider>
+          <GlobalNav />
+          {children}
+        </QueryProvider>
       </body>
     </html>
   );

@@ -1,59 +1,33 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { planApi } from '../lib/api';
 import type { PlanSummary } from '../lib/types';
+import { queryKeys } from '../lib/query';
 
 export function usePlanList() {
-  const [plans, setPlans] = useState<PlanSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [categoryId, setCategoryId] = useState<string | undefined>(undefined);
   const [scope, setScope] = useState<'personal' | 'shared' | undefined>();
 
-  const refetch = async () => {
-    setLoading(true);
-    try {
-      const data = await planApi.list(categoryId, scope);
-      setPlans(data);
-    } catch {
-      setPlans([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadPlans() {
+  const query = useQuery<PlanSummary[]>({
+    queryKey: queryKeys.plans(categoryId, scope),
+    queryFn: async () => {
       setLoading(true);
       try {
-        const data = await planApi.list(categoryId, scope);
-        if (!cancelled) {
-          setPlans(data);
-        }
-      } catch {
-        if (!cancelled) {
-          setPlans([]);
-        }
+        return await planApi.list(categoryId, scope);
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
-    }
-
-    void loadPlans();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [categoryId, scope]);
+    },
+    staleTime: 30 * 1000,
+  });
 
   return {
-    plans,
-    loading,
-    refetch,
+    plans: query.data ?? [],
+    loading: loading || query.isLoading,
+    refetch: query.refetch,
     categoryId,
     setCategoryId,
     scope,

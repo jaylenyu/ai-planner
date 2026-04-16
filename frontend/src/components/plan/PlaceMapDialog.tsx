@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { ExternalLink, MapPin, Copy } from 'lucide-react';
+import { ExternalLink, MapPin } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { PlanItem, TYPE_ICONS } from '@/lib/types';
 import { PrimaryButton } from '@/components/ui/primary-button';
@@ -12,21 +12,21 @@ interface PlaceMapDialogProps {
   item: PlanItem | null;
 }
 
-function buildNaverSearchUrl(item: PlanItem): string {
-  const query = `${item.name} ${item.address}`.trim();
-  return `https://map.naver.com/v5/search/${encodeURIComponent(query)}`;
+function buildNaverSearch(item: PlanItem): { url: string; query: string } | null {
+  const query = [item.name, item.address].filter(Boolean).join(' ').trim();
+  if (!query) return null;
+
+  return {
+    query,
+    url: `https://map.naver.com/v5/search/${encodeURIComponent(query)}`,
+  };
 }
 
 export function PlaceMapDialog({ open, onOpenChange, item }: PlaceMapDialogProps) {
-  const searchUrl = useMemo(() => {
-    if (!item) return '';
-    return item.link || buildNaverSearchUrl(item);
+  const search = useMemo(() => {
+    if (!item) return null;
+    return buildNaverSearch(item);
   }, [item]);
-
-  const handleCopy = async () => {
-    if (!searchUrl) return;
-    await navigator.clipboard.writeText(searchUrl);
-  };
 
   return (
     <Dialog
@@ -53,28 +53,30 @@ export function PlaceMapDialog({ open, onOpenChange, item }: PlaceMapDialogProps
             </div>
           </div>
 
-          <div className="rounded-2xl border border-orange-100 bg-orange-50 p-4">
-            <p className="text-sm font-semibold text-orange-700">네이버 지도 검색 링크</p>
-            <p className="mt-1 break-all text-sm text-orange-700/80">{searchUrl}</p>
-          </div>
-
           <div className="flex flex-col gap-2 sm:flex-row">
-            <PrimaryButton asChild variant="brand" size="md" className="w-full">
-              <a href={searchUrl} target="_blank" rel="noreferrer">
+            {search ? (
+              <PrimaryButton asChild variant="brand" size="md" className="w-full">
+                <a
+                  href={search.url}
+                  target="_blank"
+                  rel="noopener noreferrer external"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  네이버 지도 열기
+                </a>
+              </PrimaryButton>
+            ) : (
+              <PrimaryButton
+                type="button"
+                variant="outline"
+                size="md"
+                className="w-full"
+                disabled
+              >
                 <ExternalLink className="h-4 w-4" />
-                네이버 지도 열기
-              </a>
-            </PrimaryButton>
-            <PrimaryButton
-              type="button"
-              variant="outline"
-              size="md"
-              className="w-full"
-              onClick={() => void handleCopy()}
-            >
-              <Copy className="h-4 w-4" />
-              링크 복사
-            </PrimaryButton>
+                결과 없음
+              </PrimaryButton>
+            )}
           </div>
         </div>
       ) : null}

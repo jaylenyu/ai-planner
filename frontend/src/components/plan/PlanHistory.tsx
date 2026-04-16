@@ -1,26 +1,27 @@
 'use client';
 
-import Link from 'next/link';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Clock3, X } from 'lucide-react';
 import { TYPE_ICONS } from '../../lib/types';
-import type { CategorySummary, PlanSummary } from '../../lib/types';
+import type { PlanSummary } from '../../lib/types';
 import { Spinner } from '../ui/Spinner';
-import { PrimaryButton } from '../ui/primary-button';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 
 interface PlanHistoryProps {
   plans: PlanSummary[];
   loading: boolean;
-  categories?: CategorySummary[];
-  onChangeCategory?: (planId: string, categoryId: string | null) => Promise<void> | void;
   onDeletePlan?: (planId: string) => Promise<void> | void;
 }
 
 export function PlanHistory({
   plans,
   loading,
-  categories,
-  onChangeCategory,
   onDeletePlan,
 }: PlanHistoryProps) {
+  const router = useRouter();
+  const [pendingDeletePlanId, setPendingDeletePlanId] = useState<string | null>(null);
+
   if (loading) {
     return (
       <div className="flex justify-center py-8">
@@ -35,9 +36,7 @@ export function PlanHistory({
     <div className="animate-fade-in-up">
       <div className="flex items-center gap-2 mb-5">
         <div className="flex items-center justify-center h-8 w-8 rounded-full bg-stone-100">
-          <svg className="h-4 w-4 text-stone-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+          <Clock3 className="h-4 w-4 text-stone-500" />
         </div>
         <h2 className="text-lg font-bold text-stone-800">이전 일정</h2>
       </div>
@@ -46,7 +45,16 @@ export function PlanHistory({
         {plans.map((plan) => (
           <div
             key={plan.id}
-            className="group rounded-2xl border border-stone-200 bg-white p-5 transition-all duration-300 hover:shadow-lg hover:shadow-stone-100 hover:border-stone-300"
+            role="button"
+            tabIndex={0}
+            onClick={() => router.push(`/library/plans/${plan.id}`)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                router.push(`/library/plans/${plan.id}`);
+              }
+            }}
+            className="group cursor-pointer rounded-2xl border border-stone-200 bg-white p-5 transition-all duration-300 hover:border-stone-300 hover:shadow-xl hover:shadow-stone-200/70"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
@@ -93,50 +101,21 @@ export function PlanHistory({
                 )}
               </div>
               <div className="flex flex-col items-end gap-2">
-                <PrimaryButton asChild type="button" variant="outline" size="sm">
-                  <Link href={`/plans/${plan.id}`}>열기</Link>
-                </PrimaryButton>
                 {onDeletePlan && (
-                  <PrimaryButton
+                  <button
                     type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (window.confirm('이 일정을 삭제할까요?')) {
-                        void onDeletePlan(plan.id);
-                      }
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setPendingDeletePlanId(plan.id);
                     }}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-400 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500"
+                    aria-label="일정 삭제"
                   >
-                    삭제
-                  </PrimaryButton>
+                    <X className="h-4 w-4" />
+                  </button>
                 )}
               </div>
             </div>
-
-            {categories && onChangeCategory && (
-              <div className="mt-4">
-                <label className="mb-1 block text-xs font-medium text-stone-500">
-                  카테고리
-                </label>
-                <select
-                  value={plan.category?.id ?? ''}
-                  onChange={(e) =>
-                    void onChangeCategory(
-                      plan.id,
-                      e.target.value ? e.target.value : null,
-                    )
-                  }
-                  className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-700 outline-none focus:border-orange-300"
-                >
-                  <option value="">미분류</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
 
             <div className="mt-3 flex flex-wrap gap-1.5">
               {plan.items.map((item) => (
@@ -151,6 +130,21 @@ export function PlanHistory({
           </div>
         ))}
       </div>
+      <ConfirmDialog
+        open={!!pendingDeletePlanId}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeletePlanId(null);
+        }}
+        title="이 일정을 삭제할까요?"
+        description="삭제 후에는 다시 복구할 수 없습니다."
+        confirmLabel="삭제"
+        destructive
+        onConfirm={async () => {
+          if (!pendingDeletePlanId || !onDeletePlan) return;
+          await onDeletePlan(pendingDeletePlanId);
+          setPendingDeletePlanId(null);
+        }}
+      />
     </div>
   );
 }

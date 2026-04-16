@@ -1,34 +1,27 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { workspaceApi } from '../lib/api';
 import type { WorkspaceMineResponse } from '../lib/types';
+import { queryKeys } from '../lib/query';
 
 export function useWorkspace() {
-  const [data, setData] = useState<WorkspaceMineResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const refetch = async () => {
-    setLoading(true);
-    try {
-      const next = await workspaceApi.mine();
-      setData(next);
-    } catch {
-      setData({ workspace: null });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void refetch();
-  }, []);
+  const query = useQuery<WorkspaceMineResponse>({
+    queryKey: queryKeys.workspaceMine,
+    queryFn: async () => {
+      try {
+        return await workspaceApi.mine();
+      } catch {
+        return { workspace: null };
+      }
+    },
+    staleTime: 30 * 1000,
+  });
 
   return {
-    workspace: data?.workspace ?? null,
-    role: data?.role,
-    loading,
-    refetch,
+    workspace: query.data?.workspace ?? null,
+    role: query.data?.role,
+    loading: query.isLoading,
+    refetch: query.refetch,
   };
 }
-

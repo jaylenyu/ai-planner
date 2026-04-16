@@ -1,10 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { AppCard } from '@/components/ui/app-card';
 import { PrimaryButton } from '@/components/ui/primary-button';
-import { NotificationBell } from '@/components/notification/NotificationBell';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { workspaceApi } from '@/lib/api';
 import { useWorkspace } from '@/hooks/useWorkspace';
 
@@ -15,6 +14,7 @@ export default function WorkspacePage() {
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const createWorkspace = async () => {
     setSaving(true);
@@ -50,24 +50,10 @@ export default function WorkspacePage() {
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
-      <header className="sticky top-0 z-40 glass border-b border-stone-200">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
-          <Link href="/plan" className="text-sm font-semibold text-stone-700">
-            ← 일정으로 돌아가기
-          </Link>
-          <div className="flex items-center gap-2">
-            <NotificationBell />
-            <PrimaryButton asChild variant="outline" size="sm">
-              <Link href="/library">보관함</Link>
-            </PrimaryButton>
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:py-12">
         <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
-          <AppCard padding="lg" className="space-y-5">
-            <div>
+          <AppCard padding="lg" className="space-y-6">
+            <div className="space-y-2">
               <p className="text-sm font-semibold text-orange-600">커플 워크스페이스</p>
               <h1 className="mt-1 text-3xl font-bold text-stone-900">
                 공유 일정 관리
@@ -102,7 +88,7 @@ export default function WorkspacePage() {
                 </PrimaryButton>
               </div>
             ) : (
-              <div className="space-y-5">
+              <div className="space-y-6">
                 <div className="rounded-2xl border border-violet-200 bg-violet-50 px-4 py-4">
                   <p className="text-sm font-semibold text-violet-800">
                     {workspace.name}
@@ -163,23 +149,33 @@ export default function WorkspacePage() {
           </AppCard>
 
           <AppCard padding="lg" className="space-y-4">
-            <h2 className="text-lg font-bold text-stone-900">다음 단계</h2>
-            <ul className="space-y-2 text-sm text-stone-600">
-              <li>1. 구독이 활성 상태인지 확인합니다.</li>
-              <li>2. 워크스페이스를 만들고 파트너 이메일을 초대합니다.</li>
-              <li>3. `/plan`에서 공유 저장을 켜고 일정을 생성합니다.</li>
-              <li>4. 보관함이나 상세 페이지에서 함께 수정하고 메모를 남깁니다.</li>
-            </ul>
+            <div>
+              <p className="text-sm font-semibold text-stone-900">사용 흐름</p>
+              <ul className="mt-3 space-y-2 text-sm text-stone-600">
+                <li>구독이 활성 상태인지 확인합니다.</li>
+                <li>워크스페이스를 만들고 파트너 이메일을 초대합니다.</li>
+                <li>`/plan`에서 공유 저장을 켜고 일정을 생성합니다.</li>
+                <li>보관함과 상세 페이지에서 함께 수정하고 메모를 남깁니다.</li>
+              </ul>
+            </div>
+            {workspace && (
+              <div className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-4 text-sm text-stone-700">
+                <p className="font-semibold text-stone-900">현재 상태</p>
+                <p className="mt-1">
+                  멤버 {workspace.members.length}명
+                  {role ? ` · 내 역할 ${role}` : ''}
+                </p>
+                <p className="mt-1 text-stone-500">
+                  공유 일정 생성 후 보관함에서 바로 함께 관리할 수 있습니다.
+                </p>
+              </div>
+            )}
             {workspace && role === 'owner' && (
               <PrimaryButton
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={async () => {
-                  if (!window.confirm('워크스페이스를 해체할까요?')) return;
-                  await workspaceApi.dissolve(workspace.id);
-                  await refetch();
-                }}
+                onClick={() => setConfirmOpen(true)}
               >
                 워크스페이스 해체
               </PrimaryButton>
@@ -187,7 +183,26 @@ export default function WorkspacePage() {
           </AppCard>
         </div>
       </main>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="워크스페이스를 해체할까요?"
+        description="공유 연결이 해제되고, 공유 일정은 각자의 보관함으로 분리됩니다."
+        confirmLabel="해체"
+        destructive
+        loading={saving}
+        onConfirm={async () => {
+          if (!workspace) return;
+          setSaving(true);
+          try {
+            await workspaceApi.dissolve(workspace.id);
+            await refetch();
+            setConfirmOpen(false);
+          } finally {
+            setSaving(false);
+          }
+        }}
+      />
     </div>
   );
 }
-

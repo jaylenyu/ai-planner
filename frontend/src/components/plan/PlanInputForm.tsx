@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useRef, useState } from 'react';
+import { Check } from 'lucide-react';
 import { Spinner } from '../ui/Spinner';
 import { PrimaryButton } from '../ui/primary-button';
 import { PlanMode } from '../../lib/types';
@@ -8,11 +9,12 @@ import { PlanMode } from '../../lib/types';
 interface PlanInputFormProps {
   onSubmit: (rawInput: string, mode: PlanMode) => void;
   loading: boolean;
-  scrollToResults?: () => void;
   shareEnabled?: boolean;
   saveToWorkspace?: boolean;
   workspaceName?: string;
   onChangeSaveToWorkspace?: (next: boolean) => void;
+  initialRawInput?: string;
+  initialMode?: PlanMode;
 }
 
 const MODE_CONFIG: { mode: PlanMode; emoji: string; label: string; desc: string }[] = [
@@ -31,21 +33,21 @@ const EXAMPLES = [
 export function PlanInputForm({
   onSubmit,
   loading,
-  scrollToResults,
   shareEnabled,
   saveToWorkspace,
   workspaceName,
   onChangeSaveToWorkspace,
+  initialRawInput,
+  initialMode,
 }: PlanInputFormProps) {
-  const [rawInput, setRawInput] = useState('');
-  const [mode, setMode] = useState<PlanMode>('date');
+  const [rawInput, setRawInput] = useState(initialRawInput ?? '');
+  const [mode, setMode] = useState<PlanMode>(initialMode ?? 'date');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!rawInput.trim()) return;
     onSubmit(rawInput.trim(), mode);
-    scrollToResults?.();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -53,7 +55,6 @@ export function PlanInputForm({
       e.preventDefault();
       if (rawInput.trim()) {
         onSubmit(rawInput.trim(), mode);
-        scrollToResults?.();
       }
     }
   };
@@ -81,10 +82,7 @@ export function PlanInputForm({
             {mode === m && (
               <div className="absolute top-2 right-2">
                 <div className="h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-orange-500 flex items-center justify-center">
-                  <svg className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-white" fill="none" viewBox="0 0 24 24"
-                       stroke="currentColor" strokeWidth={3} aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
+                  <Check className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-white" aria-hidden="true" />
                 </div>
               </div>
             )}
