@@ -18,7 +18,14 @@ export class EmailService {
     });
   }
 
+  private get iconUrl(): string {
+    const base =
+      this.config.get<string>('FRONTEND_URL') ?? 'https://date-planner.us';
+    return `${base}/ai-planner-icon.png`;
+  }
+
   private buildHtml(body: string): string {
+    const icon = this.iconUrl;
     return `<!DOCTYPE html>
 <html lang="ko">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
@@ -31,7 +38,7 @@ export class EmailService {
       <tr>
         <td style="padding:28px 32px 24px;border-bottom:1px solid #e8ecef;">
           <span style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;">
-            <span style="display:inline-block;width:28px;height:28px;background:#5c67f2;border-radius:8px;text-align:center;line-height:28px;font-size:16px;color:#fff;">♡</span>
+            <img src="${icon}" alt="date planner" width="28" height="28" style="display:inline-block;width:28px;height:28px;border-radius:8px;vertical-align:middle;">
             <span style="font-size:17px;font-weight:700;color:#1a1a1a;letter-spacing:-0.3px;">date planner</span>
           </span>
         </td>
