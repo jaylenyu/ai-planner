@@ -1,8 +1,9 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import confetti from "canvas-confetti";
 import { AppCard } from "@/components/ui/app-card";
 import { PrimaryButton } from "@/components/ui/primary-button";
 import { billingApi } from "@/lib/api";
@@ -14,6 +15,7 @@ function SuccessContent() {
   const [status, setStatus] = useState<SubscriptionStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const confettiFiredRef = useRef(false);
 
   useEffect(() => {
     let mounted = true;
@@ -52,6 +54,18 @@ function SuccessContent() {
       mounted = false;
     };
   }, [searchParams]);
+
+  useEffect(() => {
+    if (!status || confettiFiredRef.current) return;
+    confettiFiredRef.current = true;
+    void confetti({
+      particleCount: 140,
+      spread: 82,
+      startVelocity: 36,
+      origin: { y: 0.65 },
+      colors: ["#f97316", "#fb7185", "#f59e0b", "#ffffff"],
+    });
+  }, [status]);
 
   return (
     <main className="min-h-screen bg-[var(--background)] px-4 py-10">
