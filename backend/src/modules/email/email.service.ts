@@ -33,8 +33,8 @@ export class EmailService {
           <span style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;">
             <span style="display:inline-block;width:28px;height:28px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:8px;text-align:center;line-height:28px;vertical-align:middle;">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;">
-                <path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                <path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/>
+                <circle cx="12" cy="10" r="3"/>
               </svg>
             </span>
             <span style="font-size:17px;font-weight:700;color:#1a1a1a;letter-spacing:-0.3px;">DatePlanner</span>
@@ -56,12 +56,12 @@ export class EmailService {
 
       <!-- 푸터 -->
       <tr>
-        <td style="background:#2d3136;padding:24px 32px;">
-          <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#e8ecef;">(주)데이트플래너</p>
-          <p style="margin:0;font-size:12px;color:#8b949e;line-height:1.8;">
-            서비스 문의: <a href="mailto:support@date-planner.us" style="color:#8b949e;">support@date-planner.us</a>
+        <td style="border-top:1px solid #e8ecef;padding:24px 32px;">
+          <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#1a1a1a;">(주)데이트플래너</p>
+          <p style="margin:0;font-size:12px;color:#888;line-height:1.8;">
+            서비스 문의: <a href="mailto:jaylenyu96@gmail.com" style="color:#888;">jaylenyu96@gmail.com</a>
           </p>
-          <p style="margin:16px 0 0;font-size:11px;color:#6e7681;">
+          <p style="margin:12px 0 0;font-size:11px;color:#aaa;">
             ※ 본 이메일은 발신 전용입니다. 이 메일에 회신하실 수 없습니다.
           </p>
         </td>
