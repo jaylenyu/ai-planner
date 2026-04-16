@@ -78,7 +78,7 @@ export class EmailService {
     await this.transporter.sendMail({
       from:
         this.config.get<string>('EMAIL_FROM') ??
-        'DatePlanner <jaylenyu96@gmail.com>',
+        'DatePlanner <no-reply@date-planner.us>',
       to,
       subject: '[DatePlanner] 이메일 인증 안내',
       html: this.buildHtml(`
@@ -105,7 +105,7 @@ export class EmailService {
     await this.transporter.sendMail({
       from:
         this.config.get<string>('EMAIL_FROM') ??
-        'DatePlanner <jaylenyu96@gmail.com>',
+        'DatePlanner <no-reply@date-planner.us>',
       to,
       subject: '[DatePlanner] 로그인 방법 안내',
       html: this.buildHtml(`
@@ -136,7 +136,7 @@ export class EmailService {
     await this.transporter.sendMail({
       from:
         this.config.get<string>('EMAIL_FROM') ??
-        'DatePlanner <jaylenyu96@gmail.com>',
+        'DatePlanner <no-reply@date-planner.us>',
       to,
       subject: '[DatePlanner] 비밀번호 재설정 안내',
       html: this.buildHtml(`
@@ -167,7 +167,7 @@ export class EmailService {
     await this.transporter.sendMail({
       from:
         this.config.get<string>('EMAIL_FROM') ??
-        'DatePlanner <jaylenyu96@gmail.com>',
+        'DatePlanner <no-reply@date-planner.us>',
       to,
       subject: '[DatePlanner] 커플 워크스페이스 초대',
       html: this.buildHtml(`
