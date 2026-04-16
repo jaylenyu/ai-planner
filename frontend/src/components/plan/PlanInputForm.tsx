@@ -129,12 +129,14 @@ export function PlanInputForm({
         <textarea
           ref={textareaRef}
           value={rawInput}
-          onChange={(e) => setRawInput(e.target.value)}
+          onChange={(e) => setRawInput(e.target.value.slice(0, 500))}
           onKeyDown={handleKeyDown}
           placeholder="어디서 무엇을 하고 싶은지 자유롭게 적어주세요..."
           rows={3}
+          maxLength={500}
           disabled={loading}
-          className="w-full resize-none border px-4 py-3 text-sm outline-none transition-all duration-200 focus:bg-white focus:border-orange-300 focus:ring-2 focus:ring-orange-100 disabled:opacity-60 disabled:cursor-not-allowed"
+          inputMode="text"
+          className="w-full resize-none border px-4 py-3 text-base sm:text-sm outline-none transition-all duration-200 focus:bg-white focus:border-orange-300 focus:ring-2 focus:ring-orange-100 disabled:opacity-60 disabled:cursor-not-allowed"
           style={{
             borderRadius: 'var(--radius-md)',
             borderColor: 'var(--border-default)',
@@ -154,7 +156,7 @@ export function PlanInputForm({
               setRawInput(text);
               textareaRef.current?.focus();
             }}
-            className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs sm:text-sm transition-all duration-200 cursor-pointer hover:bg-orange-50 hover:border-orange-200 hover:text-orange-700"
+            className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3 py-2 min-h-[44px] text-xs sm:text-sm transition-all duration-200 cursor-pointer active:bg-orange-50 active:border-orange-200 sm:hover:bg-orange-50 sm:hover:border-orange-200 sm:hover:text-orange-700"
             style={{
               background: 'var(--surface-sunken)',
               borderColor: 'var(--border-light)',

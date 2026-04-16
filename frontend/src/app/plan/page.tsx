@@ -3,10 +3,10 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import { PlanInputForm } from "@/components/plan/PlanInputForm";
 import { ScheduleList } from "@/components/plan/ScheduleList";
-import { MapView } from "@/components/plan/MapView";
-import { PlaceMapDialog } from "@/components/plan/PlaceMapDialog";
+import { ScheduleSkeleton } from "@/components/plan/ScheduleSkeleton";
 import { Spinner } from "@/components/ui/Spinner";
 import { AppCard } from "@/components/ui/app-card";
 import { PrimaryButton } from "@/components/ui/primary-button";
@@ -17,6 +17,27 @@ import { queryKeys } from "@/lib/query";
 import type { PlanItem } from "@/lib/types";
 import Link from "next/link";
 import { Check } from "lucide-react";
+
+const MapView = dynamic(
+  () => import("@/components/plan/MapView").then((m) => m.MapView),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        className="flex h-[300px] sm:h-[400px] items-center justify-center rounded-[var(--radius-lg)]"
+        style={{ background: "var(--surface-sunken)" }}
+      >
+        <Spinner size="md" />
+      </div>
+    ),
+  },
+);
+
+const PlaceMapDialog = dynamic(
+  () =>
+    import("@/components/plan/PlaceMapDialog").then((m) => m.PlaceMapDialog),
+  { ssr: false },
+);
 
 function PlanPageContent() {
   const searchParams = useSearchParams();
@@ -66,50 +87,51 @@ function PlanPageContent() {
   const renderResultsPanel = () => {
     if (status === "loading") {
       return (
-        <section className="flex min-h-[260px] flex-col items-center justify-center gap-5 py-10 animate-fade-in">
-          <div className="relative">
-            <Spinner size="lg" />
-            <div className="absolute inset-0 rounded-full bg-orange-500/10 animate-ping" />
-          </div>
-          <div className="text-center">
-            <p className="text-base font-semibold text-stone-700">
+        <section className="animate-fade-in">
+          <div className="flex items-center justify-center gap-3 py-5">
+            <div className="relative">
+              <Spinner size="md" />
+              <div className="absolute inset-0 rounded-full bg-orange-500/10 animate-ping" />
+            </div>
+            <p className="text-sm font-semibold text-stone-700">
               AI가 최적 일정을 설계하고 있어요
             </p>
-            <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
-              <span
-                className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs animate-pulse-soft"
-                style={{
-                  background: "var(--surface-sunken)",
-                  borderColor: "var(--border-light)",
-                  color: "var(--text-secondary)",
-                }}
-              >
-                📍 장소 탐색 중
-              </span>
-              <span
-                className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs animate-pulse-soft"
-                style={{
-                  background: "var(--surface-sunken)",
-                  borderColor: "var(--border-light)",
-                  color: "var(--text-secondary)",
-                  animationDelay: "0.5s",
-                }}
-              >
-                🗺 동선 최적화
-              </span>
-              <span
-                className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs animate-pulse-soft"
-                style={{
-                  background: "var(--surface-sunken)",
-                  borderColor: "var(--border-light)",
-                  color: "var(--text-secondary)",
-                  animationDelay: "1s",
-                }}
-              >
-                ⏰ 시간표 생성
-              </span>
-            </div>
           </div>
+          <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs animate-pulse-soft"
+              style={{
+                background: "var(--surface-sunken)",
+                borderColor: "var(--border-light)",
+                color: "var(--text-secondary)",
+              }}
+            >
+              📍 장소 탐색
+            </span>
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs animate-pulse-soft"
+              style={{
+                background: "var(--surface-sunken)",
+                borderColor: "var(--border-light)",
+                color: "var(--text-secondary)",
+                animationDelay: "0.5s",
+              }}
+            >
+              🗺 동선 최적화
+            </span>
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs animate-pulse-soft"
+              style={{
+                background: "var(--surface-sunken)",
+                borderColor: "var(--border-light)",
+                color: "var(--text-secondary)",
+                animationDelay: "1s",
+              }}
+            >
+              ⏰ 시간표 생성
+            </span>
+          </div>
+          <ScheduleSkeleton />
         </section>
       );
     }

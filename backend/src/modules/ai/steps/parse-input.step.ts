@@ -813,8 +813,10 @@ export class ParseInputStep {
   }
 
   private sanitizeInput(raw: string): string {
+    // eslint-disable-next-line no-control-regex
+    const controlChars = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g;
     return raw
-      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+      .replace(controlChars, '')
       .replace(/```[\s\S]*?```/g, '')
       .replace(
         /(?:system|assistant|user)\s*:/gi,

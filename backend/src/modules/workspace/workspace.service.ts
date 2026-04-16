@@ -228,9 +228,7 @@ export class WorkspaceService {
       invite.workspace.ownerId,
     );
     if (!ownerStatus.hasAccess) {
-      throw new ForbiddenException(
-        '워크스페이스 구독이 활성 상태가 아닙니다.',
-      );
+      throw new ForbiddenException('워크스페이스 구독이 활성 상태가 아닙니다.');
     }
 
     if (invite.expiresAt.getTime() <= Date.now()) {

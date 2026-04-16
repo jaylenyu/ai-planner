@@ -21,15 +21,15 @@ describe('normalizeLocation — 파싱된 지명 정규화', () => {
   });
 
   it('"도"/"은"/"이"/"가" 로 끝나는 지명 보호', () => {
-    expect(normalizeLocation('청도')).toBe('청도');   // 충북 청도군
-    expect(normalizeLocation('완도')).toBe('완도');   // 전남 완도군
-    expect(normalizeLocation('진도')).toBe('진도');   // 전남 진도군
+    expect(normalizeLocation('청도')).toBe('청도');
+    expect(normalizeLocation('완도')).toBe('완도');
+    expect(normalizeLocation('진도')).toBe('진도');
     expect(normalizeLocation('거제도')).toBe('거제도');
     expect(normalizeLocation('울릉도')).toBe('울릉도');
     expect(normalizeLocation('전라도')).toBe('전라도');
     expect(normalizeLocation('경상도')).toBe('경상도');
-    expect(normalizeLocation('보은')).toBe('보은');   // 충북 보은군 (은)
-    expect(normalizeLocation('삼가')).toBe('삼가');   // 경남 합천 삼가면 (가)
+    expect(normalizeLocation('보은')).toBe('보은');
+    expect(normalizeLocation('삼가')).toBe('삼가');
   });
 });
 
