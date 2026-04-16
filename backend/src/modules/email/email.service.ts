@@ -18,46 +18,108 @@ export class EmailService {
     });
   }
 
+  private buildHtml(body: string): string {
+    return `<!DOCTYPE html>
+<html lang="ko">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f2f4f6;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f2f4f6;padding:32px 0;">
+  <tr><td align="center">
+    <table width="480" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;">
+
+      <!-- 헤더 -->
+      <tr>
+        <td style="padding:28px 32px 24px;border-bottom:1px solid #e8ecef;">
+          <span style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;">
+            <span style="display:inline-block;width:28px;height:28px;background:#5c67f2;border-radius:8px;text-align:center;line-height:28px;font-size:16px;color:#fff;">♡</span>
+            <span style="font-size:17px;font-weight:700;color:#1a1a1a;letter-spacing:-0.3px;">date planner</span>
+          </span>
+        </td>
+      </tr>
+
+      <!-- 본문 -->
+      <tr>
+        <td style="padding:32px 32px 28px;">
+          ${body}
+          <p style="margin:28px 0 0;font-size:13px;color:#999;line-height:1.6;">
+            이 메일을 중요 메일로 설정해주세요.<br>
+            그래야 DatePlanner가 보내는 이메일이 스팸으로 처리되지 않아요.<br>
+            요청하지 않은 경우 이 메일을 무시하셔도 됩니다.
+          </p>
+        </td>
+      </tr>
+
+      <!-- 푸터 -->
+      <tr>
+        <td style="background:#2d3136;padding:24px 32px;">
+          <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#e8ecef;">(주)데이트플래너</p>
+          <p style="margin:0;font-size:12px;color:#8b949e;line-height:1.8;">
+            서비스 문의: <a href="mailto:support@date-planner.us" style="color:#8b949e;">support@date-planner.us</a>
+          </p>
+          <p style="margin:16px 0 0;font-size:11px;color:#6e7681;">
+            ※ 본 이메일은 발신 전용입니다. 이 메일에 회신하실 수 없습니다.
+          </p>
+        </td>
+      </tr>
+
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`;
+  }
+
   async sendVerificationCode(to: string, code: string) {
     await this.transporter.sendMail({
       from:
         this.config.get<string>('EMAIL_FROM') ??
-        'DatePlanner <no-reply@dateplanner.com>',
+        'DatePlanner <no-reply@date-planner.us>',
       to,
-      subject: '[DatePlanner] 이메일 인증코드',
-      html: `
-        <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
-          <h2>이메일 인증</h2>
-          <p>아래 인증코드를 입력해주세요. 코드는 <strong>3분</strong> 동안 유효합니다.</p>
-          <div style="font-size:36px;font-weight:bold;letter-spacing:8px;padding:24px;background:#f5f5f5;border-radius:8px;text-align:center;margin:24px 0;">
-            ${code}
-          </div>
-          <p style="color:#999;font-size:12px;">본인이 요청하지 않은 경우 이 이메일을 무시하세요.</p>
-        </div>
-      `,
+      subject: '[DatePlanner] 이메일 인증 안내',
+      html: this.buildHtml(`
+        <h1 style="margin:0 0 16px;font-size:18px;font-weight:700;color:#1a1a1a;">[DatePlanner] 이메일 인증 안내</h1>
+        <p style="margin:0 0 24px;font-size:15px;color:#3d3d3d;line-height:1.6;">
+          DatePlanner 회원 가입을 위한 인증번호는 <strong>${code}</strong> 에요.
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td style="background:#f2f4f6;border-radius:10px;padding:24px;text-align:center;">
+              <span style="display:block;font-size:13px;color:#888;margin-bottom:10px;">인증번호</span>
+              <span style="display:block;font-size:30px;font-weight:700;color:#1a1a1a;letter-spacing:6px;">${code}</span>
+            </td>
+          </tr>
+        </table>
+        <p style="margin:20px 0 0;font-size:13px;color:#888;">인증번호는 <strong>3분</strong> 동안 유효합니다.</p>
+      `),
     });
   }
 
   async sendOauthAccountReminder(to: string, providers: string[]) {
     const providerList = providers.join(', ');
+    const loginUrl = `${this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:3000'}/login`;
     await this.transporter.sendMail({
       from:
         this.config.get<string>('EMAIL_FROM') ??
-        'DatePlanner <no-reply@dateplanner.com>',
+        'DatePlanner <no-reply@date-planner.us>',
       to,
       subject: '[DatePlanner] 로그인 방법 안내',
-      html: `
-        <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
-          <h2>로그인 방법 안내</h2>
-          <p>이 이메일 주소는 <strong>${providerList}</strong> 소셜 계정으로 가입되어 있습니다.</p>
-          <p>비밀번호 없이 ${providerList} 버튼으로 바로 로그인하실 수 있습니다.</p>
-          <a href="${this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:3000'}/login"
-             style="display:inline-block;padding:12px 24px;background:#111;color:#fff;text-decoration:none;border-radius:6px;">
-            로그인 페이지로 이동
-          </a>
-          <p style="color:#999;font-size:12px;margin-top:24px;">본인이 요청하지 않은 경우 이 이메일을 무시하세요.</p>
-        </div>
-      `,
+      html: this.buildHtml(`
+        <h1 style="margin:0 0 16px;font-size:18px;font-weight:700;color:#1a1a1a;">[DatePlanner] 로그인 방법 안내</h1>
+        <p style="margin:0 0 24px;font-size:15px;color:#3d3d3d;line-height:1.6;">
+          이 이메일 주소는 <strong>${providerList}</strong> 소셜 계정으로 가입되어 있어요.<br>
+          비밀번호 없이 소셜 로그인 버튼으로 바로 로그인할 수 있어요.
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td style="background:#f2f4f6;border-radius:10px;padding:24px;text-align:center;">
+              <span style="display:block;font-size:13px;color:#888;margin-bottom:16px;">아래 버튼으로 로그인하세요</span>
+              <a href="${loginUrl}" style="display:inline-block;padding:12px 32px;background:#5c67f2;color:#fff;text-decoration:none;border-radius:8px;font-size:15px;font-weight:600;">
+                로그인 페이지로 이동
+              </a>
+            </td>
+          </tr>
+        </table>
+      `),
     });
   }
 
@@ -69,19 +131,26 @@ export class EmailService {
     await this.transporter.sendMail({
       from:
         this.config.get<string>('EMAIL_FROM') ??
-        'DatePlanner <no-reply@dateplanner.com>',
+        'DatePlanner <no-reply@date-planner.us>',
       to,
-      subject: '[DatePlanner] 비밀번호 재설정',
-      html: `
-        <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
-          <h2>비밀번호 재설정</h2>
-          <p>아래 버튼을 클릭하여 비밀번호를 재설정하세요. 링크는 1시간 동안 유효합니다.</p>
-          <a href="${resetUrl}" style="display:inline-block;padding:12px 24px;background:#111;color:#fff;text-decoration:none;border-radius:6px;">
-            비밀번호 재설정
-          </a>
-          <p style="color:#999;font-size:12px;margin-top:24px;">본인이 요청하지 않은 경우 이 이메일을 무시하세요.</p>
-        </div>
-      `,
+      subject: '[DatePlanner] 비밀번호 재설정 안내',
+      html: this.buildHtml(`
+        <h1 style="margin:0 0 16px;font-size:18px;font-weight:700;color:#1a1a1a;">[DatePlanner] 비밀번호 재설정 안내</h1>
+        <p style="margin:0 0 24px;font-size:15px;color:#3d3d3d;line-height:1.6;">
+          비밀번호 재설정을 요청하셨어요.<br>
+          아래 버튼을 눌러 새 비밀번호를 설정해주세요.
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td style="background:#f2f4f6;border-radius:10px;padding:24px;text-align:center;">
+              <span style="display:block;font-size:13px;color:#888;margin-bottom:16px;">링크는 <strong>1시간</strong> 동안 유효합니다</span>
+              <a href="${resetUrl}" style="display:inline-block;padding:12px 32px;background:#5c67f2;color:#fff;text-decoration:none;border-radius:8px;font-size:15px;font-weight:600;">
+                비밀번호 재설정
+              </a>
+            </td>
+          </tr>
+        </table>
+      `),
     });
   }
 
@@ -93,20 +162,26 @@ export class EmailService {
     await this.transporter.sendMail({
       from:
         this.config.get<string>('EMAIL_FROM') ??
-        'DatePlanner <no-reply@dateplanner.com>',
+        'DatePlanner <no-reply@date-planner.us>',
       to,
       subject: '[DatePlanner] 커플 워크스페이스 초대',
-      html: `
-        <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
-          <h2>커플 워크스페이스 초대</h2>
-          <p><strong>${workspaceName}</strong> 워크스페이스에 초대되었어요.</p>
-          <p>아래 버튼을 눌러 초대를 수락하면 공유 일정과 메모 기능을 함께 사용할 수 있습니다.</p>
-          <a href="${inviteUrl}" style="display:inline-block;padding:12px 24px;background:#111;color:#fff;text-decoration:none;border-radius:6px;">
-            초대 수락하기
-          </a>
-          <p style="color:#999;font-size:12px;margin-top:24px;">본인이 요청하지 않은 경우 이 이메일을 무시하세요.</p>
-        </div>
-      `,
+      html: this.buildHtml(`
+        <h1 style="margin:0 0 16px;font-size:18px;font-weight:700;color:#1a1a1a;">[DatePlanner] 커플 워크스페이스 초대</h1>
+        <p style="margin:0 0 24px;font-size:15px;color:#3d3d3d;line-height:1.6;">
+          <strong>${workspaceName}</strong> 워크스페이스에 초대되었어요.<br>
+          수락하면 공유 일정과 메모 기능을 함께 사용할 수 있어요.
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td style="background:#f2f4f6;border-radius:10px;padding:24px;text-align:center;">
+              <span style="display:block;font-size:13px;color:#888;margin-bottom:16px;">초대 링크는 <strong>7일</strong> 동안 유효합니다</span>
+              <a href="${inviteUrl}" style="display:inline-block;padding:12px 32px;background:#5c67f2;color:#fff;text-decoration:none;border-radius:8px;font-size:15px;font-weight:600;">
+                초대 수락하기
+              </a>
+            </td>
+          </tr>
+        </table>
+      `),
     });
   }
 }
