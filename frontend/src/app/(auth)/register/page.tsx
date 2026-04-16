@@ -7,8 +7,10 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Turnstile } from '@marsidev/react-turnstile';
+import { LegalPolicyDialog } from '@/components/legal/LegalPolicyDialog';
 import { Spinner } from '@/components/ui/Spinner';
 import { OAuthButtonList } from '../../../components/auth/OAuthButtonList';
+import { AppLogo } from '@/components/ui/AppLogo';
 import { authApi } from '../../../lib/api';
 import { setToken, setRefreshToken } from '../../../lib/auth';
 
@@ -18,6 +20,8 @@ const TURNSTILE_SITE_KEY =
 const SESSION_KEY = 'register_state';
 const CODE_TTL = 180;
 const RESEND_COOLDOWN = 60;
+const STEP2_LOADING_MS = 750;
+const STEP2_SUCCESS_MS = 250;
 
 // ── Zod 스키마 ─────────────────────────────────────────────────
 const emailSchema = z.object({
@@ -95,6 +99,8 @@ function RegisterPageContent() {
   const [error, setError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
+  const [codeSubmitState, setCodeSubmitState] = useState<'idle' | 'loading' | 'success'>('idle');
+  const [openPolicy, setOpenPolicy] = useState<'terms' | 'privacy' | null>(null);
   const redirectPath = searchParams.get('redirect') || '/plan';
 
   // 타이머 상태
@@ -200,33 +206,49 @@ function RegisterPageContent() {
   const codeValue = codeForm.watch('code');
 
   const onStep2Submit = codeForm.handleSubmit(async (data) => {
-    setFormLoading(true);
+    setCodeSubmitState('loading');
     setError('');
+    const loadingStartedAt = Date.now();
     try {
       await authApi.verifyEmailCode(email, data.code);
+      const loadingElapsed = Date.now() - loadingStartedAt;
+      if (loadingElapsed < STEP2_LOADING_MS) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, STEP2_LOADING_MS - loadingElapsed),
+        );
+      }
       sessionStorage.removeItem(SESSION_KEY);
+      setCodeSubmitState('success');
+      await new Promise((resolve) => setTimeout(resolve, STEP2_SUCCESS_MS));
       setStep(3);
     } catch (err) {
+      setCodeSubmitState('idle');
       setError(err instanceof Error ? err.message : '인증 실패');
-    } finally {
-      setFormLoading(false);
     }
   });
 
   useEffect(() => {
     if (step !== 2) {
       autoSubmitRef.current = false;
+      setCodeSubmitState('idle');
       return;
     }
-    if (codeValue?.length === 6 && !formLoading && !autoSubmitRef.current) {
+    if (
+      codeValue?.length === 6 &&
+      codeSubmitState === 'idle' &&
+      !autoSubmitRef.current
+    ) {
       autoSubmitRef.current = true;
       void onStep2Submit().finally(() => {
         autoSubmitRef.current = false;
       });
     } else if ((codeValue?.length ?? 0) < 6) {
       autoSubmitRef.current = false;
+      if (codeSubmitState !== 'loading' && codeSubmitState !== 'success') {
+        setCodeSubmitState('idle');
+      }
     }
-  }, [codeValue, formLoading, onStep2Submit, step]);
+  }, [codeValue, codeSubmitState, onStep2Submit, step]);
 
   const onResend = async () => {
     if (!canResend || !email) return;
@@ -245,6 +267,7 @@ function RegisterPageContent() {
       );
       startTimer();
       codeForm.reset();
+      setCodeSubmitState('idle');
       setCaptchaToken('');
       setCaptchaInstanceKey((key) => key + 1);
     } catch (err) {
@@ -277,15 +300,7 @@ function RegisterPageContent() {
       <div className="w-full max-w-md mx-4">
         {/* Logo */}
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2.5 group">
-            <div className="flex items-center justify-center h-12 w-12 rounded-2xl bg-gradient-to-br from-orange-500 to-pink-500 shadow-lg shadow-orange-500/20">
-              <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </div>
-            <span className="text-2xl font-extrabold text-stone-900 tracking-tight">DatePlanner</span>
-          </Link>
+          <AppLogo size="lg" className="justify-center" />
           <p className="mt-2 text-sm text-stone-500">가입하고 나만의 일정을 만들어보세요</p>
         </div>
 
@@ -407,17 +422,34 @@ function RegisterPageContent() {
 
                 <button
                   type="submit"
-                  disabled={timeLeft === 0 || formLoading}
+                  disabled={timeLeft === 0 || codeSubmitState !== 'idle'}
                   className={`flex w-full items-center justify-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium shadow-sm transition-all duration-200 ${
-                    timeLeft === 0 || formLoading
+                    timeLeft === 0 || codeSubmitState !== 'idle'
                       ? 'bg-gradient-to-br from-orange-400 to-pink-400 text-white opacity-70 cursor-not-allowed'
                       : 'bg-gradient-to-br from-orange-500 to-pink-500 text-white hover:shadow-lg hover:from-orange-600 hover:to-pink-600 active:opacity-95'
                   }`}
                 >
-                  {formLoading ? (
+                  {codeSubmitState === 'loading' ? (
                     <>
                       <Spinner size="sm" />
                       <span>확인 중...</span>
+                    </>
+                  ) : codeSubmitState === 'success' ? (
+                    <>
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2.5}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M9 12.75l2.25 2.25L15 9.75m6 2.25a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      <span>인증 완료</span>
                     </>
                   ) : (
                     '인증 확인'
@@ -427,7 +459,7 @@ function RegisterPageContent() {
                 <button
                   type="button"
                   onClick={onResend}
-                  disabled={!canResend || formLoading || resendLoading}
+                  disabled={!canResend || codeSubmitState !== 'idle' || resendLoading}
                   className="text-sm text-stone-500 hover:text-orange-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   {canResend
@@ -479,12 +511,16 @@ function RegisterPageContent() {
                     <input
                       type="checkbox"
                       {...pwForm.register('agreedTerms')}
-                      className="mt-0.5 h-4 w-4 rounded accent-orange-500"
+                      className="mt-0.5 h-4 w-4 cursor-pointer rounded accent-orange-500"
                     />
                     <span className="text-sm text-stone-600">
-                      <Link href="/terms" target="_blank" className="text-orange-600 underline underline-offset-2">
+                      <button
+                        type="button"
+                        onClick={() => setOpenPolicy('terms')}
+                        className="cursor-pointer text-orange-600 underline underline-offset-2"
+                      >
                         이용약관
-                      </Link>
+                      </button>
                       에 동의합니다 <span className="text-red-400">(필수)</span>
                     </span>
                   </label>
@@ -496,12 +532,16 @@ function RegisterPageContent() {
                     <input
                       type="checkbox"
                       {...pwForm.register('agreedPrivacy')}
-                      className="mt-0.5 h-4 w-4 rounded accent-orange-500"
+                      className="mt-0.5 h-4 w-4 cursor-pointer rounded accent-orange-500"
                     />
                     <span className="text-sm text-stone-600">
-                      <Link href="/privacy" target="_blank" className="text-orange-600 underline underline-offset-2">
+                      <button
+                        type="button"
+                        onClick={() => setOpenPolicy('privacy')}
+                        className="cursor-pointer text-orange-600 underline underline-offset-2"
+                      >
                         개인정보 처리방침
-                      </Link>
+                      </button>
                       에 동의합니다 <span className="text-red-400">(필수)</span>
                     </span>
                   </label>
@@ -545,6 +585,15 @@ function RegisterPageContent() {
           </Link>
         </p>
       </div>
+      <LegalPolicyDialog
+        open={openPolicy !== null}
+        type={openPolicy}
+        onOpenChange={(open) => {
+          if (!open) {
+            setOpenPolicy(null);
+          }
+        }}
+      />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '../../../lib/api';
+import { AppLogo } from '@/components/ui/AppLogo';
 
 function ResetPasswordForm() {
   const [password, setPassword] = useState('');
@@ -106,15 +107,7 @@ export default function ResetPasswordPage() {
     <div className="flex min-h-screen items-center justify-center hero-pattern">
       <div className="w-full max-w-md mx-4 animate-fade-in-up">
         <div className="text-center mb-8">
-          <Link href="/login" className="inline-flex items-center gap-2.5 group">
-            <div className="flex items-center justify-center h-12 w-12 rounded-2xl bg-gradient-to-br from-orange-500 to-pink-500 shadow-lg shadow-orange-500/20 group-hover:shadow-xl transition-all duration-300">
-              <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </div>
-            <span className="text-2xl font-extrabold text-stone-900 tracking-tight">DatePlanner</span>
-          </Link>
+          <AppLogo size="lg" href="/login" className="justify-center" />
         </div>
         <Suspense fallback={<div className="rounded-3xl bg-white p-8 text-center text-sm text-stone-400">로딩 중...</div>}>
           <ResetPasswordForm />

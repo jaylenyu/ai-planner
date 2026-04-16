@@ -18,14 +18,7 @@ export class EmailService {
     });
   }
 
-  private get iconUrl(): string {
-    const base =
-      this.config.get<string>('FRONTEND_URL') ?? 'https://date-planner.us';
-    return `${base}/ai-planner-icon.png`;
-  }
-
   private buildHtml(body: string): string {
-    const icon = this.iconUrl;
     return `<!DOCTYPE html>
 <html lang="ko">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
@@ -38,8 +31,13 @@ export class EmailService {
       <tr>
         <td style="padding:28px 32px 24px;border-bottom:1px solid #e8ecef;">
           <span style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;">
-            <img src="${icon}" alt="date planner" width="28" height="28" style="display:inline-block;width:28px;height:28px;vertical-align:middle;">
-            <span style="font-size:17px;font-weight:700;color:#1a1a1a;letter-spacing:-0.3px;">date planner</span>
+            <span style="display:inline-block;width:28px;height:28px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:8px;text-align:center;line-height:28px;vertical-align:middle;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;">
+                <path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                <path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+            </span>
+            <span style="font-size:17px;font-weight:700;color:#1a1a1a;letter-spacing:-0.3px;">DatePlanner</span>
           </span>
         </td>
       </tr>

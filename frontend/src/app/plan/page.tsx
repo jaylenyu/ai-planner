@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import type { PlanItem } from "@/lib/types";
 import Link from "next/link";
+import { AppLogo } from "@/components/ui/AppLogo";
 
 export default function PlanPage() {
   const { generate, status, result, error, dailyLimitError } =
@@ -229,49 +230,7 @@ export default function PlanPage() {
         style={{ borderBottom: "1px solid var(--divider)" }}
       >
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <div
-              className="flex items-center justify-center h-9 w-9 rounded-xl transition-all duration-300"
-              style={{
-                background: "var(--gradient-brand)",
-                boxShadow: "var(--shadow-brand)",
-              }}
-            >
-              <svg
-                className="h-5 w-5 text-white"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
-            </div>
-            <div>
-              <p
-                className="text-lg font-bold tracking-tight"
-                style={{ color: "var(--text-primary)" }}
-              >
-                DatePlanner
-              </p>
-              <p
-                className="text-[11px] -mt-0.5 font-medium"
-                style={{ color: "var(--text-tertiary)" }}
-              >
-                AI 일정 플래너
-              </p>
-            </div>
-          </Link>
+          <AppLogo size="md" showSubtitle />
           <div className="flex items-center gap-2">
             {!isLoggedIn ? (
               <PrimaryButton

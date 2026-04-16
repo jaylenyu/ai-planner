@@ -12,6 +12,7 @@ import { PrimaryButton } from "@/components/ui/primary-button";
 import { AppCard } from "@/components/ui/app-card";
 import { SectionLayout } from "@/components/ui/section-layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AppLogo } from "@/components/ui/AppLogo";
 
 // ── Static data ────────────────────────────────────────────────────────────────
 
@@ -98,36 +99,7 @@ export default function Home() {
       >
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5">
-            <div
-              className="flex h-8 w-8 items-center justify-center rounded-xl"
-              style={{
-                background: "var(--gradient-brand)",
-                boxShadow: "var(--shadow-brand)",
-              }}
-            >
-              <svg
-                className="h-4 w-4 text-white"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2.5}
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
-            </div>
-            <span className="text-base font-bold tracking-tight">DatePlanner</span>
-          </Link>
+          <AppLogo size="sm" />
 
           {/* Desktop nav */}
           <nav
