@@ -88,7 +88,7 @@ export function ScheduleList({
                       <button
                         type="button"
                         onClick={() => onOpenPlace(item)}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-[#03C75A]/30 bg-[#03C75A] px-2.5 py-0.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-[#02b551]"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-[#03C75A]/30 px-2.5 py-0.5 text-xs font-medium text-[#03C75A] transition-colors hover:border-[#03C75A]/60"
                       >
                         <img
                           src="https://ssl.pstatic.net/static/maps/assets/icons/favicon.ico"
