@@ -27,21 +27,6 @@ export class EmailService {
   <tr><td align="center">
     <table width="480" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;">
 
-      <!-- 헤더 -->
-      <tr>
-        <td style="padding:28px 32px 24px;border-bottom:1px solid #e8ecef;">
-          <span style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;">
-            <span style="display:inline-block;width:28px;height:28px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:8px;text-align:center;line-height:28px;vertical-align:middle;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;">
-                <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/>
-                <circle cx="12" cy="10" r="3"/>
-              </svg>
-            </span>
-            <span style="font-size:17px;font-weight:700;color:#1a1a1a;letter-spacing:-0.3px;">DatePlanner</span>
-          </span>
-        </td>
-      </tr>
-
       <!-- 본문 -->
       <tr>
         <td style="padding:32px 32px 28px;">
