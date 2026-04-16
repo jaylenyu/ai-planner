@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import { GlobalNav } from "@/components/ui/GlobalNav";
+import { Footer } from "@/components/ui/Footer";
 import { QueryProvider } from "@/components/providers/QueryProvider";
+import { RouteScrollManager } from "@/components/providers/RouteScrollManager";
 import "./globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://date-planner.us";
@@ -94,8 +96,10 @@ export default function RootLayout({
           suppressHydrationWarning
         />
         <QueryProvider>
+          <RouteScrollManager />
           <GlobalNav />
-          {children}
+          <div className="flex flex-1 flex-col">{children}</div>
+          <Footer />
         </QueryProvider>
       </body>
     </html>

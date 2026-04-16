@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { X } from 'lucide-react';
 import { AppCard } from '@/components/ui/app-card';
 import { PrimaryButton } from '@/components/ui/primary-button';
@@ -28,6 +28,7 @@ const EMPTY_NEW_ITEM = {
 
 export default function PlanDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { categories } = useCategories();
   const [selectedPlace, setSelectedPlace] = useState<PlanItem | null>(null);
@@ -50,13 +51,30 @@ export default function PlanDetailPage() {
     void queryClient.invalidateQueries({ queryKey: ['plans'] });
   };
 
+  const handleBackToLibrary = () => {
+    const referrer = document.referrer;
+    const isInternalReferrer =
+      !!referrer && referrer.startsWith(window.location.origin);
+
+    if (isInternalReferrer) {
+      router.back();
+      return;
+    }
+
+    router.push('/library', { scroll: true });
+  };
+
   return (
-    <div className="min-h-screen bg-[var(--background)]">
+    <div className="bg-[var(--background)]">
       <header className="sticky top-0 z-40 glass border-b border-stone-200">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
-          <Link href="/library" className="text-sm font-semibold text-stone-700">
+          <button
+            type="button"
+            onClick={handleBackToLibrary}
+            className="text-sm font-semibold text-stone-700"
+          >
             ← 보관함으로 돌아가기
-          </Link>
+          </button>
           <div className="flex items-center gap-2">
             <NotificationBell />
             <PrimaryButton asChild variant="outline" size="sm">

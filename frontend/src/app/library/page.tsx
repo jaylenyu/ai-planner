@@ -59,8 +59,8 @@ export default function LibraryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--background)]">
-      <main className="mx-auto max-w-6xl px-4 sm:px-6 py-8">
+    <div className="bg-[var(--background)]">
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
         <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
           <AppCard padding="md" className="h-fit lg:sticky lg:top-24">
             <h1 className="text-base font-bold text-stone-800">카테고리</h1>

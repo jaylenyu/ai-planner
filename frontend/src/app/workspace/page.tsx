@@ -49,8 +49,8 @@ export default function WorkspacePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--background)]">
-      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:py-12">
+    <div className="bg-[var(--background)]">
+      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
         <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
           <AppCard padding="lg" className="space-y-6">
             <div className="space-y-2">

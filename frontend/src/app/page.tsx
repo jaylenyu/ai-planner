@@ -396,40 +396,6 @@ export default async function Home() {
           </div>
         </section>
       </main>
-
-      {/* ── FOOTER ── */}
-      <footer style={{ borderTop: "1px solid var(--divider)" }}>
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-6 sm:flex-row sm:px-6">
-          <div className="flex items-center gap-2">
-            <div
-              className="h-5 w-5 rounded-md"
-              style={{ background: "var(--gradient-brand)" }}
-              aria-hidden="true"
-            />
-            <span className="text-sm font-semibold">DatePlanner</span>
-          </div>
-          <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-            © {new Date().getFullYear()} DatePlanner · Build delightful journeys.
-          </p>
-          <div
-            className="flex items-center gap-4 text-xs"
-            style={{ color: "var(--text-tertiary)" }}
-          >
-            <Link
-              href="/terms"
-              className="transition-colors hover:text-[var(--text-primary)]"
-            >
-              이용약관
-            </Link>
-            <Link
-              href="/privacy"
-              className="transition-colors hover:text-[var(--text-primary)]"
-            >
-              개인정보처리방침
-            </Link>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

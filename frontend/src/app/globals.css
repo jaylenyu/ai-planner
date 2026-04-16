@@ -98,6 +98,9 @@ body {
   font-family: var(--font-sans-stack);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
 }
 
 /* Smooth transitions globally */

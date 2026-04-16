@@ -16,6 +16,9 @@ describe('PaymentService', () => {
       Promise.all(operations),
     ),
   } as any;
+  const emailService = {
+    sendPaymentReceipt: jest.fn(),
+  } as any;
 
   let service: PaymentService;
 
@@ -23,7 +26,8 @@ describe('PaymentService', () => {
     jest.clearAllMocks();
     delete process.env.TOSS_SECRET_KEY;
     delete process.env.SUBSCRIPTION_MONTHLY_AMOUNT;
-    service = new PaymentService(prisma);
+    emailService.sendPaymentReceipt.mockResolvedValue(undefined);
+    service = new PaymentService(prisma, emailService);
   });
 
   it('prepare는 구독 준비 정보와 주문번호를 반환한다', async () => {
@@ -61,6 +65,9 @@ describe('PaymentService', () => {
       amount: 9900,
       method: 'TOSSPAY',
       status: 'READY',
+      user: {
+        email: 'jaylenyu96@gmail.com',
+      },
       subscription: {
         id: 'sub-1',
         userId: 'user-1',
@@ -79,6 +86,8 @@ describe('PaymentService', () => {
       amount: 9900,
       status: 'DONE',
       method: 'TOSSPAY',
+      paymentKey: 'pk_test',
+      confirmedAt: new Date('2026-04-16T00:00:00.000Z'),
     });
     prisma.subscription.update.mockResolvedValue({
       id: 'sub-1',
@@ -99,6 +108,13 @@ describe('PaymentService', () => {
     });
 
     expect(result.subscription.status).toBe('active');
+    expect(emailService.sendPaymentReceipt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'jaylenyu96@gmail.com',
+        orderId: 'order-1',
+        amount: 9900,
+      }),
+    );
     expect(prisma.payment.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: 'pay-1' },

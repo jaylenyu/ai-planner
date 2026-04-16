@@ -85,55 +85,111 @@ export default function DashboardPage() {
       draft: draft.trim(),
       mode,
       source: 'dashboard',
+      autoGenerate: '1',
     });
-    router.push(`/plan?${query.toString()}`);
+    router.push(`/plan?${query.toString()}`, { scroll: true });
+  };
+
+  const handleQuickCreateKeyDown = (
+    event: React.KeyboardEvent<HTMLTextAreaElement>,
+  ) => {
+    if (event.key !== 'Enter' || event.shiftKey) {
+      return;
+    }
+
+    event.preventDefault();
+    if (!draft.trim()) {
+      return;
+    }
+
+    handleQuickCreate();
   };
 
   return (
-    <div className="min-h-screen bg-[var(--background)]">
+    <div className="bg-[var(--background)]">
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-12">
         <div className="space-y-6">
           <div className="space-y-2">
             <p className="text-sm font-semibold text-orange-600">Dashboard</p>
             <h1 className="text-3xl font-bold text-stone-900">오늘의 일정 허브</h1>
-            <p className="text-sm leading-6 text-stone-600">
+            <p className="break-keep text-sm leading-6 text-stone-600">
               파트너 연결 상태와 최근 일정, 구독 상태를 한 번에 보고 바로 새 일정을 시작할 수 있습니다.
             </p>
           </div>
 
           <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-            <div className="space-y-6">
-              <AppCard padding="lg" className="space-y-5">
+            <AppCard padding="lg" className="flex h-full flex-col justify-between space-y-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-2">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">
+                    <HeartHandshake className="h-3.5 w-3.5" />
+                    파트너 / 워크스페이스
+                  </div>
+                  <h2 className="text-2xl font-bold text-stone-900">
+                    {workspaceCard.title}
+                  </h2>
+                  <p className="break-keep text-sm leading-6 text-stone-600">
+                    {workspaceLoading
+                      ? '워크스페이스 상태를 확인하는 중...'
+                      : workspaceCard.body}
+                  </p>
+                </div>
+                <div className="hidden h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 text-violet-700 sm:flex">
+                  <Users className="h-6 w-6" />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <PrimaryButton asChild variant="brand" size="sm">
+                  <Link href={workspaceCard.ctaHref}>{workspaceCard.ctaLabel}</Link>
+                </PrimaryButton>
+                <PrimaryButton asChild variant="outline" size="sm">
+                  <Link href="/library">보관함 보기</Link>
+                </PrimaryButton>
+              </div>
+            </AppCard>
+
+            <AppCard padding="lg" className="flex h-full flex-col justify-between space-y-4">
+              <div className="space-y-4">
                 <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-2">
-                    <div className="inline-flex items-center gap-2 rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">
-                      <HeartHandshake className="h-3.5 w-3.5" />
-                      파트너 / 워크스페이스
-                    </div>
-                    <h2 className="text-2xl font-bold text-stone-900">
-                      {workspaceCard.title}
-                    </h2>
-                    <p className="text-sm leading-6 text-stone-600">
-                      {workspaceLoading
-                        ? '워크스페이스 상태를 확인하는 중...'
-                        : workspaceCard.body}
+                  <div className="flex items-center gap-2">
+                    <Crown className="h-4 w-4 text-orange-500" />
+                    <h2 className="text-lg font-bold text-stone-900">구독 상태</h2>
+                  </div>
+                </div>
+                {subscriptionLoading ? (
+                  <p className="text-sm text-stone-500">구독 상태를 확인하는 중...</p>
+                ) : (
+                  <div className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-4 text-sm text-stone-700">
+                    <p className="font-semibold text-stone-900">
+                      현재 상태: {subscriptionLabel}
+                    </p>
+                    <p className="mt-1 break-keep">
+                      {status?.hasAccess
+                        ? '공유 일정과 파트너 기능을 사용할 수 있습니다.'
+                        : '구독을 활성화하면 파트너 초대와 공유 일정 기능이 열립니다.'}
+                    </p>
+                    <p className="mt-1 text-stone-500">
+                      월 구독료: {status?.monthlyAmount?.toLocaleString?.() ?? '9,900'}원
                     </p>
                   </div>
-                  <div className="hidden h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 text-violet-700 sm:flex">
-                    <Users className="h-6 w-6" />
-                  </div>
-                </div>
+                )}
+              </div>
 
-                <div className="flex flex-wrap gap-3">
-                  <PrimaryButton asChild variant="brand" size="sm">
-                    <Link href={workspaceCard.ctaHref}>{workspaceCard.ctaLabel}</Link>
-                  </PrimaryButton>
-                  <PrimaryButton asChild variant="outline" size="sm">
-                    <Link href="/library">보관함 보기</Link>
-                  </PrimaryButton>
-                </div>
-              </AppCard>
+              <PrimaryButton
+                asChild
+                variant={status?.hasAccess ? 'outline' : 'brand'}
+                size="sm"
+              >
+                <Link href="/subscribe">
+                  {status?.hasAccess ? '구독 관리' : '구독 시작하기'}
+                </Link>
+              </PrimaryButton>
+            </AppCard>
+          </div>
 
+          <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+            <div className="space-y-6">
               <AppCard padding="lg" className="space-y-5">
                 <div className="space-y-2">
                   <div className="inline-flex items-center gap-2 rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-700">
@@ -143,7 +199,7 @@ export default function DashboardPage() {
                   <h2 className="text-xl font-bold text-stone-900">
                     아이디어를 바로 이어서 시작하세요
                   </h2>
-                  <p className="text-sm leading-6 text-stone-600">
+                  <p className="break-keep text-sm leading-6 text-stone-600">
                     한 줄 입력만 남기면 `/plan`에서 바로 이어서 세부 조정과 생성까지 할 수 있습니다.
                   </p>
                 </div>
@@ -168,6 +224,7 @@ export default function DashboardPage() {
                 <textarea
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
+                  onKeyDown={handleQuickCreateKeyDown}
                   placeholder="예: 성수에서 저녁 먹고 카페 갔다가 산책하는 데이트 코스 짜줘"
                   rows={3}
                   className="w-full resize-none rounded-2xl border border-stone-200 bg-stone-50/60 px-4 py-3 text-sm text-stone-800 outline-none transition-colors focus:border-orange-300 focus:bg-white focus:ring-4 focus:ring-orange-100"
@@ -185,48 +242,15 @@ export default function DashboardPage() {
                     일정 만들기
                   </PrimaryButton>
                   <PrimaryButton asChild type="button" variant="outline" size="sm">
-                    <Link href="/plan">고급 입력으로 이동</Link>
+                    <Link href="/plan" scroll>
+                      고급 입력으로 이동
+                    </Link>
                   </PrimaryButton>
                 </div>
               </AppCard>
             </div>
 
             <div className="space-y-6">
-              <AppCard padding="lg" className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Crown className="h-4 w-4 text-orange-500" />
-                  <h2 className="text-lg font-bold text-stone-900">구독 상태</h2>
-                </div>
-                {subscriptionLoading ? (
-                  <p className="text-sm text-stone-500">구독 상태를 확인하는 중...</p>
-                ) : (
-                  <>
-                    <div className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-4 text-sm text-stone-700">
-                      <p className="font-semibold text-stone-900">
-                        현재 상태: {subscriptionLabel}
-                      </p>
-                      <p className="mt-1">
-                        {status?.hasAccess
-                          ? '공유 일정과 파트너 기능을 사용할 수 있습니다.'
-                          : '구독을 활성화하면 파트너 초대와 공유 일정 기능이 열립니다.'}
-                      </p>
-                      <p className="mt-1 text-stone-500">
-                        월 구독료: {status?.monthlyAmount?.toLocaleString?.() ?? '9,900'}원
-                      </p>
-                    </div>
-                    <PrimaryButton
-                      asChild
-                      variant={status?.hasAccess ? 'outline' : 'brand'}
-                      size="sm"
-                    >
-                      <Link href="/subscribe">
-                        {status?.hasAccess ? '구독 관리' : '구독 시작하기'}
-                      </Link>
-                    </PrimaryButton>
-                  </>
-                )}
-              </AppCard>
-
               <AppCard padding="lg" className="space-y-4">
                 <div className="flex items-center gap-2">
                   <Library className="h-4 w-4 text-orange-500" />

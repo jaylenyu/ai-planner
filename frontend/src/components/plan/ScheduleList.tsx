@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { AppCard } from "../ui/app-card";
 import { PlanItem, TYPE_ICONS, TYPE_LABELS } from "../../lib/types";
 import { ArrowRight, Clock3 } from "lucide-react";
@@ -135,12 +136,13 @@ export function ScheduleList({
                       onClick={() => onOpenPlace(item)}
                       className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-[#03C75A]/30 bg-white px-2.5 py-1 text-xs font-medium text-[#03C75A] transition-colors hover:border-[#03C75A]/60"
                     >
-                      <img
+                      <Image
                         src="https://ssl.pstatic.net/static/maps/assets/icons/favicon.ico"
                         alt="Naver"
                         width={12}
                         height={12}
                         className="rounded-[2px]"
+                        unoptimized
                       />
                       지도 보기
                     </button>
@@ -233,12 +235,13 @@ export function ScheduleList({
                       onClick={() => onOpenPlace(item)}
                       className="absolute top-4 right-4 inline-flex items-center gap-1.5 rounded-full border border-[#03C75A]/30 px-2.5 py-0.5 text-xs font-medium text-[#03C75A] transition-colors hover:border-[#03C75A]/60"
                     >
-                      <img
+                      <Image
                         src="https://ssl.pstatic.net/static/maps/assets/icons/favicon.ico"
                         alt="Naver"
                         width={14}
                         height={14}
                         className="rounded-[2px]"
+                        unoptimized
                       />
                       지도 보기
                     </button>

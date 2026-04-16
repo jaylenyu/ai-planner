@@ -2,6 +2,16 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 
+type PaymentReceiptInput = {
+  to: string;
+  orderId: string;
+  paymentKey?: string | null;
+  amount: number;
+  method: string;
+  paidAt: Date;
+  currentPeriodEnd?: Date | null;
+};
+
 @Injectable()
 export class EmailService {
   private transporter: nodemailer.Transporter;
@@ -172,6 +182,122 @@ export class EmailService {
           </tr>
         </table>
       `),
+    });
+  }
+
+  async sendPaymentReceipt(input: PaymentReceiptInput) {
+    const frontendUrl =
+      this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
+    const supportEmail =
+      this.config.get<string>('SUPPORT_EMAIL') ?? 'jaylenyu96@gmail.com';
+    const formatDate = (value: Date) =>
+      new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      }).format(value);
+    const formatDateTime = (value: Date) =>
+      new Intl.DateTimeFormat('ko-KR', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      }).format(value);
+    const formatAmount = (value: number) =>
+      new Intl.NumberFormat('ko-KR').format(value);
+
+    const methodLabelMap: Record<string, string> = {
+      CARD: 'Card',
+      TRANSFER: 'Toss Bank Transfer',
+      MOBILE_PHONE: 'Mobile Phone',
+      TOSSPAY: 'Toss Pay',
+      KAKAOPAY: 'KakaoPay',
+      NAVERPAY: 'NaverPay',
+    };
+
+    const methodLabel = methodLabelMap[input.method] ?? input.method;
+    const paidDate = formatDate(input.paidAt);
+    const paidAtText = formatDateTime(input.paidAt);
+    const renewalText = input.currentPeriodEnd
+      ? formatDate(input.currentPeriodEnd)
+      : null;
+
+    await this.transporter.sendMail({
+      from:
+        this.config.get<string>('EMAIL_FROM') ??
+        'DatePlanner <no-reply@date-planner.us>',
+      to: input.to,
+      subject: '[DatePlanner] Receipt',
+      html: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+</head>
+<body style="margin:0;padding:0;background:#ffffff;color:#1d1d1f;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;">
+          <tr>
+            <td style="padding:0 0 24px;">
+              <div style="font-size:28px;font-weight:700;letter-spacing:-0.02em;">DatePlanner</div>
+              <div style="font-size:24px;font-weight:600;letter-spacing:-0.02em;margin-top:4px;">Receipt</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 0 24px;font-size:16px;line-height:1.7;">
+              <div>${paidDate}</div>
+              <div>Order ID: ${input.orderId}</div>
+              ${input.paymentKey ? `<div>Document: ${input.paymentKey}</div>` : ''}
+              <div>DatePlanner Account: ${input.to}</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 0;border-top:1px solid #e5e5e7;border-bottom:1px solid #e5e5e7;">
+              <div style="font-size:18px;font-weight:600;">DatePlanner</div>
+              <div style="font-size:16px;line-height:1.7;margin-top:8px;">
+                Couple Plan (Monthly)<br />
+                ${renewalText ? `Renews ${renewalText}<br />` : ''}
+                Paid at ${paidAtText}
+              </div>
+              <div style="font-size:20px;font-weight:600;margin-top:12px;">₩${formatAmount(input.amount)}</div>
+              <div style="font-size:14px;color:#6e6e73;margin-top:4px;">VAT included</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 0;">
+              <div style="font-size:18px;font-weight:600;margin-bottom:12px;">Billing and Payment</div>
+              <div style="font-size:16px;line-height:1.8;">
+                ${input.to}<br />
+                ${methodLabel}<br />
+                ₩${formatAmount(input.amount)}
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 0 24px;font-size:14px;color:#6e6e73;line-height:1.8;">
+              If you have any questions about your bill, contact
+              <a href="mailto:${supportEmail}" style="color:#06c;text-decoration:none;">${supportEmail}</a>.<br />
+              This email confirms payment for your DatePlanner subscription. Your subscription renews automatically until you cancel.
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 0 0;border-top:1px solid #e5e5e7;font-size:13px;color:#6e6e73;line-height:1.8;">
+              <a href="${frontendUrl}/subscribe" style="color:#06c;text-decoration:none;">Manage Subscription</a><br />
+              <a href="mailto:${supportEmail}" style="color:#06c;text-decoration:none;">Visit Support</a><br />
+              DatePlanner
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
     });
   }
 }

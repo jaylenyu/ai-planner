@@ -14,6 +14,7 @@ import {
   SubscriptionStatusResponse,
 } from './payment.types';
 import { ConfirmPaymentDto } from './dto/confirm-payment.dto';
+import { EmailService } from '../email/email.service';
 
 type TossConfirmResponse = {
   paymentKey: string;
@@ -35,7 +36,10 @@ const SUBSCRIPTION_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 export class PaymentService {
   private readonly logger = new Logger(PaymentService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly emailService: EmailService,
+  ) {}
 
   private get monthlyAmount() {
     const raw = process.env.SUBSCRIPTION_MONTHLY_AMOUNT?.trim();
@@ -237,6 +241,11 @@ export class PaymentService {
       where: { orderId: dto.orderId },
       include: {
         subscription: true,
+        user: {
+          select: {
+            email: true,
+          },
+        },
       },
     });
 
@@ -296,6 +305,24 @@ export class PaymentService {
     this.logger.log(
       `결제 승인 완료: ${updatedPayment.orderId} (${updatedPayment.amount})`,
     );
+
+    void this.emailService
+      .sendPaymentReceipt({
+        to: payment.user.email,
+        orderId: updatedPayment.orderId,
+        paymentKey: updatedPayment.paymentKey,
+        amount: updatedPayment.amount,
+        method: updatedPayment.method,
+        paidAt: updatedPayment.confirmedAt ?? this.now(),
+        currentPeriodEnd: updatedSubscription.currentPeriodEnd,
+      })
+      .catch((error: unknown) => {
+        const message =
+          error instanceof Error ? error.message : 'unknown email error';
+        this.logger.warn(
+          `영수증 메일 발송 실패: ${updatedPayment.orderId} (${message})`,
+        );
+      });
 
     return this.toStatusResponse(updatedSubscription);
   }

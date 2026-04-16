@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { PlanInputForm } from "@/components/plan/PlanInputForm";
@@ -30,17 +30,38 @@ function PlanPageContent() {
   const [saveToWorkspace, setSaveToWorkspace] = useState(false);
   const draft = searchParams.get("draft") ?? "";
   const initialMode = searchParams.get("mode") === "trip" ? "trip" : "date";
+  const shouldAutoGenerate = searchParams.get("autoGenerate") === "1";
+  const autoGenerateKeyRef = useRef<string | null>(null);
 
-  const handleSubmit = async (rawInput: string, mode: "date" | "trip") => {
-    if (!isLoggedIn) return;
-    await generate(
-      rawInput,
-      mode,
-      saveToWorkspace && workspace ? workspace.id : undefined,
-    );
-    await queryClient.invalidateQueries({ queryKey: ['plans'] });
-    await queryClient.invalidateQueries({ queryKey: queryKeys.workspaceMine });
-  };
+  const handleSubmit = useCallback(
+    async (rawInput: string, mode: "date" | "trip") => {
+      if (!isLoggedIn) return;
+      await generate(
+        rawInput,
+        mode,
+        saveToWorkspace && workspace ? workspace.id : undefined,
+      );
+      await queryClient.invalidateQueries({ queryKey: ["plans"] });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.workspaceMine,
+      });
+    },
+    [generate, isLoggedIn, queryClient, saveToWorkspace, workspace],
+  );
+
+  useEffect(() => {
+    if (!isLoggedIn || !shouldAutoGenerate || !draft.trim()) {
+      return;
+    }
+
+    const autoKey = `${initialMode}:${draft.trim()}`;
+    if (autoGenerateKeyRef.current === autoKey) {
+      return;
+    }
+
+    autoGenerateKeyRef.current = autoKey;
+    void handleSubmit(draft.trim(), initialMode);
+  }, [draft, handleSubmit, initialMode, isLoggedIn, shouldAutoGenerate]);
 
   const renderResultsPanel = () => {
     if (status === "loading") {
@@ -214,7 +235,7 @@ function PlanPageContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--background)] overflow-x-clip">
+    <div className="bg-[var(--background)] overflow-x-clip">
       <PlaceMapDialog
         open={!!selectedPlace}
         item={selectedPlace}

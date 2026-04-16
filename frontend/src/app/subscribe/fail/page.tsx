@@ -12,7 +12,7 @@ function SubscribeFailContent() {
   const message = searchParams.get("message");
 
   return (
-    <main className="min-h-screen bg-[var(--background)] px-4 py-10">
+    <main className="bg-[var(--background)] px-4 py-10">
       <div className="mx-auto max-w-xl">
         <AppCard padding="lg" className="space-y-5">
           <div>

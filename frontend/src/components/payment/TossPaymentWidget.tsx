@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { PrimaryButton } from "../ui/primary-button";
 
 interface TossPaymentInstance {
@@ -15,52 +16,48 @@ interface TossPaymentInstance {
     failUrl: string;
     card?: {
       flowMode?: "DEFAULT" | "DIRECT";
-      easyPay?: "TOSSPAY" | "KAKAOPAY";
     };
   }) => Promise<void>;
 }
 
 type PaymentMethod =
-  | { method: "CARD"; card?: { flowMode?: "DEFAULT" | "DIRECT"; easyPay?: "TOSSPAY" | "KAKAOPAY" } }
+  | { method: "CARD"; card?: { flowMode?: "DEFAULT" | "DIRECT" } }
   | { method: "TRANSFER" }
-  | { method: "MOBILE_PHONE" }
-  | { method: "CARD"; card: { flowMode: "DIRECT"; easyPay: "TOSSPAY" } }
-  | { method: "CARD"; card: { flowMode: "DIRECT"; easyPay: "KAKAOPAY" } };
+  | { method: "MOBILE_PHONE" };
 
-type MethodKey = "CARD" | "TRANSFER" | "MOBILE_PHONE" | "TOSSPAY" | "KAKAOPAY";
+type MethodKey = "CARD" | "TRANSFER" | "MOBILE_PHONE";
 
 const PAYMENT_METHODS: {
   key: MethodKey;
   label: string;
-  icon: string;
+  icon: ReactNode;
   config: PaymentMethod;
-  requiresLive?: boolean;
 }[] = [
-  { key: "CARD", label: "카드", icon: "💳", config: { method: "CARD" } },
   {
-    key: "TOSSPAY",
-    label: "토스페이",
-    icon: "🔵",
-    config: { method: "CARD", card: { flowMode: "DIRECT", easyPay: "TOSSPAY" } },
-    requiresLive: true,
-  },
-  {
-    key: "KAKAOPAY",
-    label: "카카오페이",
-    icon: "🟡",
-    config: { method: "CARD", card: { flowMode: "DIRECT", easyPay: "KAKAOPAY" } },
-    requiresLive: true,
+    key: "CARD",
+    label: "카드",
+    icon: <span className="text-xl">💳</span>,
+    config: { method: "CARD" },
   },
   {
     key: "TRANSFER",
-    label: "계좌이체",
-    icon: "🏦",
+    label: "토스계좌이체",
+    icon: (
+      <Image
+        src="https://static.toss.im/tds/favicon/favicon.ico"
+        alt=""
+        width={20}
+        height={20}
+        className="h-5 w-5 rounded"
+        unoptimized
+      />
+    ),
     config: { method: "TRANSFER" },
   },
   {
     key: "MOBILE_PHONE",
     label: "휴대폰",
-    icon: "📱",
+    icon: <span className="text-xl">📱</span>,
     config: { method: "MOBILE_PHONE" },
   },
 ];
@@ -119,7 +116,6 @@ export function TossPaymentWidget({
   orderId,
   orderName,
 }: Props) {
-  const isTestClientKey = clientKey.startsWith("test_");
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
@@ -159,10 +155,6 @@ export function TossPaymentWidget({
     if (!paymentRef.current) return;
     const selected = PAYMENT_METHODS.find((m) => m.key === method);
     if (!selected) return;
-    if (selected.requiresLive && isTestClientKey) {
-      setError("테스트 환경에서는 토스페이/카카오페이 직접 결제를 지원하지 않습니다. 카드 결제로 테스트해주세요.");
-      return;
-    }
     try {
       setPaying(true);
       setError(null);
@@ -186,31 +178,22 @@ export function TossPaymentWidget({
   return (
     <div className="space-y-4">
       {/* 결제 수단 선택 */}
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         {PAYMENT_METHODS.map((m) => (
           <button
             key={m.key}
             type="button"
             onClick={() => {
-              if (m.requiresLive && isTestClientKey) {
-                setError("테스트 환경에서는 토스페이/카카오페이 직접 결제를 지원하지 않습니다. 카드 결제로 테스트해주세요.");
-                return;
-              }
               setMethod(m.key);
               setError(null);
             }}
-            disabled={m.requiresLive && isTestClientKey}
             className={`flex flex-col items-center gap-1 rounded-2xl border px-2 py-3 text-xs font-medium transition-colors ${
               method === m.key
                 ? "border-orange-300 bg-orange-50 text-orange-700"
                 : "border-stone-200 bg-white text-stone-600 hover:border-stone-300"
-            } ${
-              m.requiresLive && isTestClientKey
-                ? "cursor-not-allowed opacity-45 hover:border-stone-200"
-                : ""
             }`}
           >
-            <span className="text-xl">{m.icon}</span>
+            <span className="flex h-5 w-5 items-center justify-center">{m.icon}</span>
             {m.label}
           </button>
         ))}
