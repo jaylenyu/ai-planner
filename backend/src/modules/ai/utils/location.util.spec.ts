@@ -15,4 +15,19 @@ describe('location.util', () => {
     expect(stripLocationParticles('상주에서요')).toBe('상주');
     expect(stripLocationParticles('문경에서요?!')).toBe('문경');
   });
+
+  it('preserves place names ending in "도"', () => {
+    expect(normalizeLocation('청도')).toBe('청도');
+    expect(normalizeLocation('전라도')).toBe('전라도');
+    expect(normalizeLocation('경기도')).toBe('경기도');
+    expect(normalizeLocation('거제도')).toBe('거제도');
+    expect(normalizeLocation('완도')).toBe('완도');
+    expect(normalizeLocation('진도')).toBe('진도');
+    expect(normalizeLocation('울릉도')).toBe('울릉도');
+  });
+
+  it('strips "에서" after place names ending in "도"', () => {
+    expect(normalizeLocation('청도에서')).toBe('청도');
+    expect(normalizeLocation('전라도에서')).toBe('전라도');
+  });
 });
