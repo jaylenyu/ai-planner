@@ -1,0 +1,23 @@
+/** @type {import('@lhci/cli').LHCIConfig} */
+module.exports = {
+  ci: {
+    collect: {
+      startServerCommand: 'next start -p 3000',
+      url: [
+        'http://localhost:3000/',
+        'http://localhost:3000/plan',
+        'http://localhost:3000/privacy',
+        'http://localhost:3000/terms',
+      ],
+      numberOfRuns: 1,
+      settings: {
+        preset: 'desktop',
+      },
+    },
+    upload: {
+      target: 'filesystem',
+      outputDir: '.lighthouseci',
+    },
+  },
+};
+

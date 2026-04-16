@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+.next/
+out/
+build/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.production
+.env.production.*
+!.env.production.template
+
+# Backup files
+backups/
+*.sql.gz
+*.dump
+
+# DB backup sql files (but not prisma migrations)
+/backend/backups/*.sql
+
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# TypeScript
+*.tsbuildinfo
+awscliv2.zip
+backend/data/region_coords_cache.json
