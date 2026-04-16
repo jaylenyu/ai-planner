@@ -38,7 +38,7 @@ export class EmailService {
       <tr>
         <td style="padding:28px 32px 24px;border-bottom:1px solid #e8ecef;">
           <span style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;">
-            <img src="${icon}" alt="date planner" width="28" height="28" style="display:inline-block;width:28px;height:28px;border-radius:8px;vertical-align:middle;">
+            <img src="${icon}" alt="date planner" width="28" height="28" style="display:inline-block;width:28px;height:28px;vertical-align:middle;">
             <span style="font-size:17px;font-weight:700;color:#1a1a1a;letter-spacing:-0.3px;">date planner</span>
           </span>
         </td>
