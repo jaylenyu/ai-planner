@@ -22,8 +22,8 @@ export class EmailService {
     return `<!DOCTYPE html>
 <html lang="ko">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#f2f4f6;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f2f4f6;padding:32px 0;">
+<body style="margin:0;padding:0;background:#ffffff;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;padding:32px 0;">
   <tr><td align="center">
     <table width="480" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;">
 
@@ -88,7 +88,7 @@ export class EmailService {
         </p>
         <table width="100%" cellpadding="0" cellspacing="0">
           <tr>
-            <td style="background:#f2f4f6;border-radius:10px;padding:24px;text-align:center;">
+            <td style="background:#ffffff;border:1px solid #e8ecef;border-radius:10px;padding:24px;text-align:center;">
               <span style="display:block;font-size:13px;color:#888;margin-bottom:10px;">인증번호</span>
               <span style="display:block;font-size:30px;font-weight:700;color:#1a1a1a;letter-spacing:6px;">${code}</span>
             </td>
@@ -116,7 +116,7 @@ export class EmailService {
         </p>
         <table width="100%" cellpadding="0" cellspacing="0">
           <tr>
-            <td style="background:#f2f4f6;border-radius:10px;padding:24px;text-align:center;">
+            <td style="background:#ffffff;border:1px solid #e8ecef;border-radius:10px;padding:24px;text-align:center;">
               <span style="display:block;font-size:13px;color:#888;margin-bottom:16px;">아래 버튼으로 로그인하세요</span>
               <a href="${loginUrl}" style="display:inline-block;padding:12px 32px;background:#5c67f2;color:#fff;text-decoration:none;border-radius:8px;font-size:15px;font-weight:600;">
                 로그인 페이지로 이동
@@ -147,7 +147,7 @@ export class EmailService {
         </p>
         <table width="100%" cellpadding="0" cellspacing="0">
           <tr>
-            <td style="background:#f2f4f6;border-radius:10px;padding:24px;text-align:center;">
+            <td style="background:#ffffff;border:1px solid #e8ecef;border-radius:10px;padding:24px;text-align:center;">
               <span style="display:block;font-size:13px;color:#888;margin-bottom:16px;">링크는 <strong>1시간</strong> 동안 유효합니다</span>
               <a href="${resetUrl}" style="display:inline-block;padding:12px 32px;background:#5c67f2;color:#fff;text-decoration:none;border-radius:8px;font-size:15px;font-weight:600;">
                 비밀번호 재설정
@@ -178,7 +178,7 @@ export class EmailService {
         </p>
         <table width="100%" cellpadding="0" cellspacing="0">
           <tr>
-            <td style="background:#f2f4f6;border-radius:10px;padding:24px;text-align:center;">
+            <td style="background:#ffffff;border:1px solid #e8ecef;border-radius:10px;padding:24px;text-align:center;">
               <span style="display:block;font-size:13px;color:#888;margin-bottom:16px;">초대 링크는 <strong>7일</strong> 동안 유효합니다</span>
               <a href="${inviteUrl}" style="display:inline-block;padding:12px 32px;background:#5c67f2;color:#fff;text-decoration:none;border-radius:8px;font-size:15px;font-weight:600;">
                 초대 수락하기
