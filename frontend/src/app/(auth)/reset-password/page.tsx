@@ -86,7 +86,11 @@ function ResetPasswordForm() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-2xl bg-stone-900 px-4 py-3.5 text-sm font-semibold text-white hover:bg-stone-800 disabled:opacity-50 transition-colors"
+              className={`flex w-full items-center justify-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium shadow-sm transition-all duration-200 ${
+                loading
+                  ? 'bg-gradient-to-br from-orange-400 to-pink-400 text-white opacity-70 cursor-not-allowed'
+                  : 'bg-gradient-to-br from-orange-500 to-pink-500 text-white hover:shadow-lg hover:from-orange-600 hover:to-pink-600 active:opacity-95'
+              }`}
             >
               {loading ? '변경 중...' : '비밀번호 변경'}
             </button>

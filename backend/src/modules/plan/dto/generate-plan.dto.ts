@@ -1,4 +1,4 @@
-import { IsString, IsIn, MinLength } from 'class-validator';
+import { IsString, IsIn, MinLength, IsOptional } from 'class-validator';
 
 export class GeneratePlanDto {
   @IsString()
@@ -7,4 +7,8 @@ export class GeneratePlanDto {
 
   @IsIn(['date', 'trip'])
   mode: 'date' | 'trip';
+
+  @IsOptional()
+  @IsString()
+  workspaceId?: string;
 }

@@ -3,6 +3,11 @@ import { PlacesService } from '../../places/places.service';
 import { PipelineContext } from '../interfaces/pipeline-result.interface';
 import { PlaceResult } from '../interfaces/place.interface';
 import { ActivityIntent } from '../interfaces/intent.interface';
+import {
+  buildActivityQueries,
+  getActivityDefinition,
+  getActivitySearchDisplay,
+} from '../utils/activity-registry';
 
 const FALLBACK_QUERIES: Record<string, string> = {
   attraction: '관광지 명소 볼거리',
@@ -28,6 +33,14 @@ const GENERIC_FOOD_SLOT_QUERIES = new Set([
   '브런치 카페',
 ]);
 
+function isMovieSlot(activity: ActivityIntent): boolean {
+  const text = `${activity.slotQuery ?? ''} ${activity.naverQuery}`.replace(
+    /\s+/g,
+    '',
+  );
+  return text.includes('영화');
+}
+
 function normalizePlaceKey(name: string): string {
   return name.replace(/\s+/g, '').toLowerCase();
 }
@@ -49,17 +62,22 @@ export class SearchPlacesStep {
         intent.searchLocation,
         preferences,
       );
+      const display = activity.subtype
+        ? getActivitySearchDisplay(activity.subtype)
+        : isMovieSlot(activity)
+          ? 8
+          : MAX_RESULTS_PER_SOURCE;
       const naverMerged: PlaceResult[] = [];
       const kakaoMerged: PlaceResult[] = [];
 
       for (const query of queries) {
         const [naverPlaces, kakaoPlaces] = await Promise.all([
-          this.searchNaverPlaces(query, activity.type, intent),
+          this.searchNaverPlaces(query, activity.type, intent, display),
           this.placesService.searchNearbyKakao(
             query,
             intent.lat,
             intent.lng,
-            MAX_RESULTS_PER_SOURCE,
+            display,
           ),
         ]);
         naverMerged.push(...naverPlaces);
@@ -98,6 +116,25 @@ export class SearchPlacesStep {
     location: string,
     preferences: string[],
   ): string[] {
+    const definition = getActivityDefinition(activity.subtype);
+    if (definition) {
+      return buildActivityQueries(
+        location,
+        definition.subtype,
+        activity.naverQuery,
+      );
+    }
+
+    if (isMovieSlot(activity)) {
+      return [
+        activity.naverQuery,
+        `${location} 영화관`,
+        `${location} CGV`,
+        `${location} 메가박스`,
+        `${location} 롯데시네마`,
+      ];
+    }
+
     if (activity.type !== 'food' || preferences.length === 0) {
       return [activity.naverQuery];
     }
@@ -124,11 +161,12 @@ export class SearchPlacesStep {
     query: string,
     activityType: string,
     intent: NonNullable<PipelineContext['intent']>,
+    display = MAX_RESULTS_PER_SOURCE,
   ): Promise<PlaceResult[]> {
     let results = await this.placesService.searchNearby(
       query,
       activityType,
-      MAX_RESULTS_PER_SOURCE,
+      display,
     );
 
     if (results.length === 0) {
@@ -138,7 +176,7 @@ export class SearchPlacesStep {
         const retry = await this.placesService.searchNearby(
           retryQuery,
           activityType,
-          MAX_RESULTS_PER_SOURCE,
+          display,
         );
         if (retry.length > 0) {
           results = retry;

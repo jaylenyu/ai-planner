@@ -1,25 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { api } from '../lib/api';
-
-export interface PlanSummary {
-  id: string;
-  rawInput: string;
-  mode: string;
-  summary: string | null;
-  createdAt: string;
-  items: { order: number; name: string; type: string; time: string }[];
-}
+import { planApi } from '../lib/api';
+import type { PlanSummary } from '../lib/types';
 
 export function usePlanList() {
   const [plans, setPlans] = useState<PlanSummary[]>([]);
   const [loading, setLoading] = useState(false);
+  const [categoryId, setCategoryId] = useState<string | undefined>(undefined);
+  const [scope, setScope] = useState<'personal' | 'shared' | undefined>();
 
-  const fetchPlans = async () => {
+  const refetch = async () => {
     setLoading(true);
     try {
-      const data = await api.get<PlanSummary[]>('/plan/list');
+      const data = await planApi.list(categoryId, scope);
       setPlans(data);
     } catch {
       setPlans([]);
@@ -29,8 +23,40 @@ export function usePlanList() {
   };
 
   useEffect(() => {
-    fetchPlans();
-  }, []);
+    let cancelled = false;
 
-  return { plans, loading, refetch: fetchPlans };
+    async function loadPlans() {
+      setLoading(true);
+      try {
+        const data = await planApi.list(categoryId, scope);
+        if (!cancelled) {
+          setPlans(data);
+        }
+      } catch {
+        if (!cancelled) {
+          setPlans([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadPlans();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [categoryId, scope]);
+
+  return {
+    plans,
+    loading,
+    refetch,
+    categoryId,
+    setCategoryId,
+    scope,
+    setScope,
+  };
 }

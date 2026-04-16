@@ -110,6 +110,7 @@ jobs:
           build-args: |
             NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
             NEXT_PUBLIC_NAVER_MAP_CLIENT_ID=${{ secrets.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID }}
+            NEXT_PUBLIC_TOSS_CLIENT_KEY=${{ secrets.NEXT_PUBLIC_TOSS_CLIENT_KEY }}
             NEXT_PUBLIC_POSTHOG_KEY=${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}
             NEXT_PUBLIC_POSTHOG_HOST=${{ secrets.NEXT_PUBLIC_POSTHOG_HOST }}
           cache-from: type=gha,scope=frontend
@@ -140,6 +141,21 @@ jobs:
             ENV_FILE=$STACK_DIR/.env
             BACKEND_CHANGED=${{ needs.changes.outputs.backend_changed }}
             FRONTEND_CHANGED=${{ needs.changes.outputs.frontend_changed }}
+
+            upsert_env() {
+              local key="$1"
+              local value="$2"
+              if grep -q "^${key}=" "$ENV_FILE"; then
+                sed -i "s|^${key}=.*|${key}=${value}|" "$ENV_FILE"
+              else
+                printf '%s=%s\n' "$key" "$value" >> "$ENV_FILE"
+              fi
+            }
+
+            upsert_env NEXT_PUBLIC_TOSS_CLIENT_KEY '${{ secrets.NEXT_PUBLIC_TOSS_CLIENT_KEY }}'
+            upsert_env TOSS_SECRET_KEY '${{ secrets.TOSS_SECRET_KEY }}'
+            upsert_env TOSS_WEBHOOK_SECRET '${{ secrets.TOSS_WEBHOOK_SECRET }}'
+
             docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" config >/dev/null
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 

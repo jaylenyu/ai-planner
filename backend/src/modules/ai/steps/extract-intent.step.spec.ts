@@ -132,6 +132,27 @@ describe('ExtractIntentStep', () => {
     ).toBe(true);
   });
 
+  it('영화 활동은 subtype=movie로 정규화한다', async () => {
+    const { step } = makeStep();
+
+    const ctx = {
+      rawInput: '홍대에서 영화 보고 싶어',
+      mode: 'date',
+      parsed: {
+        location: '홍대',
+        activities: ['영화'],
+        timeOfDay: 'full-day',
+        preferences: [],
+      },
+    } as PipelineContext;
+
+    await step.execute(ctx);
+
+    expect(ctx.intent?.activities[0].type).toBe('activity');
+    expect(ctx.intent?.activities[0].subtype).toBe('movie');
+    expect(ctx.intent?.activities[0].naverQuery).toContain('영화관');
+  });
+
   it('anchorArea가 있으면 location은 유지하고 searchLocation만 바꾼다', async () => {
     const { step, placesService, regionService } = makeStep();
     placesService.geocodeCity.mockImplementation((name: string) => {

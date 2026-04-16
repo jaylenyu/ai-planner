@@ -69,6 +69,75 @@ describe('SelectCandidatesStep', () => {
     );
   });
 
+  it('점수 차이가 작으면 상위 후보군 안에서 가중 랜덤 선택한다', () => {
+    const step = new SelectCandidatesStep();
+    const base = {
+      rawInput: '테스트',
+      mode: 'date',
+      parsed: {
+        location: '홍대',
+        activities: ['카페'],
+        timeOfDay: 'full-day',
+        preferences: [],
+      },
+      intent: {
+        location: '홍대',
+        searchLocation: '홍대',
+        lat: 37.5512,
+        lng: 126.9255,
+        mode: 'date',
+        activities: [
+          {
+            slotId: 'slot-0',
+            type: 'cafe',
+            slotQuery: '카페',
+            naverQuery: '홍대 카페',
+            required: true,
+          },
+        ],
+        startTime: '10:00',
+        endTime: '20:00',
+      },
+      rawPlaces: {
+        'slot-0': [
+          {
+            name: '가까운카페',
+            lat: 37.5512,
+            lng: 126.9255,
+            category: '카페',
+            address: '서울',
+            source: 'naver',
+          },
+          {
+            name: '조금먼카페',
+            lat: 37.5528,
+            lng: 126.9271,
+            category: '카페',
+            address: '서울',
+            source: 'kakao',
+          },
+          {
+            name: '훨씬먼카페',
+            lat: 37.567,
+            lng: 126.942,
+            category: '카페',
+            address: '서울',
+            source: 'naver',
+          },
+        ],
+      },
+    } as unknown as PipelineContext;
+
+    const ctxLow = { ...base, randomFn: () => 0.0 } as PipelineContext;
+    const ctxHigh = { ...base, randomFn: () => 0.99 } as PipelineContext;
+
+    step.execute(ctxLow);
+    step.execute(ctxHigh);
+
+    expect(ctxLow.candidates?.['slot-0']?.[0].name).toBe('가까운카페');
+    expect(ctxHigh.candidates?.['slot-0']?.[0].name).toBe('조금먼카페');
+  });
+
   it('food preference와 이름이 일치하는 후보를 우선 선택한다', () => {
     const step = new SelectCandidatesStep();
     const ctx = {
@@ -124,6 +193,117 @@ describe('SelectCandidatesStep', () => {
     step.execute(ctx);
 
     expect(ctx.candidates?.['slot-0']?.[0].name).toBe('피자스쿨 연남점');
+  });
+
+  it('영화 슬롯에서는 영화관 계열 장소만 우선 선택한다', () => {
+    const step = new SelectCandidatesStep();
+    const ctx = {
+      rawInput: '영화 보고 싶어',
+      mode: 'date',
+      randomFn: () => 0,
+      parsed: {
+        location: '홍대',
+        activities: ['영화'],
+        timeOfDay: 'full-day',
+        preferences: [],
+      },
+      intent: {
+        location: '홍대',
+        searchLocation: '홍대',
+        lat: 37.5512,
+        lng: 126.9255,
+        mode: 'date',
+        activities: [
+          {
+            slotId: 'slot-0',
+            type: 'activity',
+            slotQuery: '영화',
+            subtype: 'movie',
+            naverQuery: '홍대 CGV 롯데시네마 메가박스 영화관',
+            required: true,
+          },
+        ],
+        startTime: '10:00',
+        endTime: '20:00',
+      },
+      rawPlaces: {
+        'slot-0': [
+          {
+            name: '펀치박스 복싱 스튜디오',
+            lat: 37.5512,
+            lng: 126.9255,
+            category: '스포츠,오락 > 복싱',
+            address: '서울',
+            source: 'naver',
+          },
+          {
+            name: 'CGV 홍대',
+            lat: 37.5514,
+            lng: 126.9258,
+            category: '문화,예술 > 영화관',
+            address: '서울',
+            source: 'naver',
+          },
+        ],
+      },
+    } as unknown as PipelineContext;
+
+    step.execute(ctx);
+
+    expect(ctx.candidates?.['slot-0']?.[0].name).toBe('CGV 홍대');
+  });
+
+  it('strict activity subtype에 맞는 후보가 없으면 슬롯을 제외하고 힌트를 남긴다', () => {
+    const step = new SelectCandidatesStep();
+    const ctx = {
+      rawInput: '홍대에서 영화 보고 싶어',
+      mode: 'date',
+      randomFn: () => 0,
+      parsed: {
+        location: '홍대',
+        activities: ['영화'],
+        timeOfDay: 'full-day',
+        preferences: [],
+      },
+      intent: {
+        location: '홍대',
+        searchLocation: '홍대',
+        lat: 37.5512,
+        lng: 126.9255,
+        mode: 'date',
+        activities: [
+          {
+            slotId: 'slot-0',
+            type: 'activity',
+            slotQuery: '영화',
+            subtype: 'movie',
+            naverQuery: '홍대 CGV 롯데시네마 메가박스 영화관',
+            required: true,
+          },
+        ],
+        startTime: '10:00',
+        endTime: '20:00',
+      },
+      rawPlaces: {
+        'slot-0': [
+          {
+            name: '펀치박스 복싱 스튜디오',
+            lat: 37.5512,
+            lng: 126.9255,
+            category: '스포츠,오락 > 복싱',
+            address: '서울',
+            source: 'naver',
+          },
+        ],
+      },
+    } as unknown as PipelineContext;
+
+    step.execute(ctx);
+
+    expect(ctx.candidates?.['slot-0']).toBeUndefined();
+    expect(ctx.unsupportedHints).toContain(
+      '영화에 맞는 장소를 찾지 못해 추천에서 제외됐습니다.',
+    );
   });
 
   it('food 후보에서는 카페성 장소를 우선 제외한다', () => {

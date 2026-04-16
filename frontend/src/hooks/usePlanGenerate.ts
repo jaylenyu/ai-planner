@@ -19,13 +19,21 @@ export function usePlanGenerate() {
   const [error, setError] = useState<string | null>(null);
   const [dailyLimitError, setDailyLimitError] = useState<DailyLimitError | null>(null);
 
-  const generate = async (rawInput: string, mode: PlanMode) => {
+  const generate = async (
+    rawInput: string,
+    mode: PlanMode,
+    workspaceId?: string,
+  ) => {
     setStatus('loading');
     setError(null);
     setResult(null);
     setDailyLimitError(null);
     try {
-      const data = await api.post<PlanResult>('/plan/generate', { rawInput, mode });
+      const data = await api.post<PlanResult>('/plan/generate', {
+        rawInput,
+        mode,
+        workspaceId,
+      });
       setResult(data);
       setStatus('success');
     } catch (err) {

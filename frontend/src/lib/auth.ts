@@ -50,3 +50,25 @@ export function clearAllTokens(): void {
   removeToken();
   removeRefreshToken();
 }
+
+export function getAuthUser():
+  | {
+      userId?: string;
+      email?: string;
+    }
+  | null {
+  const token = getToken();
+  if (!token) return null;
+
+  try {
+    const [, payload] = token.split('.');
+    if (!payload) return null;
+    const decoded = JSON.parse(atob(payload));
+    return {
+      userId: typeof decoded.sub === 'string' ? decoded.sub : undefined,
+      email: typeof decoded.email === 'string' ? decoded.email : undefined,
+    };
+  } catch {
+    return null;
+  }
+}

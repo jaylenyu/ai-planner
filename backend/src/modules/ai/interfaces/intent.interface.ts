@@ -43,6 +43,7 @@ export interface ActivitySlot {
   keyword: string;
   type: ActivityType;
   slotQuery: string;
+  subtype?: string;
   anchorMinutes?: number;
   orderLocked?: boolean;
   required?: boolean;
@@ -68,6 +69,7 @@ export interface ActivityIntent {
   type: ActivityType;
   naverQuery: string;
   slotQuery?: string;
+  subtype?: string;
   anchorMinutes?: number;
   orderLocked?: boolean;
   required?: boolean;

@@ -9,17 +9,25 @@ generator client {
 }
 
 model User {
-  id            String               @id @default(uuid())
-  email         String               @unique
-  password      String?
-  googleId      String?              @unique
-  kakaoId       String?              @unique
-  naverId       String?              @unique
-  emailVerified Boolean              @default(false)
-  plans         Plan[]
-  refreshTokens RefreshToken[]
-  resetTokens   PasswordResetToken[]
-  createdAt     DateTime             @default(now())
+  id                  String               @id @default(uuid())
+  email               String               @unique
+  password            String?
+  googleId            String?              @unique
+  kakaoId             String?              @unique
+  naverId             String?              @unique
+  emailVerified       Boolean              @default(false)
+  plans               Plan[]
+  categories          Category[]
+  subscription        Subscription?
+  payments            Payment[]
+  ownedWorkspaces     Workspace[]          @relation("WorkspaceOwner")
+  workspaceMembership WorkspaceMember?
+  sentInvites         WorkspaceInvite[]    @relation("WorkspaceInviteSender")
+  memos               PlanMemo[]
+  notifications       Notification[]
+  refreshTokens       RefreshToken[]
+  resetTokens         PasswordResetToken[]
+  createdAt           DateTime             @default(now())
 }
 
 model RefreshToken {
@@ -42,26 +50,163 @@ model PasswordResetToken {
 }
 
 model Plan {
-  id        String     @id @default(uuid())
-  userId    String
-  user      User       @relation(fields: [userId], references: [id])
-  rawInput  String
-  mode      String
-  summary   String?
-  createdAt DateTime   @default(now())
-  items     PlanItem[]
+  id          String      @id @default(uuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  workspaceId String?
+  workspace   Workspace?  @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  categoryId  String?
+  category    Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  rawInput    String
+  mode        String
+  summary     String?
+  updatedAt   DateTime    @updatedAt
+  createdAt   DateTime    @default(now())
+  items       PlanItem[]
+  memos       PlanMemo[]
+
+  @@index([userId])
+  @@index([workspaceId])
+  @@index([categoryId])
 }
 
 model PlanItem {
-  id     String @id @default(uuid())
-  planId String
-  plan   Plan   @relation(fields: [planId], references: [id])
-  order  Int
-  name   String
-  lat    Float
-  lng    Float
-  type   String
-  time   String
+  id               String   @id @default(uuid())
+  planId           String
+  plan             Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  order            Int
+  name             String
+  lat              Float
+  lng              Float
+  type             String
+  time             String
+  address          String   @default("")
+  link             String?
+  source           String?
+  distanceFromPrev Float?
+}
+
+model Category {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  color     String   @default("#6366f1")
+  plans     Plan[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model Subscription {
+  id               String    @id @default(uuid())
+  userId           String    @unique
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planCode         String    @default("couple_monthly")
+  status           String    @default("inactive")
+  currentPeriodEnd DateTime?
+  graceEndsAt      DateTime?
+  cancelledAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  payments         Payment[]
+
+  @@index([status])
+}
+
+model Workspace {
+  id        String            @id @default(uuid())
+  name      String            @default("우리 일정")
+  ownerId   String
+  owner     User              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  members   WorkspaceMember[]
+  invites   WorkspaceInvite[]
+  plans     Plan[]
+
+  @@index([ownerId])
+}
+
+model WorkspaceMember {
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String    @unique
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        String    @default("member")
+  joinedAt    DateTime  @default(now())
+
+  @@unique([workspaceId, userId])
+  @@index([workspaceId])
+}
+
+model WorkspaceInvite {
+  id         String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  inviterId   String
+  inviter     User      @relation("WorkspaceInviteSender", fields: [inviterId], references: [id], onDelete: Cascade)
+  email       String
+  token       String    @unique
+  status      String    @default("pending")
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([workspaceId])
+  @@index([email])
+  @@index([status])
+}
+
+model Payment {
+  id             String       @id @default(uuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  orderId        String       @unique
+  paymentKey     String?      @unique
+  amount         Int
+  method         String
+  status         String       @default("READY")
+  requestedAt    DateTime     @default(now())
+  confirmedAt    DateTime?
+  failReason     String?
+  rawResponse    Json?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([subscriptionId])
+  @@index([status])
+}
+
+model PlanMemo {
+  id        String   @id @default(uuid())
+  planId    String
+  plan      Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([planId])
+  @@index([authorId])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  payload   Json
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+  @@index([createdAt])
 }
 
 model ApiUsage {

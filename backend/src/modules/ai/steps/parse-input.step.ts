@@ -17,6 +17,7 @@ import {
 } from '../interfaces/intent.interface';
 import { stripLocationParticles } from '../utils/location.util';
 import { RegionService } from '../../../shared/region/region.service';
+import { resolveActivitySubtype } from '../utils/activity-registry';
 
 // 폴백용 활동 키워드 (ACTIVITY_QUERY_MAP 키 기준, 우선순위 순)
 const ACTIVITY_KEYWORDS = [
@@ -300,6 +301,7 @@ type FlowTokenDef = {
   keyword: string;
   type: ActivityType;
   slotQuery: string;
+  subtype?: string;
   anchorMinutes?: number;
   kind?: 'meal';
 };
@@ -488,15 +490,30 @@ function buildFlowTokenDefs(): FlowTokenDef[] {
     '방탈출',
     '클라이밍',
   ]) {
-    defs.push({ keyword, type: 'activity', slotQuery: keyword });
+    defs.push({
+      keyword,
+      type: 'activity',
+      slotQuery: keyword,
+      subtype: resolveActivitySubtype(keyword),
+    });
   }
 
   for (const keyword of ['전시', '박물관', '뮤지컬']) {
-    defs.push({ keyword, type: 'attraction', slotQuery: keyword });
+    defs.push({
+      keyword,
+      type: 'attraction',
+      slotQuery: keyword,
+      subtype: resolveActivitySubtype(keyword),
+    });
   }
 
   for (const keyword of OUTDOOR_FLOW_KEYWORDS) {
-    defs.push({ keyword, type: 'rest', slotQuery: keyword });
+    defs.push({
+      keyword,
+      type: 'rest',
+      slotQuery: keyword,
+      subtype: resolveActivitySubtype(keyword),
+    });
   }
 
   return defs;
@@ -638,6 +655,7 @@ function scanFlow(rawInput: string): ActivitySlot[] | null {
         keyword: paired?.keyword ?? hit.keyword,
         type: 'food',
         slotQuery: paired?.slotQuery ?? hit.slotQuery,
+        subtype: paired?.subtype ?? hit.subtype,
         anchorMinutes: hit.anchorMinutes,
         orderLocked: true,
         required: true,
@@ -651,6 +669,7 @@ function scanFlow(rawInput: string): ActivitySlot[] | null {
       keyword: hit.keyword,
       type: hit.type,
       slotQuery: hit.slotQuery,
+      subtype: hit.subtype,
       anchorMinutes: hit.anchorMinutes,
       orderLocked: true,
       required: true,

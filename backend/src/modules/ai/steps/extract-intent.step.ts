@@ -12,6 +12,11 @@ import { PlacesService } from '../../places/places.service';
 import { LOCATION_STOP_WORDS, normalizeLocation } from '../utils/location.util';
 import { RegionService } from '../../../shared/region/region.service';
 import { AliasLearningService } from '../../../shared/region/alias-learning.service';
+import {
+  buildActivityQueries,
+  getActivityDefinition,
+  resolveActivitySubtype,
+} from '../utils/activity-registry';
 
 // 최종 fallback 전용 — geocode가 모두 실패한 경우에만 사용
 const SEOUL_FALLBACK_COORDS = { lat: 37.5665, lng: 126.978 };
@@ -256,7 +261,9 @@ export class ExtractIntentStep {
     };
 
     this.logger.log(
-      `의도 추출 완료: ${parsed.location} / ${ordered.map((a) => `${a.slotId}:${a.type}`).join(' → ')}`,
+      `의도 추출 완료: ${parsed.location} / ${ordered
+        .map((a) => `${a.slotId}:${a.type}${a.subtype ? `:${a.subtype}` : ''}`)
+        .join(' → ')}`,
     );
   }
 
@@ -444,6 +451,7 @@ export class ExtractIntentStep {
       ...resolved,
       slotId: slot.slotId,
       slotQuery: slot.slotQuery,
+      subtype: slot.subtype ?? resolved.subtype,
       anchorMinutes: slot.anchorMinutes,
       orderLocked: true,
       required: true,
@@ -475,6 +483,7 @@ export class ExtractIntentStep {
       ...resolved,
       slotId,
       slotQuery: label,
+      subtype: resolved.subtype,
       required,
       orderLocked,
       naverQuery: this.applyThemeBoosts(resolved.naverQuery, type, themes),
@@ -495,6 +504,7 @@ export class ExtractIntentStep {
       ...resolved,
       slotId,
       slotQuery: activity,
+      subtype: resolved.subtype,
       required,
       orderLocked: false,
       naverQuery: this.applyThemeBoosts(
@@ -531,16 +541,30 @@ export class ExtractIntentStep {
     preferences: string[],
     typeHint?: ActivityType,
     explicitSlotQuery = false,
-  ): Pick<ActivityIntent, 'type' | 'naverQuery'> | null {
+  ): Pick<ActivityIntent, 'type' | 'naverQuery' | 'subtype'> | null {
     const preferredFoodQuery =
       explicitSlotQuery || typeHint === 'food'
         ? null
         : this.resolvePreferredFoodQuery(preferences);
 
+    const subtype = resolveActivitySubtype(activity);
+    const definition = subtype ? getActivityDefinition(subtype) : undefined;
+    if (definition) {
+      const primaryQuery =
+        buildActivityQueries(location, definition.subtype)[0] ??
+        `${location} ${definition.label}`;
+      return {
+        type: typeHint ?? definition.type,
+        subtype: definition.subtype,
+        naverQuery: primaryQuery,
+      };
+    }
+
     if (ACTIVITY_QUERY_MAP[activity]) {
       const { query, type } = ACTIVITY_QUERY_MAP[activity];
       return {
         type,
+        subtype: undefined,
         naverQuery:
           type === 'food' && preferredFoodQuery
             ? `${location} ${preferredFoodQuery}`
@@ -552,6 +576,7 @@ export class ExtractIntentStep {
       if (activity.includes(key) || key.includes(activity)) {
         return {
           type: typeHint ?? val.type,
+          subtype: undefined,
           naverQuery:
             (typeHint ?? val.type) === 'food' && preferredFoodQuery
               ? `${location} ${preferredFoodQuery}`
@@ -562,16 +587,22 @@ export class ExtractIntentStep {
 
     if (typeHint) {
       if (typeHint === 'food') {
-        return { type: 'food', naverQuery: `${location} ${activity}`.trim() };
+        return {
+          type: 'food',
+          subtype: undefined,
+          naverQuery: `${location} ${activity}`.trim(),
+        };
       }
       return {
         type: typeHint,
+        subtype: undefined,
         naverQuery: `${location} ${activity}`.trim(),
       };
     }
 
     return {
       type: 'food',
+      subtype: undefined,
       naverQuery: `${location} ${preferredFoodQuery ?? activity} 맛집`,
     };
   }

@@ -14,6 +14,10 @@ declare global {
       maps: {
         Map: new (el: HTMLElement | string, opts: object) => NaverMap;
         LatLng: new (lat: number, lng: number) => NaverLatLng;
+        LatLngBounds: new (
+          sw?: NaverLatLng,
+          ne?: NaverLatLng,
+        ) => NaverLatLngBounds;
         Marker: new (opts: object) => NaverMarker;
         Polyline: new (opts: object) => void;
         InfoWindow: new (opts: object) => NaverInfoWindow;
@@ -36,6 +40,9 @@ interface NaverMap {
 interface NaverLatLng {
   lat(): number;
   lng(): number;
+}
+interface NaverLatLngBounds {
+  extend(latlng: NaverLatLng): NaverLatLngBounds;
 }
 interface NaverMarker {
   getPosition(): NaverLatLng;
@@ -138,6 +145,15 @@ export function MapView({ items, polyline }: MapViewProps) {
           strokeStyle: 'solid',
         });
       }
+
+      const bounds = new window.naver.maps.LatLngBounds();
+      items.forEach((item) => {
+        bounds.extend(new window.naver.maps.LatLng(item.lat, item.lng));
+      });
+      polyline.forEach(([lat, lng]) => {
+        bounds.extend(new window.naver.maps.LatLng(lat, lng));
+      });
+      map.fitBounds(bounds);
     };
 
     if (window.naver?.maps) {

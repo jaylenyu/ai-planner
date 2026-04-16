@@ -181,6 +181,8 @@ export class GenerateScheduleStep {
         type: place.type,
         time: `${startStr} - ${endStr}`,
         address: place.address,
+        link: place.link,
+        source: place.source,
         distanceFromPrev: place.distanceFromPrev,
       });
 

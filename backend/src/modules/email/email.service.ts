@@ -84,4 +84,29 @@ export class EmailService {
       `,
     });
   }
+
+  async sendWorkspaceInvite(
+    to: string,
+    workspaceName: string,
+    inviteUrl: string,
+  ) {
+    await this.transporter.sendMail({
+      from:
+        this.config.get<string>('EMAIL_FROM') ??
+        'DatePlanner <no-reply@dateplanner.com>',
+      to,
+      subject: '[DatePlanner] 커플 워크스페이스 초대',
+      html: `
+        <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+          <h2>커플 워크스페이스 초대</h2>
+          <p><strong>${workspaceName}</strong> 워크스페이스에 초대되었어요.</p>
+          <p>아래 버튼을 눌러 초대를 수락하면 공유 일정과 메모 기능을 함께 사용할 수 있습니다.</p>
+          <a href="${inviteUrl}" style="display:inline-block;padding:12px 24px;background:#111;color:#fff;text-decoration:none;border-radius:6px;">
+            초대 수락하기
+          </a>
+          <p style="color:#999;font-size:12px;margin-top:24px;">본인이 요청하지 않은 경우 이 이메일을 무시하세요.</p>
+        </div>
+      `,
+    });
+  }
 }

@@ -9,6 +9,10 @@ interface PlanInputFormProps {
   onSubmit: (rawInput: string, mode: PlanMode) => void;
   loading: boolean;
   scrollToResults?: () => void;
+  shareEnabled?: boolean;
+  saveToWorkspace?: boolean;
+  workspaceName?: string;
+  onChangeSaveToWorkspace?: (next: boolean) => void;
 }
 
 const MODE_CONFIG: { mode: PlanMode; emoji: string; label: string; desc: string }[] = [
@@ -24,7 +28,15 @@ const EXAMPLES = [
   { text: '여의도에서 벚꽃 산책하고 맛집 1곳 가는 코스 짜줘. 저녁 8시 전에 끝나게 해줘', emoji: '🌸' },
 ];
 
-export function PlanInputForm({ onSubmit, loading, scrollToResults }: PlanInputFormProps) {
+export function PlanInputForm({
+  onSubmit,
+  loading,
+  scrollToResults,
+  shareEnabled,
+  saveToWorkspace,
+  workspaceName,
+  onChangeSaveToWorkspace,
+}: PlanInputFormProps) {
   const [rawInput, setRawInput] = useState('');
   const [mode, setMode] = useState<PlanMode>('date');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -91,6 +103,31 @@ export function PlanInputForm({ onSubmit, loading, scrollToResults }: PlanInputF
 
       {/* Textarea */}
       <div className="flex flex-col gap-2">
+        {shareEnabled && onChangeSaveToWorkspace && (
+          <button
+            type="button"
+            onClick={() => onChangeSaveToWorkspace(!saveToWorkspace)}
+            className={`flex items-center justify-between rounded-[var(--radius-md)] border px-4 py-3 text-sm transition-colors ${
+              saveToWorkspace
+                ? 'border-orange-200 bg-orange-50 text-orange-700'
+                : 'border-[var(--border-default)] bg-white text-stone-600'
+            }`}
+          >
+            <div className="text-left">
+              <p className="font-semibold">
+                {saveToWorkspace ? '공유 일정으로 저장' : '개인 일정으로 저장'}
+              </p>
+              <p className="mt-0.5 text-xs opacity-80">
+                {saveToWorkspace
+                  ? `${workspaceName ?? '워크스페이스'}에 함께 보입니다.`
+                  : '내 보관함에만 저장됩니다.'}
+              </p>
+            </div>
+            <span className="text-xs font-semibold">
+              {saveToWorkspace ? 'ON' : 'OFF'}
+            </span>
+          </button>
+        )}
         <textarea
           ref={textareaRef}
           value={rawInput}

@@ -2,11 +2,11 @@
 
 import { Suspense, useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Turnstile } from '@marsidev/react-turnstile';
-import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/Spinner';
 import { OAuthButtonList } from '../../../components/auth/OAuthButtonList';
 import { authApi } from '../../../lib/api';
@@ -86,7 +86,8 @@ function ErrorBox({ message }: { message: string }) {
 }
 
 // ── 메인 페이지 ────────────────────────────────────────────────
-export default function RegisterPage() {
+function RegisterPageContent() {
+  const searchParams = useSearchParams();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [email, setEmail] = useState('');
   const [captchaToken, setCaptchaToken] = useState('');
@@ -94,6 +95,7 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
+  const redirectPath = searchParams.get('redirect') || '/plan';
 
   // 타이머 상태
   const [timeLeft, setTimeLeft] = useState(0);
@@ -262,7 +264,7 @@ export default function RegisterPage() {
       const res = await authApi.register(email, data.password, data.agreedTerms, data.agreedPrivacy);
       setToken(res.access_token);
       setRefreshToken(res.refresh_token);
-      window.location.href = '/plan';
+      window.location.href = redirectPath;
     } catch (err) {
       setError(err instanceof Error ? err.message : '회원가입 실패');
     } finally {
@@ -308,20 +310,28 @@ export default function RegisterPage() {
                   )}
                 </div>
 
-                <div>
+                <div className="h-[78px] w-full overflow-hidden">
                   <Turnstile
                     key={turnstileWidgetKey}
                     siteKey={TURNSTILE_SITE_KEY}
                     onSuccess={(token) => setCaptchaToken(token)}
                     onError={() => setCaptchaToken('')}
                     onExpire={() => setCaptchaToken('')}
-                    options={{ theme: 'light', refreshExpired: 'auto' }}
+                    options={{ theme: 'light', refreshExpired: 'auto', size: 'flexible' }}
                   />
                 </div>
 
                 {error && <ErrorBox message={error} />}
 
-                <Button type="submit" disabled={formLoading} className="w-full gap-2 py-3.5">
+                <button
+                  type="submit"
+                  disabled={formLoading}
+                  className={`flex w-full items-center justify-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium shadow-sm transition-all duration-200 ${
+                    formLoading
+                      ? 'bg-gradient-to-br from-orange-400 to-pink-400 text-white opacity-70 cursor-not-allowed'
+                      : 'bg-gradient-to-br from-orange-500 to-pink-500 text-white hover:shadow-lg hover:from-orange-600 hover:to-pink-600 active:opacity-95'
+                  }`}
+                >
                   {formLoading ? (
                     <>
                       <Spinner size="sm" />
@@ -330,7 +340,7 @@ export default function RegisterPage() {
                   ) : (
                     '인증코드 전송'
                   )}
-                </Button>
+                </button>
               </form>
 
               <div className="mt-6 flex items-center gap-3">
@@ -381,24 +391,28 @@ export default function RegisterPage() {
                   <p className="text-xs text-stone-500">
                     인증코드를 다시 받으려면 아래 Cloudflare Turnstile 인증을 다시 완료해주세요.
                   </p>
-                  <div className="mt-3">
+                  <div className="mt-3 h-[78px] w-full overflow-hidden">
                     <Turnstile
                       key={turnstileWidgetKey}
                       siteKey={TURNSTILE_SITE_KEY}
                       onSuccess={(token) => setCaptchaToken(token)}
                       onError={() => setCaptchaToken('')}
                       onExpire={() => setCaptchaToken('')}
-                      options={{ theme: 'light', refreshExpired: 'auto' }}
+                      options={{ theme: 'light', refreshExpired: 'auto', size: 'flexible' }}
                     />
                   </div>
                 </div>
 
                 {error && <ErrorBox message={error} />}
 
-                <Button
+                <button
                   type="submit"
                   disabled={timeLeft === 0 || formLoading}
-                  className="w-full gap-2 py-3.5"
+                  className={`flex w-full items-center justify-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium shadow-sm transition-all duration-200 ${
+                    timeLeft === 0 || formLoading
+                      ? 'bg-gradient-to-br from-orange-400 to-pink-400 text-white opacity-70 cursor-not-allowed'
+                      : 'bg-gradient-to-br from-orange-500 to-pink-500 text-white hover:shadow-lg hover:from-orange-600 hover:to-pink-600 active:opacity-95'
+                  }`}
                 >
                   {formLoading ? (
                     <>
@@ -408,7 +422,7 @@ export default function RegisterPage() {
                   ) : (
                     '인증 확인'
                   )}
-                </Button>
+                </button>
 
                 <button
                   type="button"
@@ -498,7 +512,15 @@ export default function RegisterPage() {
 
                 {error && <ErrorBox message={error} />}
 
-                <Button type="submit" disabled={formLoading} className="w-full gap-2 py-3.5">
+                <button
+                  type="submit"
+                  disabled={formLoading}
+                  className={`flex w-full items-center justify-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium shadow-sm transition-all duration-200 ${
+                    formLoading
+                      ? 'bg-gradient-to-br from-orange-400 to-pink-400 text-white opacity-70 cursor-not-allowed'
+                      : 'bg-gradient-to-br from-orange-500 to-pink-500 text-white hover:shadow-lg hover:from-orange-600 hover:to-pink-600 active:opacity-95'
+                  }`}
+                >
                   {formLoading ? (
                     <>
                       <Spinner size="sm" />
@@ -507,7 +529,7 @@ export default function RegisterPage() {
                   ) : (
                     '회원가입'
                   )}
-                </Button>
+                </button>
               </form>
             </>
           )}
@@ -515,11 +537,22 @@ export default function RegisterPage() {
 
         <p className="mt-6 text-center text-sm text-stone-500">
           이미 계정이 있으신가요?{' '}
-          <Link href="/login" className="font-semibold text-orange-600 hover:text-orange-700 underline underline-offset-2 transition-colors">
+          <Link
+            href={`/login${redirectPath ? `?redirect=${encodeURIComponent(redirectPath)}` : ''}`}
+            className="font-semibold text-orange-600 hover:text-orange-700 underline underline-offset-2 transition-colors"
+          >
             로그인
           </Link>
         </p>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterPageContent />
+    </Suspense>
   );
 }

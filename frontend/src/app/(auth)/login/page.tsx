@@ -2,21 +2,23 @@
 
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../hooks/useAuth';
-import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/Spinner';
 import { OAuthButtonList } from '../../../components/auth/OAuthButtonList';
 
-export default function LoginPage() {
+function LoginPageContent() {
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { login, loading, error, errorStatus } = useAuth();
   const isLocked = Boolean(error && errorStatus === 403 && error.includes('제한'));
+  const redirectPath = searchParams.get('redirect') || '/plan';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const ok = await login(email, password);
-    if (ok) window.location.href = '/plan';
+    if (ok) window.location.href = redirectPath;
   };
 
   return (
@@ -77,7 +79,15 @@ export default function LoginPage() {
                 비밀번호를 잊으셨나요?
               </Link>
             </div>
-            <Button type="submit" disabled={loading} className="w-full gap-2 py-3.5">
+            <button
+              type="submit"
+              disabled={loading}
+              className={`flex w-full items-center justify-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium shadow-sm transition-all duration-200 ${
+                loading
+                  ? 'bg-gradient-to-br from-orange-400 to-pink-400 text-white opacity-70 cursor-not-allowed'
+                  : 'bg-gradient-to-br from-orange-500 to-pink-500 text-white hover:shadow-lg hover:from-orange-600 hover:to-pink-600 active:opacity-95'
+              }`}
+            >
               {loading ? (
                 <>
                   <Spinner size="sm" />
@@ -86,7 +96,7 @@ export default function LoginPage() {
               ) : (
                 '로그인'
               )}
-            </Button>
+            </button>
           </form>
 
           <div className="mt-6 flex items-center gap-3">
@@ -102,11 +112,19 @@ export default function LoginPage() {
 
         <p className="mt-6 text-center text-sm text-stone-500">
           아직 계정이 없으신가요?{' '}
-          <Link href="/register" className="font-semibold text-orange-600 hover:text-orange-700 underline underline-offset-2 transition-colors">
+          <Link href={`/register${redirectPath ? `?redirect=${encodeURIComponent(redirectPath)}` : ''}`} className="font-semibold text-orange-600 hover:text-orange-700 underline underline-offset-2 transition-colors">
             회원가입
           </Link>
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageContent />
+    </Suspense>
   );
 }

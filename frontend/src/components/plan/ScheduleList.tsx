@@ -2,11 +2,13 @@
 
 import { AppCard } from '../ui/app-card';
 import { PlanItem, TYPE_ICONS, TYPE_LABELS } from '../../lib/types';
+import { MapPin } from 'lucide-react';
 
 interface ScheduleListProps {
   items: PlanItem[];
   summary: string;
   totalDurationMin: number;
+  onOpenPlace?: (item: PlanItem) => void;
 }
 
 const TYPE_COLORS: Record<string, { text: string; dot: string; badge: string }> = {
@@ -23,7 +25,12 @@ function formatDistanceKm(distanceKm: number): string {
   return `${distanceKm.toFixed(1)}km`;
 }
 
-export function ScheduleList({ items, summary, totalDurationMin }: ScheduleListProps) {
+export function ScheduleList({
+  items,
+  summary,
+  totalDurationMin,
+  onOpenPlace,
+}: ScheduleListProps) {
   const hours = Math.floor(totalDurationMin / 60);
   const minutes = totalDurationMin % 60;
 
@@ -82,6 +89,16 @@ export function ScheduleList({ items, summary, totalDurationMin }: ScheduleListP
                     <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${color.badge}`}>
                       {TYPE_LABELS[item.type] ?? item.type}
                     </span>
+                    {onOpenPlace && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenPlace(item)}
+                        className="inline-flex items-center gap-1 rounded-full border border-stone-200 bg-white px-2.5 py-0.5 text-xs font-medium text-stone-600 transition-colors hover:border-orange-200 hover:text-orange-600"
+                      >
+                        <MapPin className="h-3 w-3" />
+                        지도 보기
+                      </button>
+                    )}
                   </div>
                   <div className="mt-2 flex flex-col gap-0.5">
                     <p className={`text-sm font-medium ${color.text}`}>{item.time}</p>

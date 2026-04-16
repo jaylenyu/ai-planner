@@ -135,4 +135,74 @@ describe('SearchPlacesStep', () => {
     expect(ctx.rawPlaces?.['slot-0']).toBeDefined();
     expect(ctx.rawPlaces?.['slot-2']).toBeDefined();
   });
+
+  it('영화 슬롯에서는 영화관 체인 쿼리를 함께 검색한다', async () => {
+    const placesService = {
+      searchNearby: jest.fn().mockResolvedValue([
+        {
+          name: 'CGV 홍대',
+          lat: 37.55,
+          lng: 126.93,
+          category: '영화관',
+          address: '서울',
+          source: 'naver',
+        },
+      ]),
+      searchNearbyKakao: jest.fn().mockResolvedValue([]),
+    };
+    const step = new SearchPlacesStep(placesService as never);
+    const ctx: PipelineContext = {
+      rawInput: '홍대에서 영화 보고 싶어',
+      mode: 'date',
+      parsed: {
+        location: '홍대',
+        activities: ['영화'],
+        timeOfDay: 'full-day',
+        preferences: [],
+      },
+      intent: {
+        location: '홍대',
+        searchLocation: '홍대',
+        lat: 37.55,
+        lng: 126.93,
+        mode: 'date',
+        activities: [
+          {
+            slotId: 'slot-0',
+            type: 'activity',
+            slotQuery: '영화',
+            naverQuery: '홍대 CGV 롯데시네마 메가박스 영화관',
+            required: true,
+          },
+        ],
+        startTime: '10:00',
+        endTime: '20:00',
+      },
+    };
+
+    await step.execute(ctx);
+
+    const searchedQueries = placesService.searchNearby.mock.calls.map(
+      (call: unknown[]) => call[0],
+    );
+    expect(searchedQueries).toEqual(
+      expect.arrayContaining([
+        '홍대 CGV 롯데시네마 메가박스 영화관',
+        '홍대 영화관',
+        '홍대 CGV',
+        '홍대 메가박스',
+        '홍대 롯데시네마',
+      ]),
+    );
+    expect(
+      placesService.searchNearby.mock.calls.every(
+        (call: unknown[]) => call[2] === 8,
+      ),
+    ).toBe(true);
+    expect(
+      placesService.searchNearbyKakao.mock.calls.every(
+        (call: unknown[]) => call[3] === 8,
+      ),
+    ).toBe(true);
+  });
 });

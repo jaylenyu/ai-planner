@@ -1,6 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PipelineContext } from '../interfaces/pipeline-result.interface';
 import { PlaceResult } from '../interfaces/place.interface';
+import {
+  getActivityBrandBonus,
+  getActivitySubtypeMatchBonus,
+  isStrictActivitySubtype,
+  matchesActivityPlace,
+} from '../utils/activity-registry';
 
 const CHAIN_PATTERN =
   /(스타벅스|이디야|투썸|빽다방|커피빈|메가커피|탐앤탐스|할리스)/;
@@ -142,12 +148,51 @@ function estimateSpreadKm(places: PlaceResult[]): number {
   return haversine(minLat, minLng, maxLat, maxLng);
 }
 
+type ScoredEntry = {
+  place: PlaceResult;
+  distance: number;
+  score: number;
+};
+
 @Injectable()
 export class SelectCandidatesStep {
   private readonly logger = new Logger(SelectCandidatesStep.name);
 
   private rand(ctx: PipelineContext): number {
     return ctx.randomFn ? ctx.randomFn() : Math.random();
+  }
+
+  private pickFromTopBand(
+    scored: ScoredEntry[],
+    ctx: PipelineContext,
+  ): ScoredEntry | undefined {
+    if (scored.length === 0) return undefined;
+
+    const sorted = [...scored].sort(
+      (a, b) => b.score - a.score || a.distance - b.distance,
+    );
+    const topScore = sorted[0].score;
+    const topBand = sorted.filter((entry, index) => {
+      if (index === 0) return true;
+      if (index >= 4) return false;
+      return topScore - entry.score <= 0.35;
+    });
+
+    if (topBand.length === 1) return topBand[0];
+
+    const weighted = topBand.map((entry) => ({
+      entry,
+      weight: Math.max(0.05, 1 + entry.score - (topScore - 0.35)),
+    }));
+    const totalWeight = weighted.reduce((sum, item) => sum + item.weight, 0);
+    let cursor = this.rand(ctx) * totalWeight;
+
+    for (const item of weighted) {
+      cursor -= item.weight;
+      if (cursor <= 0) return item.entry;
+    }
+
+    return weighted[weighted.length - 1]?.entry;
   }
 
   execute(ctx: PipelineContext): void {
@@ -217,7 +262,17 @@ export class SelectCandidatesStep {
 
     for (const activity of intent.activities) {
       const places = rawPlaces[activity.slotId] ?? [];
-      if (places.length === 0) continue;
+      if (places.length === 0) {
+        if (isStrictActivitySubtype(activity.subtype)) {
+          ctx.unsupportedHints ??= [];
+          const label = activity.slotQuery ?? '활동';
+          const message = `${label}에 맞는 장소를 찾지 못해 추천에서 제외됐습니다.`;
+          if (!ctx.unsupportedHints.includes(message)) {
+            ctx.unsupportedHints.push(message);
+          }
+        }
+        continue;
+      }
 
       const centerLat = dynamicCenter ? currentCenterLat : baseCenterLat;
       const centerLng = dynamicCenter ? currentCenterLng : baseCenterLng;
@@ -264,22 +319,35 @@ export class SelectCandidatesStep {
         if (activity.type === 'cafe') {
           return !isFoodLike(place) || isCafeLike(place);
         }
+        if (activity.subtype) {
+          return matchesActivityPlace(place, activity.subtype);
+        }
         return true;
       });
-      if (typeSpecific.length > 0) filtered = typeSpecific;
+      if (typeSpecific.length > 0) {
+        filtered = typeSpecific;
+      } else if (isStrictActivitySubtype(activity.subtype)) {
+        ctx.unsupportedHints ??= [];
+        const label = activity.slotQuery ?? '활동';
+        const message = `${label}에 맞는 장소를 찾지 못해 추천에서 제외됐습니다.`;
+        if (!ctx.unsupportedHints.includes(message)) {
+          ctx.unsupportedHints.push(message);
+        }
+        this.logger.warn(
+          `[${activity.slotId}] subtype=${activity.subtype} strict match 실패 — 활동 제외`,
+        );
+        continue;
+      }
 
       const scored = filtered.map((place) => {
         const distance = haversine(centerLat, centerLng, place.lat, place.lng);
-        const score = scoreCandidate(
-          place,
-          distance,
-          intent.mode,
-          preferences,
-          {
+        const score =
+          scoreCandidate(place, distance, intent.mode, preferences, {
             chainPenalty,
             compactRoute,
-          },
-        );
+          }) +
+          getActivitySubtypeMatchBonus(place, activity.subtype) +
+          getActivityBrandBonus(place, activity.subtype);
         return { place, distance, score };
       });
 
@@ -288,13 +356,7 @@ export class SelectCandidatesStep {
       );
       let picked: PlaceResult | undefined;
       while (pool.length > 0) {
-        const topScore = pool[0].score;
-        const tied = pool.filter(
-          (entry) => Math.abs(entry.score - topScore) < 1e-6,
-        );
-        const choicePool = tied.length > 1 ? tied : [pool[0]];
-        const idx = Math.floor(this.rand(ctx) * choicePool.length);
-        const entry = choicePool[idx] ?? choicePool[0];
+        const entry = this.pickFromTopBand(pool, ctx) ?? pool[0];
         const removeIdx = pool.findIndex(
           (candidate) => candidate.place.name === entry.place.name,
         );

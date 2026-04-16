@@ -9,6 +9,8 @@ export interface ScheduleItem {
   type: string;
   time: string;
   address: string;
+  link?: string;
+  source?: string;
   distanceFromPrev?: number;
 }
 
