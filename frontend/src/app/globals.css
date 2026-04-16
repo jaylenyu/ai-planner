@@ -1,0 +1,331 @@
+@import "tailwindcss";
+
+:root {
+  --background: #faf9f7;
+  --foreground: #1c1917;
+
+  /* Brand palette */
+  --brand-50: #fff7ed;
+  --brand-100: #ffedd5;
+  --brand-200: #fed7aa;
+  --brand-300: #fdba74;
+  --brand-400: #fb923c;
+  --brand-500: #f97316;
+  --brand-600: #ea580c;
+  --brand-700: #c2410c;
+
+  --accent-50: #fdf2f8;
+  --accent-100: #fce7f3;
+  --accent-200: #fbcfe8;
+  --accent-300: #f9a8d4;
+  --accent-400: #f472b6;
+  --accent-500: #ec4899;
+  --accent-600: #db2777;
+
+  --warm-50: #fefce8;
+  --warm-100: #fef9c3;
+  --warm-200: #fef08a;
+  --warm-300: #fde047;
+  --warm-400: #facc15;
+  --warm-500: #eab308;
+
+  --surface: #ffffff;
+  --surface-secondary: #faf9f7;
+  --border-light: #f5f0eb;
+  --border-default: #e7e0d8;
+  --text-primary: #1c1917;
+  --text-secondary: #57534e;
+  --text-tertiary: #a8a29e;
+
+  /* Type colors */
+  --type-food: #ef4444;
+  --type-cafe: #f59e0b;
+  --type-activity: #8b5cf6;
+  --type-attraction: #06b6d4;
+  --type-rest: #22c55e;
+
+  /* ── Typography scale ── */
+  --font-size-display: clamp(2.5rem, 5vw + 1rem, 4.5rem);
+  --font-size-h1: clamp(2rem, 3.5vw + 0.5rem, 3rem);
+  --font-size-h2: clamp(1.5rem, 2.5vw, 2.25rem);
+  --font-size-label: 0.6875rem;
+  --letter-spacing-label: 0.12em;
+
+  /* ── Spacing rhythm ── */
+  --space-section: clamp(5rem, 8vw, 8rem);
+  --space-section-inner: clamp(3rem, 5vw, 5rem);
+
+  /* ── Surfaces ── */
+  --surface-elevated: #ffffff;
+  --surface-sunken: #f7f6f3;
+
+  /* ── Shadows ── */
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.06);
+  --shadow-card-hover: 0 4px 8px rgba(0,0,0,0.06), 0 16px 40px rgba(0,0,0,0.10);
+  --shadow-brand: 0 4px 24px rgba(249, 115, 22, 0.24);
+  --shadow-brand-lg: 0 8px 40px rgba(249, 115, 22, 0.32);
+
+  /* ── Border radii ── */
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-pill: 999px;
+
+  /* ── Gradients ── */
+  --gradient-brand: linear-gradient(135deg, #f97316 0%, #ec4899 100%);
+  --gradient-brand-subtle: linear-gradient(135deg, rgba(249,115,22,0.08) 0%, rgba(236,72,153,0.06) 100%);
+
+  /* ── Divider ── */
+  --divider: rgba(0,0,0,0.06);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans-stack: 'Pretendard', 'Noto Sans KR', 'Apple SD Gothic Neo', system-ui, sans-serif;
+  --font-mono-stack: 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  --font-sans: var(--font-sans-stack);
+  --font-mono: var(--font-mono-stack);
+}
+
+html {
+  overflow-y: scroll;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans-stack);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+/* Mobile bottom tab bar spacing */
+@media (max-width: 639px) {
+  body {
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Smooth transitions globally */
+*, *::before, *::after {
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Hide scrollbars globally while preserving scroll behavior */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s ease-out both;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out both;
+}
+
+.animate-fade-in-fast {
+  animation: fadeIn 0.12s ease-out both;
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.4s ease-out both;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, #f5f0eb 25%, #faf9f7 50%, #f5f0eb 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Stagger children animations */
+.stagger-children > * {
+  animation: fadeInUp 0.4s ease-out both;
+}
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 60ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 120ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 180ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 240ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 300ms; }
+.stagger-children > *:nth-child(7) { animation-delay: 360ms; }
+.stagger-children > *:nth-child(8) { animation-delay: 420ms; }
+
+/* Gradient text */
+.text-gradient {
+  background: linear-gradient(135deg, #ea580c 0%, #ec4899 50%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Hero pattern background */
+.hero-pattern {
+  background-image: radial-gradient(circle at 20% 50%, rgba(251, 146, 60, 0.08) 0%, transparent 50%),
+                    radial-gradient(circle at 80% 50%, rgba(244, 114, 182, 0.08) 0%, transparent 50%),
+                    radial-gradient(circle at 50% 100%, rgba(139, 92, 246, 0.06) 0%, transparent 50%);
+}
+
+/* Glass effect */
+.glass {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Focus ring style */
+input:focus, textarea:focus {
+  outline: none;
+}
+
+/* Pill scroll container */
+.pill-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.pill-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Cursor for interactive elements */
+a[href],
+button,
+[role="button"],
+input[type="button"],
+input[type="submit"],
+summary,
+label[for],
+select {
+  cursor: pointer;
+}
+
+/* ── Design system utility classes ── */
+.label-eyebrow {
+  font-size: var(--font-size-label);
+  font-weight: 700;
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+  color: var(--brand-500);
+}
+
+.app-card {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.btn-brand {
+  background: var(--gradient-brand);
+  color: white;
+  font-weight: 600;
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-brand);
+  transition: box-shadow 0.2s ease, transform 0.15s ease, opacity 0.15s ease;
+}
+.btn-brand:hover {
+  box-shadow: var(--shadow-brand-lg);
+  transform: translateY(-1px);
+}
+.btn-brand:active {
+  transform: translateY(0);
+  opacity: 0.92;
+}
+
+.bg-section-alt { background: var(--surface-sunken); }
+.bg-section-brand-tint { background: var(--gradient-brand-subtle); }
+.text-balance { text-wrap: balance; }
+
+.metric-value {
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.timeline-line {
+  width: 1px;
+  background: linear-gradient(to bottom, var(--border-default) 0%, transparent 100%);
+  flex: 1;
+  min-height: 20px;
+  margin: 4px auto;
+}
+
+/* ── Scale-in animation ── */
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.97) translateY(8px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+.animate-scale-in {
+  animation: scaleIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-scale-in-fast {
+  animation: scaleIn 0.16s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
