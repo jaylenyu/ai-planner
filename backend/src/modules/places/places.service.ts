@@ -208,41 +208,58 @@ export class PlacesService {
     const redisCached = await this.getCachedPlaces(cacheKey);
     if (redisCached) return redisCached;
 
-    try {
-      const params = new URLSearchParams({
-        query,
-        x: String(lng),
-        y: String(lat),
-        radius: '5000',
-        size: String(display),
-      });
-      const url = `https://dapi.kakao.com/v2/local/search/keyword.json?${params}`;
-      const response = await fetch(url, {
-        headers: { Authorization: `KakaoAK ${this.kakaoRestApiKey}` },
-      });
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const params = new URLSearchParams({
+          query,
+          x: String(lng),
+          y: String(lat),
+          radius: '5000',
+          size: String(display),
+        });
+        const url = `https://dapi.kakao.com/v2/local/search/keyword.json?${params}`;
+        const response = await fetch(url, {
+          headers: { Authorization: `KakaoAK ${this.kakaoRestApiKey}` },
+        });
 
-      if (!response.ok) {
-        this.logger.warn(`Kakao API 오류 ${response.status} (query: ${query})`);
-        return [];
+        if (!response.ok) {
+          this.logger.warn(
+            `Kakao API 오류 ${response.status} (시도 ${attempt + 1}/2, query: ${query})`,
+          );
+          if (response.status === 429) {
+            const backoff = 300 * (attempt + 1) * (Math.random() + 0.5);
+            await new Promise((r) => setTimeout(r, backoff));
+            continue;
+          }
+          return [];
+        }
+
+        const data = (await response.json()) as {
+          documents: KakaoLocalItem[];
+        };
+        const places = (data.documents ?? []).map((item) => ({
+          name: item.place_name,
+          lat: parseFloat(item.y),
+          lng: parseFloat(item.x),
+          category: item.category_name,
+          address: item.road_address_name || item.address_name,
+          link: item.place_url,
+          source: 'kakao' as const,
+        }));
+
+        await this.cachePlaces(cacheKey, places);
+        return places;
+      } catch (err) {
+        this.logger.warn(
+          `Kakao API 요청 실패 (시도 ${attempt + 1}/2, query: ${query}): ${err}`,
+        );
+        if (attempt < 1) {
+          await new Promise((r) => setTimeout(r, 500));
+        }
       }
-
-      const data = (await response.json()) as { documents: KakaoLocalItem[] };
-      const places = (data.documents ?? []).map((item) => ({
-        name: item.place_name,
-        lat: parseFloat(item.y),
-        lng: parseFloat(item.x),
-        category: item.category_name,
-        address: item.road_address_name || item.address_name,
-        link: item.place_url,
-        source: 'kakao' as const,
-      }));
-
-      await this.cachePlaces(cacheKey, places);
-      return places;
-    } catch (err) {
-      this.logger.warn(`Kakao API 요청 실패 (query: ${query}): ${err}`);
-      return [];
     }
+
+    return [];
   }
 
   async geocodeCity(

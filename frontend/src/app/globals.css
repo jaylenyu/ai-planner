@@ -103,6 +103,17 @@ body {
   text-wrap: pretty;
 }
 
+/* Mobile bottom tab bar spacing */
+@media (max-width: 639px) {
+  body {
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 /* Smooth transitions globally */
 *, *::before, *::after {
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);

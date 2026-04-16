@@ -1,28 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PipelineContext } from '../interfaces/pipeline-result.interface';
 import { OrderedPlace } from '../interfaces/place.interface';
+import { haversine } from '../../../shared/utils/haversine';
 
 type RoutePlace = Omit<
   OrderedPlace,
   'order' | 'distanceFromPrev' | 'travelMinutes'
 >;
-
-export function haversine(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number,
-): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
 
 function roundUpToTen(minutes: number): number {
   return Math.ceil(minutes / 10) * 10;

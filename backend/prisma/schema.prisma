@@ -84,6 +84,8 @@ model PlanItem {
   link             String?
   source           String?
   distanceFromPrev Float?
+
+  @@index([planId])
 }
 
 model Category {

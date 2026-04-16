@@ -1,4 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { ParseInputStep } from './steps/parse-input.step';
 import { ExtractIntentStep } from './steps/extract-intent.step';
 import { SearchPlacesStep } from './steps/search-places.step';
@@ -27,27 +32,53 @@ export class AiService {
     rawInput: string,
     mode: 'date' | 'trip',
   ): Promise<PipelineResult> {
+    const startTime = Date.now();
     const ctx: PipelineContext = { rawInput, mode };
 
     this.logger.log(`[Pipeline] 시작: "${rawInput}" (${mode})`);
 
-    await this.parseInputStep.execute(ctx); // Step 1
-    await this.extractIntentStep.execute(ctx); // Step 2
-    await this.searchPlacesStep.execute(ctx); // Step 3
-    this.selectCandidatesStep.execute(ctx); // Step 4
-    this.optimizeRouteStep.execute(ctx); // Step 5
-    this.generateScheduleStep.execute(ctx); // Step 6
+    try {
+      await this.parseInputStep.execute(ctx);
+      await this.extractIntentStep.execute(ctx);
+      await this.searchPlacesStep.execute(ctx);
+      this.selectCandidatesStep.execute(ctx);
+      this.optimizeRouteStep.execute(ctx);
+      this.generateScheduleStep.execute(ctx);
+    } catch (err) {
+      const elapsed = Date.now() - startTime;
+      this.logger.error(
+        `[Pipeline] 실패 (${elapsed}ms): ${(err as Error).message}`,
+      );
+      if (
+        err instanceof BadRequestException ||
+        err instanceof InternalServerErrorException
+      ) {
+        throw err;
+      }
+      throw new InternalServerErrorException(
+        '일정 생성 중 오류가 발생했습니다. 다시 시도해주세요.',
+      );
+    }
 
-    this.logger.log(`[Pipeline] 완료: ${ctx.summary}`);
+    const elapsed = Date.now() - startTime;
 
-    const startMin = this.parseTimeToMin(ctx.intent!.startTime);
-    const lastItem = ctx.scheduleItems![ctx.scheduleItems!.length - 1];
-    const endTimeStr = lastItem?.time.split(' - ')[1] ?? ctx.intent!.endTime;
+    if (!ctx.scheduleItems?.length || !ctx.intent) {
+      this.logger.warn(`[Pipeline] 빈 결과 (${elapsed}ms)`);
+      throw new BadRequestException(
+        '일정을 생성할 수 없습니다. 지역과 활동을 좀 더 구체적으로 입력해주세요.',
+      );
+    }
+
+    this.logger.log(`[Pipeline] 완료 (${elapsed}ms): ${ctx.summary}`);
+
+    const startMin = this.parseTimeToMin(ctx.intent.startTime);
+    const lastItem = ctx.scheduleItems[ctx.scheduleItems.length - 1];
+    const endTimeStr = lastItem?.time.split(' - ')[1] ?? ctx.intent.endTime;
     const endMin = this.parseTimeToMin(endTimeStr);
 
     return {
       summary: ctx.summary!,
-      items: ctx.scheduleItems!,
+      items: ctx.scheduleItems,
       polyline: ctx.polyline!,
       totalDurationMin: endMin - startMin,
       unsupportedHints: ctx.unsupportedHints ?? [],

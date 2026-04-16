@@ -441,22 +441,19 @@ export class PlanService {
       throw new NotFoundException('플랜 아이템을 찾을 수 없습니다.');
     }
 
-    await this.prisma.planItem.delete({
-      where: { id: itemId },
-    });
-
-    const remaining = await this.prisma.planItem.findMany({
-      where: { planId },
-      orderBy: { order: 'asc' },
-    });
-    await this.prisma.$transaction(
-      remaining.map((item, index) =>
-        this.prisma.planItem.update({
-          where: { id: item.id },
-          data: { order: index + 1 },
-        }),
-      ),
-    );
+    await this.prisma.$transaction([
+      this.prisma.planItem.delete({ where: { id: itemId } }),
+      this.prisma.$executeRaw`
+        UPDATE "PlanItem" AS pi
+        SET "order" = sub.rn
+        FROM (
+          SELECT id, ROW_NUMBER() OVER (ORDER BY "order" ASC) AS rn
+          FROM "PlanItem"
+          WHERE "planId" = ${planId} AND id != ${itemId}
+        ) AS sub
+        WHERE pi.id = sub.id AND pi."order" != sub.rn
+      `,
+    ]);
 
     const updated = await this.get(userId, planId);
     await this.notifyWorkspaceMembers(

@@ -812,7 +812,20 @@ export class ParseInputStep {
     });
   }
 
+  private sanitizeInput(raw: string): string {
+    return raw
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+      .replace(/```[\s\S]*?```/g, '')
+      .replace(
+        /(?:system|assistant|user)\s*:/gi,
+        (match) => match[0] + '\u200B' + match.slice(1),
+      )
+      .trim();
+  }
+
   async execute(ctx: PipelineContext): Promise<void> {
+    ctx.rawInput = this.sanitizeInput(ctx.rawInput);
+
     const systemPrompt = `여행/데이트 요청을 JSON으로 변환. 반드시 아래 형식만 출력:
 {"location":"지역명","activities":["활동1","활동2"],"timeOfDay":"morning|afternoon|evening|full-day","preferences":[]}
 
@@ -849,16 +862,15 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
             `JSON 블록 없음 (원본: ${content.slice(0, 80)}) — 폴백 사용`,
           );
         } else {
-          const candidate = JSON.parse(jsonMatch[0]) as ParsedInput;
-          if (candidate.location && candidate.activities?.length) {
-            candidate.preferences = Array.isArray(candidate.preferences)
-              ? candidate.preferences.filter(
-                  (p): p is string =>
-                    typeof p === 'string' && p.trim().length > 0,
-                )
-              : [];
+          const raw = JSON.parse(jsonMatch[0]);
+          const candidate = this.validateLlmOutput(raw);
+          if (candidate) {
             parsed = candidate;
             gptLocation = candidate.location;
+          } else {
+            this.logger.warn(
+              `LLM 응답 검증 실패 (원본: ${JSON.stringify(raw).slice(0, 120)}) — 폴백 사용`,
+            );
           }
         }
       }
@@ -938,6 +950,38 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
     ctx.parsed = parsed;
     ctx.unsupportedHints = [...(parsed.unsupportedHints ?? [])];
     this.logger.log(`파싱 완료: ${JSON.stringify(parsed)}`);
+  }
+
+  private validateLlmOutput(raw: unknown): ParsedInput | null {
+    if (typeof raw !== 'object' || raw === null) return null;
+    const obj = raw as Record<string, unknown>;
+
+    const location =
+      typeof obj.location === 'string' ? obj.location.trim() : '';
+    if (!location || location.length > 30) return null;
+
+    const validTimeOfDay = ['morning', 'afternoon', 'evening', 'full-day'];
+    const timeOfDay = validTimeOfDay.includes(obj.timeOfDay as string)
+      ? (obj.timeOfDay as ParsedInput['timeOfDay'])
+      : 'full-day';
+
+    if (!Array.isArray(obj.activities)) return null;
+    const activities = obj.activities
+      .filter((a): a is string => typeof a === 'string' && a.trim().length > 0)
+      .map((a) => a.trim())
+      .slice(0, 6);
+    if (activities.length === 0) return null;
+
+    const preferences = Array.isArray(obj.preferences)
+      ? obj.preferences
+          .filter(
+            (p): p is string => typeof p === 'string' && p.trim().length > 0,
+          )
+          .map((p) => p.trim())
+          .slice(0, 5)
+      : [];
+
+    return { location, activities, timeOfDay, preferences };
   }
 
   /**
