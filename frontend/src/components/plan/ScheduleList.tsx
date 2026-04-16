@@ -2,7 +2,7 @@
 
 import { AppCard } from '../ui/app-card';
 import { PlanItem, TYPE_ICONS, TYPE_LABELS } from '../../lib/types';
-import { MapPin } from 'lucide-react';
+import { ArrowRight, Clock3 } from 'lucide-react';
 
 interface ScheduleListProps {
   items: PlanItem[];
@@ -43,16 +43,11 @@ export function ScheduleList({
         </p>
         <div className="flex items-center gap-2 mt-3">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-200 bg-white/80 px-3 py-1 text-xs font-medium text-orange-600">
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+            <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
             총 {hours > 0 ? `${hours}시간 ` : ''}{minutes > 0 ? `${minutes}분` : ''}
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-white/80 px-3 py-1 text-xs font-medium text-violet-600">
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
+            <span className="text-sm" aria-hidden="true">📍</span>
             {items.length}개 장소
           </span>
         </div>
@@ -93,9 +88,15 @@ export function ScheduleList({
                       <button
                         type="button"
                         onClick={() => onOpenPlace(item)}
-                        className="inline-flex items-center gap-1 rounded-full border border-stone-200 bg-white px-2.5 py-0.5 text-xs font-medium text-stone-600 transition-colors hover:border-orange-200 hover:text-orange-600"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-[#03C75A]/30 bg-[#03C75A] px-2.5 py-0.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-[#02b551]"
                       >
-                        <MapPin className="h-3 w-3" />
+                        <img
+                          src="https://ssl.pstatic.net/static/maps/assets/icons/favicon.ico"
+                          alt="Naver"
+                          width={14}
+                          height={14}
+                          className="rounded-[2px]"
+                        />
                         지도 보기
                       </button>
                     )}
@@ -105,9 +106,7 @@ export function ScheduleList({
                     <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{item.address}</p>
                     {item.distanceFromPrev !== undefined && item.distanceFromPrev > 0 && (
                       <p className="text-xs flex items-center gap-1 mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                        </svg>
+                        <ArrowRight className="h-3 w-3" aria-hidden="true" />
                         이전 장소에서 {formatDistanceKm(item.distanceFromPrev)}
                       </p>
                     )}
