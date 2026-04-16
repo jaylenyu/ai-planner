@@ -173,7 +173,7 @@ function PlanPageContent() {
     if (status === "success" && result) {
       return (
         <section ref={resultsRef} className="animate-fade-in-up">
-          <div className="mb-5 flex items-center justify-between gap-3">
+          <div className="mb-5 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500">
                 <Check className="h-4 w-4 text-white" aria-hidden="true" />
@@ -182,7 +182,12 @@ function PlanPageContent() {
                 일정이 완성됐어요!
               </h2>
             </div>
-            <PrimaryButton asChild variant="outline" size="sm">
+            <PrimaryButton
+              asChild
+              variant="outline"
+              size="sm"
+              className="w-full sm:w-auto"
+            >
               <Link href="/library">보관함으로 가기</Link>
             </PrimaryButton>
           </div>
@@ -271,7 +276,7 @@ function PlanPageContent() {
           className="grid grid-cols-1 gap-6 lg:grid-cols-[0.88fr_1.12fr] lg:items-start"
         >
           {/* Input panel */}
-          <div className="min-w-0 sticky top-20">
+          <div className="min-w-0 lg:sticky lg:top-20">
             <AppCard padding="lg" className="min-w-0 hero-pattern">
               <div className="mb-8 text-center">
                 <h2 className="text-2xl font-extrabold tracking-tight text-stone-900 sm:text-3xl">

@@ -1,17 +1,18 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
-import { AppLogo } from '@/components/ui/AppLogo';
-import { NotificationBell } from '@/components/notification/NotificationBell';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
+import { AppLogo } from "@/components/ui/AppLogo";
+import { NotificationBell } from "@/components/notification/NotificationBell";
 import {
   LayoutDashboard,
   CalendarPlus,
   Archive,
   Users,
   LogOut,
-} from 'lucide-react';
+  Crown,
+} from "lucide-react";
 
 interface NavLinkProps {
   href: string;
@@ -21,17 +22,18 @@ interface NavLinkProps {
 function NavLink({ href, children }: NavLinkProps) {
   const pathname = usePathname();
   const isLibraryRoute =
-    href === '/library' &&
-    (pathname === '/library' || pathname.startsWith('/library/plans/'));
-  const isActive = isLibraryRoute || pathname === href || pathname.startsWith(href + '/');
+    href === "/library" &&
+    (pathname === "/library" || pathname.startsWith("/library/plans/"));
+  const isActive =
+    isLibraryRoute || pathname === href || pathname.startsWith(href + "/");
 
   return (
     <Link
       href={href}
       className={
         isActive
-          ? 'text-sm font-bold text-stone-900'
-          : 'text-sm font-medium text-stone-500 hover:text-stone-800 transition-colors'
+          ? "text-sm font-bold text-stone-900"
+          : "text-sm font-medium text-stone-500 hover:text-stone-800 transition-colors"
       }
     >
       {children}
@@ -48,15 +50,16 @@ interface MobileTabProps {
 function MobileTab({ href, icon, label }: MobileTabProps) {
   const pathname = usePathname();
   const isLibraryRoute =
-    href === '/library' &&
-    (pathname === '/library' || pathname.startsWith('/library/plans/'));
-  const isActive = isLibraryRoute || pathname === href || pathname.startsWith(href + '/');
+    href === "/library" &&
+    (pathname === "/library" || pathname.startsWith("/library/plans/"));
+  const isActive =
+    isLibraryRoute || pathname === href || pathname.startsWith(href + "/");
 
   return (
     <Link
       href={href}
       className={`flex flex-col items-center gap-0.5 min-w-[48px] min-h-[44px] justify-center transition-colors ${
-        isActive ? 'text-orange-600' : 'text-stone-400'
+        isActive ? "text-orange-600" : "text-stone-400"
       }`}
     >
       {icon}
@@ -68,14 +71,14 @@ function MobileTab({ href, icon, label }: MobileTabProps) {
 export function GlobalNav() {
   const { isLoggedIn, logout } = useAuth();
   const pathname = usePathname();
-  const showMarketingLinks = !isLoggedIn && pathname === '/';
+  const showMarketingLinks = !isLoggedIn && pathname === "/";
 
   return (
     <>
       {/* Top header */}
       <header
         className="sticky top-0 z-50 glass"
-        style={{ borderBottom: '1px solid var(--divider)' }}
+        style={{ borderBottom: "1px solid var(--divider)" }}
       >
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:py-4 sm:px-6">
           <AppLogo size="md" showSubtitle />
@@ -89,7 +92,7 @@ export function GlobalNav() {
                   type="button"
                   onClick={() => {
                     logout();
-                    window.location.href = '/login';
+                    window.location.href = "/login";
                   }}
                   className="flex items-center justify-center h-9 w-9 rounded-full text-stone-400 active:bg-stone-100 transition-colors"
                   aria-label="로그아웃"
@@ -149,7 +152,7 @@ export function GlobalNav() {
                 type="button"
                 onClick={() => {
                   logout();
-                  window.location.href = '/login';
+                  window.location.href = "/login";
                 }}
                 className="text-sm font-medium text-stone-500 hover:text-stone-800 transition-colors"
               >
@@ -173,8 +176,8 @@ export function GlobalNav() {
       {/* 모바일 Bottom Tab Bar */}
       {isLoggedIn && (
         <nav
-          className="fixed bottom-0 left-0 right-0 z-50 sm:hidden glass"
-          style={{ borderTop: '1px solid var(--divider)' }}
+          className="fixed bottom-0 left-0 right-0 z-50 sm:hidden bg-white"
+          style={{ borderTop: "1px solid var(--divider)" }}
         >
           <div className="flex items-center justify-around px-2 py-1 safe-area-pb">
             <MobileTab
@@ -196,6 +199,11 @@ export function GlobalNav() {
               href="/workspace"
               icon={<Users className="h-5 w-5" />}
               label="공유"
+            />
+            <MobileTab
+              href="/subscribe"
+              icon={<Crown className="h-5 w-5" />}
+              label="구독"
             />
           </div>
         </nav>

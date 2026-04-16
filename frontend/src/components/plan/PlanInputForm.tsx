@@ -105,13 +105,13 @@ export function PlanInputForm({
           <button
             type="button"
             onClick={() => onChangeSaveToWorkspace(!saveToWorkspace)}
-            className={`flex items-center justify-between rounded-[var(--radius-md)] border px-4 py-3 text-sm transition-colors ${
+            className={`flex items-start justify-between gap-3 rounded-[var(--radius-md)] border px-4 py-3 text-sm transition-colors ${
               saveToWorkspace
                 ? 'border-orange-200 bg-orange-50 text-orange-700'
                 : 'border-[var(--border-default)] bg-white text-stone-600'
             }`}
           >
-            <div className="text-left">
+            <div className="min-w-0 flex-1 text-left">
               <p className="font-semibold">
                 {saveToWorkspace ? '공유 일정으로 저장' : '개인 일정으로 저장'}
               </p>
@@ -121,7 +121,7 @@ export function PlanInputForm({
                   : '내 보관함에만 저장됩니다.'}
               </p>
             </div>
-            <span className="text-xs font-semibold">
+            <span className="shrink-0 self-center text-xs font-semibold">
               {saveToWorkspace ? 'ON' : 'OFF'}
             </span>
           </button>

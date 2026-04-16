@@ -67,7 +67,7 @@ export default function PlanDetailPage() {
   return (
     <div className="bg-[var(--background)]">
       <header className="sticky top-0 z-40 glass border-b border-stone-200">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
+        <div className="mx-auto flex max-w-6xl flex-col items-start gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <button
             type="button"
             onClick={handleBackToLibrary}
@@ -75,9 +75,14 @@ export default function PlanDetailPage() {
           >
             ← 보관함으로 돌아가기
           </button>
-          <div className="flex items-center gap-2">
+          <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
             <NotificationBell />
-            <PrimaryButton asChild variant="outline" size="sm">
+            <PrimaryButton
+              asChild
+              variant="outline"
+              size="sm"
+              className="w-auto shrink-0"
+            >
               <Link href="/workspace">워크스페이스</Link>
             </PrimaryButton>
           </div>
@@ -95,21 +100,21 @@ export default function PlanDetailPage() {
           <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="space-y-6">
               <AppCard padding="lg" className="space-y-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm text-stone-500">
                       {plan.workspace ? '공유 일정' : '개인 일정'}
                     </p>
-                    <h1 className="mt-1 text-2xl font-bold text-stone-900">
+                    <h1 className="mt-1 break-keep text-2xl font-bold text-stone-900">
                       {plan.summary ?? plan.rawInput}
                     </h1>
                     {plan.workspace && (
-                      <p className="mt-2 text-sm text-violet-700">
+                      <p className="mt-2 break-keep text-sm text-violet-700">
                         {plan.workspace.name} 워크스페이스에서 공유 중
                       </p>
                     )}
                   </div>
-                  <div className="w-full max-w-[220px]">
+                  <div className="w-full sm:max-w-[220px]">
                     <label className="mb-1 block text-xs font-medium text-stone-500">
                       카테고리
                     </label>
@@ -140,19 +145,22 @@ export default function PlanDetailPage() {
                       key={item.id ?? `${item.order}-${item.name}`}
                       className="rounded-2xl border border-stone-200 bg-white px-4 py-4"
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-semibold text-stone-900">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p className="break-keep text-sm font-semibold text-stone-900">
                             {item.order}. {item.name}
                           </p>
                           <p className="mt-1 text-sm text-stone-500">{item.time}</p>
-                          <p className="mt-1 text-sm text-stone-500">{item.address}</p>
+                          <p className="mt-1 break-keep text-sm text-stone-500">
+                            {item.address}
+                          </p>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:flex-nowrap">
                           <PrimaryButton
                             type="button"
                             variant="outline"
                             size="sm"
+                            className="min-w-[72px] flex-1 sm:flex-none"
                             onClick={() => setSelectedPlace(item)}
                           >
                             지도
@@ -161,6 +169,7 @@ export default function PlanDetailPage() {
                             type="button"
                             variant="outline"
                             size="sm"
+                            className="min-w-[72px] flex-1 sm:flex-none"
                             onClick={() => setEditingItem(item)}
                           >
                             수정
@@ -168,7 +177,7 @@ export default function PlanDetailPage() {
                           {item.id && (
                             <button
                               type="button"
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-400 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500"
+                              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-400 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500"
                               aria-label="장소 삭제"
                               onClick={async () => {
                                 const next = await planApi.deleteItem(plan.id, item.id!, {

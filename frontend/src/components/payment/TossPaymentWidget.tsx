@@ -41,7 +41,7 @@ const PAYMENT_METHODS: {
   },
   {
     key: "TRANSFER",
-    label: "토스계좌이체",
+    label: "토스 계좌이체",
     icon: (
       <Image
         src="https://static.toss.im/tds/favicon/favicon.ico"
@@ -107,6 +107,8 @@ type Props = {
   amount: number;
   orderId: string;
   orderName: string;
+  externalError?: string | null;
+  onExternalErrorClear?: () => void;
 };
 
 export function TossPaymentWidget({
@@ -115,6 +117,8 @@ export function TossPaymentWidget({
   amount,
   orderId,
   orderName,
+  externalError,
+  onExternalErrorClear,
 }: Props) {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -151,6 +155,12 @@ export function TossPaymentWidget({
     };
   }, [clientKey, customerKey]);
 
+  useEffect(() => {
+    if (externalError) {
+      setError(externalError);
+    }
+  }, [externalError]);
+
   const handlePay = async () => {
     if (!paymentRef.current) return;
     const selected = PAYMENT_METHODS.find((m) => m.key === method);
@@ -164,7 +174,7 @@ export function TossPaymentWidget({
         orderId,
         orderName,
         successUrl: `${window.location.origin}/subscribe/success`,
-        failUrl: `${window.location.origin}/subscribe/fail`,
+        failUrl: `${window.location.origin}/subscribe?paymentError=1`,
       });
     } catch (err) {
       setError(
@@ -186,14 +196,17 @@ export function TossPaymentWidget({
             onClick={() => {
               setMethod(m.key);
               setError(null);
+              onExternalErrorClear?.();
             }}
-            className={`flex flex-col items-center gap-1 rounded-2xl border px-2 py-3 text-xs font-medium transition-colors ${
+            className={`flex flex-col items-center justify-center gap-1 rounded-2xl border px-2 py-3 text-xs font-medium transition-colors ${
               method === m.key
                 ? "border-orange-300 bg-orange-50 text-orange-700"
                 : "border-stone-200 bg-white text-stone-600 hover:border-stone-300"
             }`}
           >
-            <span className="flex h-5 w-5 items-center justify-center">{m.icon}</span>
+            <span className="flex h-5 w-5 items-center justify-center">
+              {m.icon}
+            </span>
             {m.label}
           </button>
         ))}

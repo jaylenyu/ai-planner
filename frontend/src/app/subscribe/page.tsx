@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AppCard } from "@/components/ui/app-card";
 import { PrimaryButton } from "@/components/ui/primary-button";
 import { TossPaymentWidget } from "@/components/payment/TossPaymentWidget";
@@ -12,12 +12,15 @@ import type {
 } from "@/lib/types";
 import { getToken } from "@/lib/auth";
 
-export default function SubscribePage() {
+function SubscribePageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { status, loading, error: statusError } = useSubscriptionStatus();
   const [prepare, setPrepare] = useState<PaymentPrepareResponse | null>(null);
   const [preparing, setPreparing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
+  const [widgetError, setWidgetError] = useState<string | null>(null);
+  const [autoOpenAfterFail, setAutoOpenAfterFail] = useState(false);
 
   useEffect(() => {
     if (!getToken()) {
@@ -26,25 +29,55 @@ export default function SubscribePage() {
   }, [router]);
 
   const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ?? "";
+  const redirectedPaymentError = useMemo(() => {
+    const hasFailFlag =
+      searchParams.get("paymentError") === "1" ||
+      Boolean(searchParams.get("message")) ||
+      Boolean(searchParams.get("code"));
+
+    if (!hasFailFlag) return null;
+
+    const message =
+      searchParams.get("message") ??
+      "결제가 완료되지 않았습니다. 다른 결제 수단을 선택해 다시 시도해주세요.";
+
+    return message;
+  }, [searchParams]);
+
   const currentState = useMemo(
     () => status?.subscription.status ?? "inactive",
     [status],
   );
 
-  const preparePayment = async () => {
+  const preparePayment = useCallback(async () => {
     try {
       setPreparing(true);
-      setError(null);
+      setPageError(null);
       const next = await billingApi.prepare();
       setPrepare(next);
     } catch (err) {
-      setError(
+      setPageError(
         err instanceof Error ? err.message : "결제 준비에 실패했습니다.",
       );
     } finally {
       setPreparing(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!redirectedPaymentError) return;
+
+    setWidgetError(redirectedPaymentError);
+    setAutoOpenAfterFail(true);
+    router.replace("/subscribe", { scroll: false });
+  }, [redirectedPaymentError, router]);
+
+  useEffect(() => {
+    if (!autoOpenAfterFail || prepare || preparing || !clientKey) return;
+
+    void preparePayment();
+    setAutoOpenAfterFail(false);
+  }, [autoOpenAfterFail, clientKey, prepare, preparePayment, preparing]);
 
   return (
     <div className="bg-[var(--background)]">
@@ -67,14 +100,14 @@ export default function SubscribePage() {
                 구독 상태를 확인하는 중...
               </p>
             )}
-            {statusError && !error && (
+            {statusError && !pageError && !widgetError && (
               <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 {statusError}
               </div>
             )}
-            {error && (
+            {pageError && (
               <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {error}
+                {pageError}
               </div>
             )}
 
@@ -119,6 +152,8 @@ export default function SubscribePage() {
                 amount={prepare.payment.amount}
                 orderId={prepare.orderId}
                 orderName={prepare.orderName}
+                externalError={widgetError}
+                onExternalErrorClear={() => setWidgetError(null)}
               />
             )}
           </AppCard>
@@ -137,5 +172,13 @@ export default function SubscribePage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function SubscribePage() {
+  return (
+    <Suspense fallback={null}>
+      <SubscribePageContent />
+    </Suspense>
   );
 }

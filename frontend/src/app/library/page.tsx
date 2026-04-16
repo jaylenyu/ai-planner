@@ -122,8 +122,8 @@ export default function LibraryPage() {
           </AppCard>
 
           <AppCard padding="md">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
+            <div className="mb-4 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
                 <h2 className="text-base font-bold text-stone-800">
                   {scope === "shared"
                     ? "공유 일정"
@@ -135,26 +135,26 @@ export default function LibraryPage() {
                   삭제와 분류는 무료 플랜에서도 가능합니다.
                 </p>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="flex rounded-xl border border-stone-200 bg-white p-1 text-xs">
+              <div className="w-full sm:w-auto">
+                <div className="grid w-full grid-cols-3 rounded-xl border border-stone-200 bg-white p-1 text-xs sm:w-auto">
                   <button
                     type="button"
                     onClick={() => setScope(undefined)}
-                    className={`rounded-lg px-3 py-1.5 ${scope === undefined ? "bg-orange-50 text-orange-700" : "text-stone-600"}`}
+                    className={`min-w-0 rounded-lg px-2 py-1.5 text-center text-[13px] whitespace-nowrap sm:px-3 ${scope === undefined ? "bg-orange-50 text-orange-700" : "text-stone-600"}`}
                   >
                     전체
                   </button>
                   <button
                     type="button"
                     onClick={() => setScope("personal")}
-                    className={`rounded-lg px-3 py-1.5 ${scope === "personal" ? "bg-orange-50 text-orange-700" : "text-stone-600"}`}
+                    className={`min-w-0 rounded-lg px-2 py-1.5 text-center text-[13px] whitespace-nowrap sm:px-3 ${scope === "personal" ? "bg-orange-50 text-orange-700" : "text-stone-600"}`}
                   >
                     개인
                   </button>
                   <button
                     type="button"
                     onClick={() => setScope("shared")}
-                    className={`rounded-lg px-3 py-1.5 ${scope === "shared" ? "bg-orange-50 text-orange-700" : "text-stone-600"}`}
+                    className={`min-w-0 rounded-lg px-2 py-1.5 text-center text-[13px] whitespace-nowrap sm:px-3 ${scope === "shared" ? "bg-orange-50 text-orange-700" : "text-stone-600"}`}
                   >
                     공유
                   </button>
