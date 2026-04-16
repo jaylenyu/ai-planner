@@ -28,6 +28,8 @@ jobs:
       backend_changed: ${{ steps.filter.outputs.backend }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -175,6 +177,9 @@ jobs:
             fi
 
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            docker image prune -af >/dev/null 2>&1 || true
+            docker builder prune -af >/dev/null 2>&1 || true
 
             if [ "$BACKEND_CHANGED" = "true" ]; then
               docker pull ${{ env.IMAGE_BACKEND }}:canary
