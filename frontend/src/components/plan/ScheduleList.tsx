@@ -73,34 +73,34 @@ export function ScheduleList({
               </div>
 
               {/* Place info card — white with left accent bar */}
-              <div className="flex-1 app-card p-4 mb-3 relative overflow-hidden hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5">
+              <div className="flex-1 app-card p-4 mb-3 relative overflow-visible hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5">
                 <div className={`absolute left-0 top-0 bottom-0 w-1 ${color.dot}`}
                      style={{ borderRadius: 'var(--radius-lg) 0 0 var(--radius-lg)' }}
                      aria-hidden="true" />
                 <div className="pl-3">
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
                     <span className="text-lg" aria-hidden="true">{TYPE_ICONS[item.type] ?? '📍'}</span>
                     <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{item.name}</span>
                     <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${color.badge}`}>
                       {TYPE_LABELS[item.type] ?? item.type}
                     </span>
-                    {onOpenPlace && (
-                      <button
-                        type="button"
-                        onClick={() => onOpenPlace(item)}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-[#03C75A]/30 px-2.5 py-0.5 text-xs font-medium text-[#03C75A] transition-colors hover:border-[#03C75A]/60"
-                      >
-                        <img
-                          src="https://ssl.pstatic.net/static/maps/assets/icons/favicon.ico"
-                          alt="Naver"
-                          width={14}
-                          height={14}
-                          className="rounded-[2px]"
-                        />
-                        지도 보기
-                      </button>
-                    )}
                   </div>
+                  {onOpenPlace && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenPlace(item)}
+                      className="absolute top-4 right-4 inline-flex items-center gap-1.5 rounded-full border border-[#03C75A]/30 px-2.5 py-0.5 text-xs font-medium text-[#03C75A] transition-colors hover:border-[#03C75A]/60"
+                    >
+                      <img
+                        src="https://ssl.pstatic.net/static/maps/assets/icons/favicon.ico"
+                        alt="Naver"
+                        width={14}
+                        height={14}
+                        className="rounded-[2px]"
+                      />
+                      지도 보기
+                    </button>
+                  )}
                   <div className="mt-2 flex flex-col gap-0.5">
                     <p className={`text-sm font-medium ${color.text}`}>{item.time}</p>
                     <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{item.address}</p>
