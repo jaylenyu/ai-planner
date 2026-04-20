@@ -14,7 +14,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { OAuthButtonList } from "../../../components/auth/OAuthButtonList";
 import { AppLogo } from "@/components/ui/AppLogo";
 import { authApi } from "../../../lib/api";
-import { setToken, setRefreshToken } from "../../../lib/auth";
+import { useAuthStore } from "../../../stores/authStore";
 
 const TURNSTILE_SITE_KEY =
   process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "1x00000000000000000000AA";
@@ -451,8 +451,7 @@ function RegisterPageContent() {
         data.agreedTerms,
         data.agreedPrivacy,
       );
-      setToken(res.access_token);
-      setRefreshToken(res.refresh_token);
+      useAuthStore.getState().setTokens(res.access_token, res.refresh_token);
       setRegisteredAt(
         new Date().toLocaleString("ko-KR", {
           year: "numeric",

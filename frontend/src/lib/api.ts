@@ -1,10 +1,4 @@
-import {
-  getToken,
-  setToken,
-  setRefreshToken,
-  getRefreshToken,
-  clearAllTokens,
-} from "./auth";
+import { useAuthStore } from "../stores/authStore";
 import type {
   CategorySummary,
   NotificationItem,
@@ -34,7 +28,7 @@ export class ApiError extends Error {
 }
 
 async function tryRefresh(): Promise<boolean> {
-  const refreshToken = getRefreshToken();
+  const refreshToken = useAuthStore.getState().refreshToken;
   if (!refreshToken) return false;
 
   try {
@@ -45,16 +39,15 @@ async function tryRefresh(): Promise<boolean> {
     });
 
     if (!res.ok) {
-      clearAllTokens();
+      useAuthStore.getState().clearTokens();
       return false;
     }
 
     const data = await res.json();
-    setToken(data.access_token);
-    setRefreshToken(data.refresh_token);
+    useAuthStore.getState().setTokens(data.access_token, data.refresh_token);
     return true;
   } catch {
-    clearAllTokens();
+    useAuthStore.getState().clearTokens();
     return false;
   }
 }
@@ -64,7 +57,7 @@ async function request<T>(
   options: RequestInit = {},
   retry = true,
 ): Promise<T> {
-  const token = getToken();
+  const token = useAuthStore.getState().accessToken;
   const headers: HeadersInit = {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -78,6 +71,7 @@ async function request<T>(
     if (refreshed) {
       return request<T>(path, options, false);
     }
+    useAuthStore.getState().clearTokens();
     if (typeof window !== "undefined") {
       window.location.href = "/login";
     }
