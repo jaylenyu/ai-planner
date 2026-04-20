@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { AppLogo } from "@/components/ui/AppLogo";
 import { NotificationBell } from "@/components/notification/NotificationBell";
@@ -69,9 +69,15 @@ function MobileTab({ href, icon, label }: MobileTabProps) {
 }
 
 export function GlobalNav() {
-  const { isLoggedIn, logout } = useAuth();
+  const router = useRouter();
+  const { isLoggedIn, hydrated, logout } = useAuth();
   const pathname = usePathname();
   const showMarketingLinks = !isLoggedIn && pathname === "/";
+
+  const handleLogout = async () => {
+    await logout();
+    router.replace("/login");
+  };
 
   return (
     <>
@@ -85,15 +91,12 @@ export function GlobalNav() {
 
           {/* 모바일: 알림 + 로그아웃만 */}
           <div className="flex items-center gap-3 sm:hidden">
-            {isLoggedIn ? (
+            {!hydrated ? null : isLoggedIn ? (
               <>
                 <NotificationBell />
                 <button
                   type="button"
-                  onClick={() => {
-                    logout();
-                    window.location.href = "/login";
-                  }}
+                  onClick={handleLogout}
                   className="flex items-center justify-center h-9 w-9 rounded-full text-stone-400 active:bg-stone-100 transition-colors"
                   aria-label="로그아웃"
                 >
@@ -122,7 +125,7 @@ export function GlobalNav() {
 
           {/* 데스크톱 메뉴 */}
           <nav className="hidden items-center gap-5 sm:flex">
-            {isLoggedIn ? (
+            {!hydrated ? null : isLoggedIn ? (
               <>
                 <NotificationBell />
                 <NavLink href="/dashboard">대시보드</NavLink>
@@ -147,13 +150,10 @@ export function GlobalNav() {
                 </Link>
               </>
             ) : null}
-            {isLoggedIn ? (
+            {!hydrated ? null : isLoggedIn ? (
               <button
                 type="button"
-                onClick={() => {
-                  logout();
-                  window.location.href = "/login";
-                }}
+                onClick={handleLogout}
                 className="text-sm font-medium text-stone-500 hover:text-stone-800 transition-colors"
               >
                 로그아웃
@@ -174,7 +174,7 @@ export function GlobalNav() {
       </header>
 
       {/* 모바일 Bottom Tab Bar */}
-      {isLoggedIn && (
+      {hydrated && isLoggedIn && (
         <nav
           className="fixed bottom-0 left-0 right-0 z-50 sm:hidden bg-white"
           style={{ borderTop: "1px solid var(--divider)" }}

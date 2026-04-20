@@ -1,19 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { api, ApiError } from '../lib/api';
-import { setToken, setRefreshToken, getRefreshToken, clearAllTokens, getToken } from '../lib/auth';
+import {
+  useAuthStore,
+  selectIsLoggedIn,
+  selectHydrated,
+} from '../stores/authStore';
 import { AuthResponse } from '../lib/types';
 
 export function useAuth() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorStatus, setErrorStatus] = useState<number | null>(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  useEffect(() => {
-    setIsLoggedIn(!!getToken());
-  }, []);
+  const isLoggedIn = useAuthStore(selectIsLoggedIn);
+  const hydrated = useAuthStore(selectHydrated);
 
   const login = async (email: string, password: string) => {
     setLoading(true);
@@ -21,9 +22,7 @@ export function useAuth() {
     setErrorStatus(null);
     try {
       const res = await api.post<AuthResponse>('/auth/login', { email, password });
-      setToken(res.access_token);
-      setRefreshToken(res.refresh_token);
-      setIsLoggedIn(true);
+      useAuthStore.getState().setTokens(res.access_token, res.refresh_token);
       return true;
     } catch (err) {
       if (err instanceof ApiError) {
@@ -40,17 +39,16 @@ export function useAuth() {
 
   const logout = async () => {
     try {
-      const refreshToken = getRefreshToken();
+      const refreshToken = useAuthStore.getState().refreshToken;
       if (refreshToken) {
         await api.post('/auth/logout', { refresh_token: refreshToken });
       }
     } catch {
       // 로그아웃 실패해도 로컬 토큰은 삭제
     } finally {
-      clearAllTokens();
-      setIsLoggedIn(false);
+      useAuthStore.getState().clearTokens();
     }
   };
 
-  return { login, logout, loading, error, errorStatus, isLoggedIn };
+  return { login, logout, loading, error, errorStatus, isLoggedIn, hydrated };
 }

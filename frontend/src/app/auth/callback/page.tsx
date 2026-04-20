@@ -2,7 +2,7 @@
 
 import { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { setToken, setRefreshToken } from '../../../lib/auth';
+import { useAuthStore } from '../../../stores/authStore';
 
 function CallbackHandler() {
   const router = useRouter();
@@ -13,8 +13,7 @@ function CallbackHandler() {
     const refreshToken = searchParams.get('refresh_token');
 
     if (accessToken && refreshToken) {
-      setToken(accessToken);
-      setRefreshToken(refreshToken);
+      useAuthStore.getState().setTokens(accessToken, refreshToken);
       router.replace('/plan');
     } else {
       router.replace('/login?error=oauth_failed');

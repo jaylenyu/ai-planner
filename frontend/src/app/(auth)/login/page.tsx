@@ -2,13 +2,14 @@
 
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../hooks/useAuth';
 import { Spinner } from '@/components/ui/Spinner';
 import { OAuthButtonList } from '../../../components/auth/OAuthButtonList';
 import { AppLogo } from '@/components/ui/AppLogo';
 
 function LoginPageContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,7 +20,7 @@ function LoginPageContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const ok = await login(email, password);
-    if (ok) window.location.href = redirectPath;
+    if (ok) router.replace(redirectPath);
   };
 
   return (
