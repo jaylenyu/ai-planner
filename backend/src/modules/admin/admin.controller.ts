@@ -90,6 +90,26 @@ export class AdminController {
     return this.adminService.getPlansOverview();
   }
 
+  @Get('plans/list')
+  plansList(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const pageNum = Math.max(1, Number(page) || 1);
+    const limitNum = Math.min(100, Math.max(1, Number(limit) || 10));
+    return this.adminService.listPlans(pageNum, limitNum);
+  }
+
+  @Get('plans/workspaces')
+  workspacesList(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const pageNum = Math.max(1, Number(page) || 1);
+    const limitNum = Math.min(100, Math.max(1, Number(limit) || 10));
+    return this.adminService.listWorkspaces(pageNum, limitNum);
+  }
+
   @Get('ops/logs')
   logs(
     @Query('container') container?: 'backend' | 'frontend',

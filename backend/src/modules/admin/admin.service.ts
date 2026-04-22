@@ -658,6 +658,67 @@ export class AdminService {
     };
   }
 
+  async listPlans(page: number, limit: number) {
+    const skip = (page - 1) * limit;
+    const [items, total] = await Promise.all([
+      this.prisma.plan.findMany({
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          rawInput: true,
+          mode: true,
+          summary: true,
+          createdAt: true,
+          updatedAt: true,
+          user: {
+            select: { id: true, email: true, role: true, adminReadOnly: true },
+          },
+          workspace: {
+            select: {
+              id: true,
+              name: true,
+              ownerId: true,
+              createdAt: true,
+              updatedAt: true,
+              owner: {
+                select: { id: true, email: true, role: true, adminReadOnly: true },
+              },
+              _count: { select: { members: true } },
+            },
+          },
+        },
+      }),
+      this.prisma.plan.count(),
+    ]);
+    return { items, total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) };
+  }
+
+  async listWorkspaces(page: number, limit: number) {
+    const skip = (page - 1) * limit;
+    const [items, total] = await Promise.all([
+      this.prisma.workspace.findMany({
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          name: true,
+          ownerId: true,
+          createdAt: true,
+          updatedAt: true,
+          owner: {
+            select: { id: true, email: true, role: true, adminReadOnly: true },
+          },
+          _count: { select: { members: true, plans: true, invites: true } },
+        },
+      }),
+      this.prisma.workspace.count(),
+    ]);
+    return { items, total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) };
+  }
+
   async getApiUsageOverview() {
     const now = new Date();
     const start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);

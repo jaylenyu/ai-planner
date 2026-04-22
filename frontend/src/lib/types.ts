@@ -358,6 +358,22 @@ export interface AdminPlansResponse {
   }>;
 }
 
+export interface AdminPlanListResponse {
+  items: Array<AdminPlansResponse['plans'][number]>;
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface AdminWorkspaceListResponse {
+  items: Array<AdminPlansResponse['workspaces'][number]>;
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 export interface AdminApiUsageResponse {
   totalsByDay: Record<string, { count: number; cost: number }>;
   topUsers: Array<{

@@ -1,14 +1,15 @@
 'use client';
 
-import { useDeferredValue, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useDeferredValue } from 'react';
 import type {
   ColumnDef,
   SortingState,
   VisibilityState,
 } from '@tanstack/react-table';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Loader2 } from 'lucide-react';
 import { AppCard } from '@/components/ui/app-card';
 import { DataTable } from '@/components/ui/data-table';
 import { PrimaryButton } from '@/components/ui/primary-button';
@@ -18,7 +19,7 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import { useAdminSession } from '../_components/AdminSessionContext';
 import { AdminPageHeader } from '../_components/AdminPageHeader';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 type ProviderFilter = 'google' | 'kakao' | 'naver' | 'local' | '';
 type EmailVerifiedFilter = 'all' | 'true' | 'false';
 type AdminUserRow = AdminUserListResponse['items'][number];
@@ -39,7 +40,6 @@ export default function AdminUsersPage() {
   const [searchInput, setSearchInput] = useState('');
   const [provider, setProvider] = useState<ProviderFilter>('');
   const [emailVerified, setEmailVerified] = useState<EmailVerifiedFilter>('all');
-  const [page, setPage] = useState(1);
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'createdAt', desc: true },
   ]);
@@ -53,17 +53,23 @@ export default function AdminUsersPage() {
     actions: true,
   });
   const search = useDeferredValue(searchInput.trim());
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const usersQuery = useQuery({
-    queryKey: ['admin', 'users', { search, provider, emailVerified, page }],
-    queryFn: () =>
+  const usersQuery = useInfiniteQuery({
+    queryKey: ['admin', 'users', { search, provider, emailVerified }],
+    queryFn: ({ pageParam }) =>
       adminApi.users({
         search: search || undefined,
         provider: provider || undefined,
         emailVerified: emailVerified === 'all' ? undefined : emailVerified === 'true',
-        page,
+        page: pageParam as number,
         limit: PAGE_SIZE,
       }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      const { page, totalPages } = lastPage as AdminUserListResponse & { page: number; totalPages: number };
+      return page < totalPages ? page + 1 : undefined;
+    },
   });
 
   const roleMutation = useMutation({
@@ -82,8 +88,31 @@ export default function AdminUsersPage() {
     },
   });
 
-  const items = usersQuery.data?.items ?? [];
-  const totalPages = usersQuery.data?.totalPages ?? 1;
+  const items = useMemo(
+    () => usersQuery.data?.pages.flatMap((p) => (p as AdminUserListResponse).items) ?? [],
+    [usersQuery.data],
+  );
+  const total = (usersQuery.data?.pages[0] as AdminUserListResponse | undefined)?.total ?? 0;
+  const loadedCount = items.length;
+
+  const loadMore = useCallback(() => {
+    if (usersQuery.hasNextPage && !usersQuery.isFetchingNextPage) {
+      void usersQuery.fetchNextPage();
+    }
+  }, [usersQuery]);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) loadMore();
+      },
+      { rootMargin: '200px' },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loadMore]);
 
   const providerLabel = useMemo(
     () => ({ google: 'Google', kakao: 'Kakao', naver: 'Naver', local: 'Local' }),
@@ -266,7 +295,6 @@ export default function AdminUsersPage() {
             value={searchInput}
             onChange={(e) => {
               setSearchInput(e.target.value);
-              setPage(1);
             }}
             placeholder="이메일 또는 ID 검색"
             className="rounded-2xl border border-stone-200 px-4 py-3 text-sm outline-none focus:border-orange-300"
@@ -275,7 +303,6 @@ export default function AdminUsersPage() {
             value={provider}
             onChange={(e) => {
               setProvider(e.target.value as ProviderFilter);
-              setPage(1);
             }}
             className="rounded-2xl border border-stone-200 px-4 py-3 text-sm"
           >
@@ -289,7 +316,6 @@ export default function AdminUsersPage() {
             value={emailVerified}
             onChange={(e) => {
               setEmailVerified(e.target.value as EmailVerifiedFilter);
-              setPage(1);
             }}
             className="rounded-2xl border border-stone-200 px-4 py-3 text-sm"
           >
@@ -306,7 +332,6 @@ export default function AdminUsersPage() {
                 setSearchInput('');
                 setProvider('');
                 setEmailVerified('all');
-                setPage(1);
               }}
             >
               필터 초기화
@@ -353,7 +378,7 @@ export default function AdminUsersPage() {
           <h2 className="text-lg font-bold text-stone-900">사용자 목록</h2>
           <div className="text-right text-sm text-stone-500">
             <p>
-              {usersQuery.data?.total ?? 0}명 · {page}/{totalPages}페이지
+              {loadedCount} / {total}명
             </p>
             <p className="text-xs">
               정렬: {sorting[0] ? `${desktopColumnLabels[sorting[0].id] ?? sorting[0].id} ${sorting[0].desc ? '내림차순' : '오름차순'}` : '없음'}
@@ -415,25 +440,14 @@ export default function AdminUsersPage() {
           ))}
         </div>
 
-        <div className="flex items-center justify-between">
-          <PrimaryButton
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={page <= 1}
-            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-          >
-            이전
-          </PrimaryButton>
-          <PrimaryButton
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={page >= totalPages}
-            onClick={() => setPage((prev) => prev + 1)}
-          >
-            다음
-          </PrimaryButton>
+        <div ref={sentinelRef} className="flex justify-center py-4">
+          {usersQuery.isFetchingNextPage ? (
+            <Loader2 className="h-5 w-5 animate-spin text-stone-400" />
+          ) : usersQuery.hasNextPage ? (
+            <span className="text-xs text-stone-400">스크롤하면 더 불러옵니다</span>
+          ) : loadedCount > 0 ? (
+            <span className="text-xs text-stone-400">모든 사용자를 불러왔습니다 ({total}명)</span>
+          ) : null}
         </div>
       </AppCard>
     </div>

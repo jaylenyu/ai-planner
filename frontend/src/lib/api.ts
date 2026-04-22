@@ -5,8 +5,10 @@ import type {
   AdminBillingResponse,
   AdminCostResponse,
   AdminLogsResponse,
+  AdminPlanListResponse,
   AdminPlansResponse,
   AdminSentryResponse,
+  AdminWorkspaceListResponse,
   AdminSummaryResponse,
   AdminUserDetail,
   AdminUserListResponse,
@@ -421,6 +423,10 @@ export const adminApi = {
     requestAppRaw<AdminBillingResponse>('/api/admin/billing'),
   plans: () =>
     requestAppRaw<AdminPlansResponse>('/api/admin/plans'),
+  plansList: (page: number, limit = 10) =>
+    requestAppRaw<AdminPlanListResponse>(`/api/admin/plans/list?page=${page}&limit=${limit}`),
+  workspacesList: (page: number, limit = 10) =>
+    requestAppRaw<AdminWorkspaceListResponse>(`/api/admin/plans/workspaces?page=${page}&limit=${limit}`),
   logs: (container: 'backend' | 'frontend', search?: string) => {
     const params = new URLSearchParams({ container });
     if (search) params.set('search', search);
