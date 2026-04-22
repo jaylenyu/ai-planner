@@ -116,6 +116,10 @@ jobs:
             NEXT_PUBLIC_TOSS_CLIENT_KEY=${{ secrets.NEXT_PUBLIC_TOSS_CLIENT_KEY }}
             NEXT_PUBLIC_POSTHOG_KEY=${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}
             NEXT_PUBLIC_POSTHOG_HOST=${{ secrets.NEXT_PUBLIC_POSTHOG_HOST }}
+            NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+            SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
+            SENTRY_ORG=${{ secrets.SENTRY_ORG }}
+            SENTRY_PROJECT=${{ secrets.SENTRY_PROJECT }}
           cache-from: type=gha,scope=frontend-canary
           cache-to: type=gha,scope=frontend-canary,mode=max
 
@@ -398,7 +402,7 @@ jobs:
           timeout: 180s
           script: |
             set -euo pipefail
-            docker exec ai-planner-backend-test node - <<'NODE'
+            docker exec ai-planner-backend-test sh -lc "cd /app && node - <<'NODE'
             const bcrypt = require('bcrypt');
             const { PrismaClient } = require('@prisma/client');
 
@@ -448,4 +452,4 @@ jobs:
               .finally(async () => {
                 await prisma.$disconnect();
               });
-            NODE
+            NODE"
