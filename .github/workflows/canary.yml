@@ -402,7 +402,7 @@ jobs:
           timeout: 180s
           script: |
             set -euo pipefail
-            docker exec ai-planner-backend-test sh -lc "cd /app && node - <<'NODE'
+            cat > /tmp/seed_admin_users.js <<'NODE'
             const bcrypt = require('bcrypt');
             const { PrismaClient } = require('@prisma/client');
 
@@ -452,4 +452,7 @@ jobs:
               .finally(async () => {
                 await prisma.$disconnect();
               });
-            NODE"
+            NODE
+            docker cp /tmp/seed_admin_users.js ai-planner-backend-test:/app/seed_admin_users.js
+            docker exec ai-planner-backend-test sh -lc 'cd /app && node seed_admin_users.js'
+            rm -f /tmp/seed_admin_users.js
