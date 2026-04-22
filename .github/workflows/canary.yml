@@ -310,6 +310,10 @@ jobs:
             upsert_env APP_URL 'https://test.date-planner.us'
             upsert_env FRONTEND_URL 'https://test.date-planner.us'
             upsert_env CORS_ORIGIN 'https://test.date-planner.us'
+            upsert_env SEED_ADMIN_EMAIL 'jaylenyu96@gmail.com'
+            upsert_env SEED_ADMIN_PASSWORD 'Admin1234!'
+            upsert_env SEED_PUBLICADMIN_EMAIL 'publicadmin@ai-planner.local'
+            upsert_env SEED_PUBLICADMIN_PASSWORD 'PublicAdmin1234!'
             upsert_env NEXT_PUBLIC_TOSS_CLIENT_KEY '${{ secrets.NEXT_PUBLIC_TOSS_CLIENT_KEY }}'
             upsert_env NEXT_PUBLIC_SENTRY_DSN '${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}'
             upsert_env SENTRY_DSN '${{ secrets.SENTRY_DSN }}'
@@ -383,3 +387,65 @@ jobs:
             fi
 
             docker compose -f /srv/apps/ai-planner-test/compose.yml --env-file /srv/apps/ai-planner-test/.env ps
+
+      - name: Seed admin users in test database
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          timeout: 180s
+          script: |
+            set -euo pipefail
+            docker exec ai-planner-backend-test node - <<'NODE'
+            const bcrypt = require('bcrypt');
+            const { PrismaClient } = require('@prisma/client');
+
+            const prisma = new PrismaClient();
+
+            async function upsertAdmin(email, password, adminReadOnly) {
+              const hashedPassword = await bcrypt.hash(password, 10);
+              const user = await prisma.user.upsert({
+                where: { email },
+                update: {
+                  password: hashedPassword,
+                  emailVerified: true,
+                  role: 'ADMIN',
+                  adminReadOnly,
+                  isSuspended: false,
+                },
+                create: {
+                  email,
+                  password: hashedPassword,
+                  emailVerified: true,
+                  role: 'ADMIN',
+                  adminReadOnly,
+                },
+              });
+              await prisma.refreshToken.deleteMany({ where: { userId: user.id } });
+            }
+
+            async function main() {
+              await upsertAdmin(
+                process.env.SEED_ADMIN_EMAIL || 'jaylenyu96@gmail.com',
+                process.env.SEED_ADMIN_PASSWORD || 'Admin1234!',
+                false,
+              );
+              await upsertAdmin(
+                process.env.SEED_PUBLICADMIN_EMAIL || 'publicadmin@ai-planner.local',
+                process.env.SEED_PUBLICADMIN_PASSWORD || 'PublicAdmin1234!',
+                true,
+              );
+              console.log('Seeded admin and publicadmin users');
+            }
+
+            main()
+              .catch((error) => {
+                console.error(error);
+                process.exit(1);
+              })
+              .finally(async () => {
+                await prisma.$disconnect();
+              });
+            NODE
