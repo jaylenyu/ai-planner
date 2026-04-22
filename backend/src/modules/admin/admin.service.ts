@@ -243,7 +243,6 @@ export class AdminService {
           isSuspended: true,
           lastLoginAt: true,
           createdAt: true,
-          updatedAt: true,
           googleId: true,
           kakaoId: true,
           naverId: true,
@@ -272,7 +271,6 @@ export class AdminService {
   async getUser(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      omit: { password: true },
       include: {
         subscription: {
           include: {
@@ -348,7 +346,8 @@ export class AdminService {
       throw new NotFoundException('사용자를 찾을 수 없습니다.');
     }
 
-    return user;
+    const { password: _pw, ...userWithoutPassword } = user;
+    return userWithoutPassword;
   }
 
   async updateUserRole(
