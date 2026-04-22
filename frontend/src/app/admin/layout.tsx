@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { AdminShell } from './_components/AdminShell';
-import { ADMIN_ACCESS_COOKIE } from '@/lib/admin-cookie';
+import { ADMIN_ACCESS_COOKIE, ADMIN_REFRESH_COOKIE } from '@/lib/admin-cookie';
 import {
   verifyAdminAccessToken,
 } from '@/lib/server/admin-session';
@@ -20,6 +20,7 @@ export default async function AdminLayout({
   const payload = verifyAdminAccessToken(
     cookieStore.get(ADMIN_ACCESS_COOKIE)?.value,
   );
+  const hasRefresh = !!cookieStore.get(ADMIN_REFRESH_COOKIE)?.value;
   const isAdminToken = !!payload;
   const adminReadOnly = payload?.adminReadOnly === true;
 
@@ -37,7 +38,7 @@ export default async function AdminLayout({
     return <>{children}</>;
   }
 
-  if (!isAdminToken) {
+  if (!isAdminToken && !hasRefresh) {
     redirect(`/admin/login?redirect=${encodeURIComponent(pathname)}`);
   }
 

@@ -122,11 +122,10 @@ export class AuthService {
     }
   }
 
-  private getLoginKeys(email: string, namespace: 'user' | 'admin') {
-    const prefix = namespace === 'admin' ? 'admin:' : '';
+  private getLoginKeys(email: string, _namespace: 'user' | 'admin') {
     return {
-      lockKey: `login_lock:${prefix}${email}`,
-      failKey: `login_fail:${prefix}${email}`,
+      lockKey: `login_lock:${email}`,
+      failKey: `login_fail:${email}`,
     };
   }
 
@@ -177,7 +176,13 @@ export class AuthService {
     }
 
     if (options.requireAdmin && user.role !== 'ADMIN') {
-      throw new UnauthorizedException('관리자 계정이 아닙니다.');
+      const fails = await this.redis.incr(failKey, LOGIN_FAIL_TTL);
+      if (fails >= MAX_LOGIN_FAILS) {
+        await this.redis.set(lockKey, '1', LOGIN_FAIL_TTL);
+      }
+      throw new UnauthorizedException(
+        '이메일 또는 비밀번호가 올바르지 않습니다.',
+      );
     }
 
     // 성공: 실패 카운터 초기화

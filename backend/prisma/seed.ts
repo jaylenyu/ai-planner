@@ -94,7 +94,7 @@ async function main() {
     console.log('seed complete');
     for (const seedUser of seedUsers) {
       console.log(
-        `${seedUser.adminReadOnly ? 'admin(read-only)' : seedUser.role.toLowerCase()}: ${seedUser.email} / ${seedUser.password}`,
+        `${seedUser.adminReadOnly ? 'admin(read-only)' : seedUser.role.toLowerCase()}: ${seedUser.email}`,
       );
     }
   } finally {

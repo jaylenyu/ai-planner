@@ -234,7 +234,19 @@ export class AdminService {
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
-        include: {
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          adminReadOnly: true,
+          emailVerified: true,
+          isSuspended: true,
+          lastLoginAt: true,
+          createdAt: true,
+          updatedAt: true,
+          googleId: true,
+          kakaoId: true,
+          naverId: true,
           subscription: true,
           _count: {
             select: {
@@ -260,6 +272,7 @@ export class AdminService {
   async getUser(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
+      omit: { password: true },
       include: {
         subscription: {
           include: {
@@ -666,6 +679,7 @@ export class AdminService {
 
     const topUsers = await this.prisma.apiUsage.groupBy({
       by: ['userId'],
+      where: { timestamp: { gte: start } },
       _sum: { cost: true },
       _count: { _all: true },
       orderBy: { _sum: { cost: 'desc' } },

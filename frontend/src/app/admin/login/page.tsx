@@ -7,9 +7,6 @@ import { Spinner } from '@/components/ui/Spinner';
 import { AppLogo } from '@/components/ui/AppLogo';
 import { authApi } from '@/lib/api';
 
-const PUBLIC_ADMIN_EMAIL = 'publicadmin@ai-planner.local';
-const PUBLIC_ADMIN_PASSWORD = 'PublicAdmin1234!';
-
 function AdminLoginContent() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
@@ -17,7 +14,9 @@ function AdminLoginContent() {
   const [loading, setLoading] = useState(false);
   const [publicLoading, setPublicLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const redirectPath = searchParams.get('redirect') || '/admin/board';
+  const rawRedirect = searchParams.get('redirect') ?? '';
+  const redirectPath =
+    rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : '/admin/board';
 
   useEffect(() => {
     localStorage.removeItem('ai_planner_admin_token');
@@ -45,7 +44,12 @@ function AdminLoginContent() {
     setPublicLoading(true);
     setError(null);
     try {
-      await doLogin(PUBLIC_ADMIN_EMAIL, PUBLIC_ADMIN_PASSWORD);
+      const res = await fetch('/api/admin/auth/public-login', { method: 'POST' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({})) as { message?: string };
+        throw new Error(data.message ?? 'publicadmin 로그인 실패');
+      }
+      window.location.href = redirectPath;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'publicadmin 로그인 실패');
       setPublicLoading(false);

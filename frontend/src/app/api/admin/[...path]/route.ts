@@ -43,14 +43,10 @@ async function forwardAdminRequest(
   request: NextRequest,
   path: string[],
   accessToken: string,
+  body: string | undefined,
 ) {
   const target = new URL(`${BACKEND_INTERNAL_URL}/admin/${path.join('/')}`);
   target.search = request.nextUrl.search;
-
-  const body =
-    request.method === 'GET' || request.method === 'HEAD'
-      ? undefined
-      : await request.text();
 
   return fetch(target, {
     method: request.method,
@@ -58,7 +54,7 @@ async function forwardAdminRequest(
       'Content-Type': request.headers.get('content-type') ?? 'application/json',
       Authorization: `Bearer ${accessToken}`,
     },
-    ...(body ? { body } : {}),
+    ...(body !== undefined ? { body } : {}),
     cache: 'no-store',
   });
 }
@@ -72,7 +68,12 @@ async function handle(request: NextRequest, params: { path: string[] }) {
     return NextResponse.json({ message: '관리자 인증이 필요합니다.' }, { status: 401 });
   }
 
-  let response = await forwardAdminRequest(request, params.path, accessToken);
+  const body =
+    request.method === 'GET' || request.method === 'HEAD'
+      ? undefined
+      : await request.text();
+
+  let response = await forwardAdminRequest(request, params.path, accessToken, body);
   let refreshedTokens: { access_token: string; refresh_token: string } | null = null;
 
   if (response.status === 401) {
@@ -91,6 +92,7 @@ async function handle(request: NextRequest, params: { path: string[] }) {
       request,
       params.path,
       refreshedTokens.access_token,
+      body,
     );
   }
 

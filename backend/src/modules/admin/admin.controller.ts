@@ -7,12 +7,23 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { IsBoolean, IsEnum } from 'class-validator';
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import type { AuthenticatedUser } from '../auth/types';
 import { AdminService } from './admin.service';
+
+class UpdateRoleDto {
+  @IsEnum(Role)
+  role!: Role;
+}
+
+class SuspendUserDto {
+  @IsBoolean()
+  suspended!: boolean;
+}
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, AdminGuard)
@@ -33,14 +44,16 @@ export class AdminController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
+    const pageNum = Number(page);
+    const limitNum = Number(limit);
     return this.adminService.listUsers({
       search,
       provider,
       emailVerified:
         emailVerified === undefined ? undefined : emailVerified === 'true',
       subscriptionStatus,
-      page: page ? Number(page) : undefined,
-      limit: limit ? Number(limit) : undefined,
+      page: Number.isFinite(pageNum) && pageNum > 0 ? pageNum : undefined,
+      limit: Number.isFinite(limitNum) && limitNum > 0 ? limitNum : undefined,
     });
   }
 
@@ -52,7 +65,7 @@ export class AdminController {
   @Patch('users/:id/role')
   updateRole(
     @Param('id') id: string,
-    @Body() body: { role: Role },
+    @Body() body: UpdateRoleDto,
     @CurrentUser() currentUser: AuthenticatedUser,
   ) {
     return this.adminService.updateUserRole(id, body.role, currentUser);
@@ -61,7 +74,7 @@ export class AdminController {
   @Patch('users/:id/suspend')
   suspendUser(
     @Param('id') id: string,
-    @Body() body: { suspended: boolean },
+    @Body() body: SuspendUserDto,
     @CurrentUser() currentUser: AuthenticatedUser,
   ) {
     return this.adminService.suspendUser(id, body.suspended, currentUser);
