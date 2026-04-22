@@ -10,6 +10,7 @@ import { NotificationModule } from './modules/notification/notification.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { WorkspaceModule } from './modules/workspace/workspace.module';
 import { ApiBudgetModule } from './modules/api-budget/api-budget.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { ApiBudgetMiddleware } from './middleware/api-budget.middleware';
 import { AppController } from './app.controller';
 import { ApiBudgetService } from './services/api-budget.service';
@@ -27,6 +28,7 @@ import { ApiBudgetService } from './services/api-budget.service';
     PaymentModule,
     WorkspaceModule,
     ApiBudgetModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [ApiBudgetService],

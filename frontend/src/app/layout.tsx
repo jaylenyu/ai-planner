@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { headers } from 'next/headers';
 import Script from "next/script";
 import { GlobalNav } from "@/components/ui/GlobalNav";
 import { Footer } from "@/components/ui/Footer";
@@ -45,7 +46,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
@@ -69,6 +70,9 @@ export default function RootLayout({
       'query-input': 'required name=search_term_string',
     },
   };
+  const headerStore = await headers();
+  const pathname = headerStore.get('x-pathname') ?? '';
+  const isAdminRoute = pathname.startsWith('/admin');
 
   return (
     <html lang="ko" className="h-full antialiased font-sans">
@@ -100,9 +104,9 @@ export default function RootLayout({
           <Suspense fallback={null}>
             <RouteScrollManager />
           </Suspense>
-          <GlobalNav />
+          {!isAdminRoute ? <GlobalNav /> : null}
           <div className="flex flex-1 flex-col">{children}</div>
-          <Footer />
+          {!isAdminRoute ? <Footer /> : null}
         </QueryProvider>
       </body>
     </html>

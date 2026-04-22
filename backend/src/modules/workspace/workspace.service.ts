@@ -28,7 +28,7 @@ export class WorkspaceService {
   private async assertPaidAccess(userId: string) {
     const status = await this.paymentService.getStatus(userId);
     if (!status.hasAccess) {
-      throw new ForbiddenException('유료 플랜 구독이 필요합니다.');
+      throw new ForbiddenException('커플 플랜 구독이 필요합니다.');
     }
     return status;
   }
@@ -75,7 +75,7 @@ export class WorkspaceService {
 
     const existing = await this.findMembership(userId);
     if (existing) {
-      throw new ConflictException('이미 참여 중인 워크스페이스가 있습니다.');
+      throw new ConflictException('이미 참여 중인 커플 플랜이 있습니다.');
     }
 
     const workspace = await this.prisma.workspace.create({
@@ -130,7 +130,7 @@ export class WorkspaceService {
     });
 
     if (!membership) {
-      throw new NotFoundException('워크스페이스를 찾을 수 없습니다.');
+      throw new NotFoundException('커플 플랜을 찾을 수 없습니다.');
     }
 
     return membership;
@@ -140,14 +140,12 @@ export class WorkspaceService {
     await this.assertPaidAccess(userId);
     const membership = await this.getWorkspaceForUser(userId, workspaceId);
     if (membership.role !== 'owner') {
-      throw new ForbiddenException(
-        '초대는 워크스페이스 소유자만 할 수 있습니다.',
-      );
+      throw new ForbiddenException('초대는 플랜 오너만 할 수 있습니다.');
     }
 
     if (membership.workspace.members.length >= WORKSPACE_MEMBER_LIMIT) {
       throw new BadRequestException(
-        '워크스페이스는 최대 2명까지 참여할 수 있습니다.',
+        '커플 플랜은 최대 2명까지 참여할 수 있습니다.',
       );
     }
 
@@ -228,7 +226,7 @@ export class WorkspaceService {
       invite.workspace.ownerId,
     );
     if (!ownerStatus.hasAccess) {
-      throw new ForbiddenException('워크스페이스 구독이 활성 상태가 아닙니다.');
+      throw new ForbiddenException('커플 플랜 구독이 활성 상태가 아닙니다.');
     }
 
     if (invite.expiresAt.getTime() <= Date.now()) {
@@ -255,11 +253,11 @@ export class WorkspaceService {
           role: existingMembership.role,
         };
       }
-      throw new ConflictException('이미 다른 워크스페이스에 참여 중입니다.');
+      throw new ConflictException('이미 다른 커플 플랜에 참여 중입니다.');
     }
 
     if (invite.workspace.members.length >= WORKSPACE_MEMBER_LIMIT) {
-      throw new BadRequestException('워크스페이스 인원이 이미 가득 찼습니다.');
+      throw new BadRequestException('커플 플랜 인원이 이미 가득 찼습니다.');
     }
 
     await this.prisma.$transaction([
@@ -296,7 +294,7 @@ export class WorkspaceService {
     const membership = await this.getWorkspaceForUser(userId, workspaceId);
     if (membership.role !== 'owner') {
       throw new ForbiddenException(
-        '워크스페이스 해체는 소유자만 할 수 있습니다.',
+        '커플 플랜 해체는 플랜 오너만 할 수 있습니다.',
       );
     }
 

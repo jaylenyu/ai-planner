@@ -1,0 +1,67 @@
+services:
+  backend:
+    image: ghcr.io/jaylenyu/ai-planner-backend:canary
+    container_name: ai-planner-backend-test
+    restart: unless-stopped
+    mem_limit: 150m
+    mem_reservation: 100m
+    cpus: "0.5"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    env_file: /srv/apps/ai-planner-test/.env
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      NODE_OPTIONS: --max-old-space-size=128
+    command: ["sh", "-c", "./node_modules/.bin/prisma migrate deploy && exec node dist/src/main.js"]
+    volumes:
+      - /home/ec2-user/infra/regions.json:/app/dist/src/shared/region/regions.json:ro
+    ports:
+      - "4100:4000"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+    networks:
+      - app-net
+      - proxy-net
+
+  frontend:
+    image: ghcr.io/jaylenyu/ai-planner-frontend:canary
+    container_name: ai-planner-frontend-test
+    restart: unless-stopped
+    mem_limit: 96m
+    mem_reservation: 48m
+    cpus: "0.25"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    env_file: /srv/apps/ai-planner-test/.env
+    environment:
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=96
+    ports:
+      - "3100:3000"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+    networks:
+      - app-net
+      - proxy-net
+
+networks:
+  app-net:
+    name: ai-planner_app-net
+    external: true
+  proxy-net:
+    external: true

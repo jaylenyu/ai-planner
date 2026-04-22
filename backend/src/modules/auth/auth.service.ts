@@ -22,6 +22,11 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 const LOGIN_FAIL_TTL = 600; // 10분
 const MAX_LOGIN_FAILS = 5;
 
+type LoginOptions = {
+  namespace?: 'user' | 'admin';
+  requireAdmin?: boolean;
+};
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -33,9 +38,14 @@ export class AuthService {
     private readonly emailVerification: EmailVerificationService,
   ) {}
 
-  private async generateTokenPair(userId: string, email: string) {
+  private async generateTokenPair(
+    userId: string,
+    email: string,
+    role: 'USER' | 'ADMIN',
+    adminReadOnly = false,
+  ) {
     const access_token = this.jwtService.sign(
-      { sub: userId, email },
+      { sub: userId, email, role, adminReadOnly },
       {
         expiresIn: (this.config.get<string>('JWT_EXPIRES_IN') ??
           '15m') as SignOptions['expiresIn'],
@@ -66,10 +76,24 @@ export class AuthService {
 
     const hashed = await bcrypt.hash(dto.password, 10);
     const user = await this.prisma.user.create({
-      data: { email: dto.email, password: hashed, emailVerified: true },
+      data: {
+        email: dto.email,
+        password: hashed,
+        emailVerified: true,
+        lastLoginAt: new Date(),
+      },
     });
 
-    return this.generateTokenPair(user.id, user.email);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+    return this.generateTokenPair(
+      user.id,
+      user.email,
+      user.role,
+      user.adminReadOnly,
+    );
   }
 
   async checkEmailAvailability(email: string) {
@@ -98,9 +122,21 @@ export class AuthService {
     }
   }
 
-  async login(dto: LoginDto, _ip: string) {
-    const lockKey = `login_lock:${dto.email}`;
-    const failKey = `login_fail:${dto.email}`;
+  private getLoginKeys(email: string, namespace: 'user' | 'admin') {
+    const prefix = namespace === 'admin' ? 'admin:' : '';
+    return {
+      lockKey: `login_lock:${prefix}${email}`,
+      failKey: `login_fail:${prefix}${email}`,
+    };
+  }
+
+  private async loginInternal(
+    dto: LoginDto,
+    _ip: string,
+    options: LoginOptions = {},
+  ) {
+    const namespace = options.namespace ?? 'user';
+    const { lockKey, failKey } = this.getLoginKeys(dto.email, namespace);
 
     // 잠금 체크
     const locked = await this.redis.get(lockKey);
@@ -122,6 +158,10 @@ export class AuthService {
       );
     }
 
+    if (user.isSuspended) {
+      throw new ForbiddenException('정지된 계정입니다.');
+    }
+
     const valid = await bcrypt.compare(dto.password, user.password);
     if (!valid) {
       const fails = await this.redis.incr(failKey, LOGIN_FAIL_TTL);
@@ -136,15 +176,53 @@ export class AuthService {
       );
     }
 
+    if (options.requireAdmin && user.role !== 'ADMIN') {
+      throw new UnauthorizedException('관리자 계정이 아닙니다.');
+    }
+
     // 성공: 실패 카운터 초기화
     await this.redis.del(failKey);
     await this.redis.del(lockKey);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
 
-    return this.generateTokenPair(user.id, user.email);
+    return this.generateTokenPair(
+      user.id,
+      user.email,
+      user.role,
+      user.adminReadOnly,
+    );
   }
 
-  async oauthLogin(user: { id: string; email: string }) {
-    return this.generateTokenPair(user.id, user.email);
+  async login(dto: LoginDto, ip: string) {
+    return this.loginInternal(dto, ip, { namespace: 'user' });
+  }
+
+  async adminLogin(dto: LoginDto, ip: string) {
+    return this.loginInternal(dto, ip, {
+      namespace: 'admin',
+      requireAdmin: true,
+    });
+  }
+
+  async oauthLogin(user: {
+    id: string;
+    email: string;
+    role: 'USER' | 'ADMIN';
+    isSuspended?: boolean;
+    adminReadOnly?: boolean;
+  }) {
+    if (user.isSuspended) {
+      throw new ForbiddenException('정지된 계정입니다.');
+    }
+    return this.generateTokenPair(
+      user.id,
+      user.email,
+      user.role,
+      user.adminReadOnly,
+    );
   }
 
   async refreshTokens(rawToken: string) {
@@ -156,8 +234,16 @@ export class AuthService {
     for (const stored of tokens) {
       const match = await bcrypt.compare(rawToken, stored.token);
       if (match) {
+        if (stored.user.isSuspended) {
+          throw new ForbiddenException('정지된 계정입니다.');
+        }
         await this.prisma.refreshToken.delete({ where: { id: stored.id } });
-        return this.generateTokenPair(stored.user.id, stored.user.email);
+        return this.generateTokenPair(
+          stored.user.id,
+          stored.user.email,
+          stored.user.role as 'USER' | 'ADMIN',
+          stored.user.adminReadOnly,
+        );
       }
     }
 

@@ -82,7 +82,7 @@ export class PlanService {
   private async assertWorkspaceWritable(userId: string, workspaceId: string) {
     const membership = await this.getWorkspaceMembership(userId, workspaceId);
     if (!membership) {
-      throw new NotFoundException('워크스페이스를 찾을 수 없습니다.');
+      throw new NotFoundException('커플 플랜을 찾을 수 없습니다.');
     }
 
     const ownerStatus = await this.paymentService.getStatus(
@@ -90,7 +90,7 @@ export class PlanService {
     );
     if (!ownerStatus.hasAccess) {
       throw new ForbiddenException(
-        '공유 워크스페이스 구독이 만료되어 읽기 전용입니다.',
+        '커플 플랜 구독이 만료되어 읽기 전용입니다.',
       );
     }
 

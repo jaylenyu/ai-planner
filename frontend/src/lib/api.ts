@@ -1,6 +1,16 @@
 import { useAuthStore } from "../stores/authStore";
 import type {
   CategorySummary,
+  AdminApiUsageResponse,
+  AdminBillingResponse,
+  AdminCostResponse,
+  AdminLogsResponse,
+  AdminPlansResponse,
+  AdminSentryResponse,
+  AdminSummaryResponse,
+  AdminUserDetail,
+  AdminUserListResponse,
+  AdminUserUpdateResponse,
   NotificationItem,
   PaymentPrepareResponse,
   PlanMemo,
@@ -27,8 +37,16 @@ export class ApiError extends Error {
   }
 }
 
-async function tryRefresh(): Promise<boolean> {
-  const refreshToken = useAuthStore.getState().refreshToken;
+type AuthAdapter = {
+  getAccessToken: () => string | null;
+  getRefreshToken: () => string | null;
+  setTokens: (access: string, refresh: string) => void;
+  setAccessToken?: (access: string) => void;
+  clearTokens: () => void;
+};
+
+async function tryRefresh(auth: AuthAdapter): Promise<boolean> {
+  const refreshToken = auth.getRefreshToken();
   if (!refreshToken) return false;
 
   try {
@@ -39,44 +57,29 @@ async function tryRefresh(): Promise<boolean> {
     });
 
     if (!res.ok) {
-      useAuthStore.getState().clearTokens();
+      auth.clearTokens();
       return false;
     }
 
     const data = await res.json();
-    useAuthStore.getState().setTokens(data.access_token, data.refresh_token);
+    auth.setTokens(data.access_token, data.refresh_token);
     return true;
   } catch {
-    useAuthStore.getState().clearTokens();
+    auth.clearTokens();
     return false;
   }
 }
 
-async function request<T>(
+async function requestRaw<T>(
   path: string,
   options: RequestInit = {},
-  retry = true,
 ): Promise<T> {
-  const token = useAuthStore.getState().accessToken;
   const headers: HeadersInit = {
     "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...options.headers,
   };
 
   const res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
-
-  if (res.status === 401 && retry) {
-    const refreshed = await tryRefresh();
-    if (refreshed) {
-      return request<T>(path, options, false);
-    }
-    useAuthStore.getState().clearTokens();
-    if (typeof window !== "undefined") {
-      window.location.href = "/login";
-    }
-    throw new Error("인증이 만료되었습니다. 다시 로그인해주세요.");
-  }
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -105,17 +108,154 @@ async function request<T>(
   return JSON.parse(text) as T;
 }
 
+async function requestAppRaw<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+
+  const res = await fetch(path, { ...options, headers });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    let message = '요청 실패';
+    let payload: unknown;
+    if (text) {
+      try {
+        const parsed = JSON.parse(text) as { message?: string };
+        payload = parsed;
+        if (parsed?.message) message = parsed.message;
+      } catch {
+        message = text;
+      }
+    }
+    throw new ApiError(message, res.status, payload);
+  }
+
+  if (res.status === 204 || res.status === 205) {
+    return undefined as T;
+  }
+
+  const text = await res.text();
+  if (!text) {
+    return {} as T;
+  }
+  return JSON.parse(text) as T;
+}
+
+async function requestWithAuth<T>(
+  auth: AuthAdapter,
+  loginPath: string,
+  path: string,
+  options: RequestInit = {},
+  retry = true,
+): Promise<T> {
+  const token = auth.getAccessToken();
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...options.headers,
+  };
+
+  const res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+
+  if (res.status === 401 && retry) {
+    const refreshed = await tryRefresh(auth);
+    if (refreshed) {
+      return requestWithAuth<T>(auth, loginPath, path, options, false);
+    }
+    auth.clearTokens();
+    if (typeof window !== 'undefined') {
+      window.location.href = loginPath;
+    }
+    throw new Error('인증이 만료되었습니다. 다시 로그인해주세요.');
+  }
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    let message = '요청 실패';
+    let payload: unknown;
+    if (text) {
+      try {
+        const parsed = JSON.parse(text) as { message?: string };
+        payload = parsed;
+        if (parsed?.message) message = parsed.message;
+      } catch {
+        message = text;
+      }
+    }
+    throw new ApiError(message, res.status, payload);
+  }
+
+  if (res.status === 204 || res.status === 205) {
+    return undefined as T;
+  }
+
+  const text = await res.text();
+  if (!text) {
+    return {} as T;
+  }
+  return JSON.parse(text) as T;
+}
+
 export const api = {
   post: <T>(path: string, body: unknown) =>
-    request<T>(path, { method: "POST", body: JSON.stringify(body) }),
-  get: <T>(path: string) => request<T>(path),
+    requestWithAuth<T>(
+      {
+        getAccessToken: () => useAuthStore.getState().accessToken,
+        getRefreshToken: () => useAuthStore.getState().refreshToken,
+        setTokens: (access, refresh) => useAuthStore.getState().setTokens(access, refresh),
+        setAccessToken: (access) => useAuthStore.getState().setAccessToken(access),
+        clearTokens: () => useAuthStore.getState().clearTokens(),
+      },
+      '/login',
+      path,
+      { method: 'POST', body: JSON.stringify(body) },
+    ),
+  get: <T>(path: string) =>
+    requestWithAuth<T>(
+      {
+        getAccessToken: () => useAuthStore.getState().accessToken,
+        getRefreshToken: () => useAuthStore.getState().refreshToken,
+        setTokens: (access, refresh) => useAuthStore.getState().setTokens(access, refresh),
+        setAccessToken: (access) => useAuthStore.getState().setAccessToken(access),
+        clearTokens: () => useAuthStore.getState().clearTokens(),
+      },
+      '/login',
+      path,
+    ),
   patch: <T>(path: string, body: unknown) =>
-    request<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
+    requestWithAuth<T>(
+      {
+        getAccessToken: () => useAuthStore.getState().accessToken,
+        getRefreshToken: () => useAuthStore.getState().refreshToken,
+        setTokens: (access, refresh) => useAuthStore.getState().setTokens(access, refresh),
+        setAccessToken: (access) => useAuthStore.getState().setAccessToken(access),
+        clearTokens: () => useAuthStore.getState().clearTokens(),
+      },
+      '/login',
+      path,
+      { method: 'PATCH', body: JSON.stringify(body) },
+    ),
   delete: <T>(path: string, body?: unknown) =>
-    request<T>(path, {
-      method: "DELETE",
+    requestWithAuth<T>(
+      {
+        getAccessToken: () => useAuthStore.getState().accessToken,
+        getRefreshToken: () => useAuthStore.getState().refreshToken,
+        setTokens: (access, refresh) => useAuthStore.getState().setTokens(access, refresh),
+        setAccessToken: (access) => useAuthStore.getState().setAccessToken(access),
+        clearTokens: () => useAuthStore.getState().clearTokens(),
+      },
+      '/login',
+      path,
+      {
+        method: "DELETE",
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    }),
+      },
+    ),
 };
 
 export const planApi = {
@@ -187,18 +327,22 @@ export const billingApi = {
 
 export const authApi = {
   checkEmail: (email: string) =>
-    api.post<{ available: boolean; message: string }>("/auth/email/check", {
-      email,
+    requestRaw<{ available: boolean; message: string }>("/auth/email/check", {
+      method: 'POST',
+      body: JSON.stringify({ email }),
     }),
 
   requestEmailCode: (email: string, captchaToken: string) =>
-    api.post<{ message: string }>("/auth/email/request-code", {
-      email,
-      captchaToken,
+    requestRaw<{ message: string }>("/auth/email/request-code", {
+      method: 'POST',
+      body: JSON.stringify({ email, captchaToken }),
     }),
 
   verifyEmailCode: (email: string, code: string) =>
-    api.post<{ verified: boolean }>("/auth/email/verify-code", { email, code }),
+    requestRaw<{ verified: boolean }>("/auth/email/verify-code", {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
+    }),
 
   register: (
     email: string,
@@ -206,19 +350,86 @@ export const authApi = {
     agreedTerms: boolean,
     agreedPrivacy: boolean,
   ) =>
-    api.post<{ access_token: string; refresh_token: string }>(
+    requestRaw<{ access_token: string; refresh_token: string }>(
       "/auth/register",
       {
-        email,
-        password,
-        agreedTerms,
-        agreedPrivacy,
+        method: 'POST',
+        body: JSON.stringify({
+          email,
+          password,
+          agreedTerms,
+          agreedPrivacy,
+        }),
       },
     ),
 
   login: (email: string, password: string) =>
-    api.post<{ access_token: string; refresh_token: string }>("/auth/login", {
-      email,
-      password,
+    requestRaw<{ access_token: string; refresh_token: string }>("/auth/login", {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
     }),
+  loginAdmin: (email: string, password: string) =>
+    requestAppRaw<{
+      ok: true;
+      user: {
+        userId: string;
+        email: string;
+        role: 'ADMIN';
+        adminReadOnly: boolean;
+      };
+    }>('/api/admin/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+  logoutAdmin: () =>
+    requestAppRaw<{ ok: true }>('/api/admin/auth/logout', {
+      method: 'POST',
+    }),
+};
+
+export const adminApi = {
+  summary: () =>
+    requestAppRaw<AdminSummaryResponse>('/api/admin/summary'),
+  users: (query: Record<string, string | number | boolean | undefined>) => {
+    const params = new URLSearchParams();
+    Object.entries(query).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === '') return;
+      params.set(key, String(value));
+    });
+    const search = params.toString();
+    return requestAppRaw<AdminUserListResponse>(
+      search ? `/api/admin/users?${search}` : '/api/admin/users',
+    );
+  },
+  user: (id: string) =>
+    requestAppRaw<AdminUserDetail>(`/api/admin/users/${id}`),
+  updateRole: (id: string, role: 'USER' | 'ADMIN') =>
+    requestAppRaw<AdminUserUpdateResponse>(
+      `/api/admin/users/${id}/role`,
+      { method: 'PATCH', body: JSON.stringify({ role }) },
+    ),
+  suspendUser: (id: string, suspended: boolean) =>
+    requestAppRaw<AdminUserUpdateResponse>(
+      `/api/admin/users/${id}/suspend`,
+      { method: 'PATCH', body: JSON.stringify({ suspended }) },
+    ),
+  billing: () =>
+    requestAppRaw<AdminBillingResponse>('/api/admin/billing'),
+  plans: () =>
+    requestAppRaw<AdminPlansResponse>('/api/admin/plans'),
+  logs: (container: 'backend' | 'frontend', search?: string) => {
+    const params = new URLSearchParams({ container });
+    if (search) params.set('search', search);
+    return requestAppRaw<AdminLogsResponse>(
+      `/api/admin/ops/logs?${params.toString()}`,
+    );
+  },
+  cost: (refresh = false) =>
+    requestAppRaw<AdminCostResponse>(
+      `/api/admin/ops/cost${refresh ? '?refresh=1' : ''}`,
+    ),
+  sentry: () =>
+    requestAppRaw<AdminSentryResponse>('/api/admin/ops/sentry'),
+  apiUsage: () =>
+    requestAppRaw<AdminApiUsageResponse>('/api/admin/ops/api-usage'),
 };

@@ -83,7 +83,7 @@ export function PlanHistory({
                   )}
                   {plan.workspace && (
                     <span className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2.5 py-0.5 text-xs font-medium text-violet-600">
-                      공유
+                      커플 플랜
                     </span>
                   )}
                   <span className="text-xs text-stone-400">

@@ -23,6 +23,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { RequestEmailCodeDto } from './dto/request-email-code.dto';
 import { VerifyEmailCodeDto } from './dto/verify-email-code.dto';
 import { CheckEmailDto } from './dto/check-email.dto';
+import type { OAuthAuthenticatedUser } from './types';
 
 @Controller('auth')
 export class AuthController {
@@ -40,7 +41,7 @@ export class AuthController {
 
   private async handleOAuthRedirect(
     res: Response,
-    user: { id: string; email: string },
+    user: OAuthAuthenticatedUser,
   ) {
     const tokens = await this.authService.oauthLogin(user);
     res.redirect(
@@ -94,6 +95,13 @@ export class AuthController {
     return this.authService.login(dto, ip);
   }
 
+  @Post('admin/login')
+  loginAdmin(@Body() dto: LoginDto, @Req() req: Request) {
+    const ip =
+      (req.headers['x-forwarded-for'] as string)?.split(',')[0] ?? req.ip ?? '';
+    return this.authService.adminLogin(dto, ip);
+  }
+
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   refresh(@Body() dto: RefreshDto) {
@@ -129,7 +137,10 @@ export class AuthController {
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
   async googleCallback(
-    @Req() req: Request & { user: { id: string; email: string } },
+    @Req()
+    req: Request & {
+      user: OAuthAuthenticatedUser;
+    },
     @Res() res: Response,
   ) {
     try {
@@ -149,7 +160,10 @@ export class AuthController {
   @Get('kakao/callback')
   @UseGuards(AuthGuard('kakao'))
   async kakaoCallback(
-    @Req() req: Request & { user: { id: string; email: string } },
+    @Req()
+    req: Request & {
+      user: OAuthAuthenticatedUser;
+    },
     @Res() res: Response,
   ) {
     try {
@@ -169,7 +183,10 @@ export class AuthController {
   @Get('naver/callback')
   @UseGuards(AuthGuard('naver'))
   async naverCallback(
-    @Req() req: Request & { user: { id: string; email: string } },
+    @Req()
+    req: Request & {
+      user: OAuthAuthenticatedUser;
+    },
     @Res() res: Response,
   ) {
     try {

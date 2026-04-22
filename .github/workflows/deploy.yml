@@ -115,6 +115,10 @@ jobs:
             NEXT_PUBLIC_TOSS_CLIENT_KEY=${{ secrets.NEXT_PUBLIC_TOSS_CLIENT_KEY }}
             NEXT_PUBLIC_POSTHOG_KEY=${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}
             NEXT_PUBLIC_POSTHOG_HOST=${{ secrets.NEXT_PUBLIC_POSTHOG_HOST }}
+            NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+            SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
+            SENTRY_ORG=${{ secrets.SENTRY_ORG }}
+            SENTRY_PROJECT=${{ secrets.SENTRY_PROJECT }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,scope=frontend,mode=max
 
@@ -155,6 +159,11 @@ jobs:
             }
 
             upsert_env NEXT_PUBLIC_TOSS_CLIENT_KEY '${{ secrets.NEXT_PUBLIC_TOSS_CLIENT_KEY }}'
+            upsert_env NEXT_PUBLIC_SENTRY_DSN '${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}'
+            upsert_env SENTRY_DSN '${{ secrets.SENTRY_DSN }}'
+            upsert_env SENTRY_AUTH_TOKEN '${{ secrets.SENTRY_AUTH_TOKEN }}'
+            upsert_env SENTRY_ORG '${{ secrets.SENTRY_ORG }}'
+            upsert_env SENTRY_PROJECT '${{ secrets.SENTRY_PROJECT }}'
             upsert_env TOSS_SECRET_KEY '${{ secrets.TOSS_SECRET_KEY }}'
             upsert_env TOSS_WEBHOOK_SECRET '${{ secrets.TOSS_WEBHOOK_SECRET }}'
 

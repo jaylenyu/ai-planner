@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { getAuthUser } from "@/lib/auth";
 import { AppLogo } from "@/components/ui/AppLogo";
 import { NotificationBell } from "@/components/notification/NotificationBell";
 import {
@@ -72,6 +73,8 @@ export function GlobalNav() {
   const router = useRouter();
   const { isLoggedIn, hydrated, logout } = useAuth();
   const pathname = usePathname();
+  const authUser = getAuthUser();
+  const isAdmin = authUser?.role === 'ADMIN';
   const showMarketingLinks = !isLoggedIn && pathname === "/";
 
   const handleLogout = async () => {
@@ -131,7 +134,8 @@ export function GlobalNav() {
                 <NavLink href="/dashboard">대시보드</NavLink>
                 <NavLink href="/plan">일정 만들기</NavLink>
                 <NavLink href="/library">보관함</NavLink>
-                <NavLink href="/workspace">워크스페이스</NavLink>
+                <NavLink href="/workspace">커플 플랜</NavLink>
+                {isAdmin && <NavLink href="/admin">관리자</NavLink>}
                 <NavLink href="/subscribe">구독</NavLink>
               </>
             ) : showMarketingLinks ? (
@@ -198,7 +202,7 @@ export function GlobalNav() {
             <MobileTab
               href="/workspace"
               icon={<Users className="h-5 w-5" />}
-              label="공유"
+              label="플랜"
             />
             <MobileTab
               href="/subscribe"

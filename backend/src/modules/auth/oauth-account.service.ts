@@ -37,6 +37,7 @@ export class OAuthAccountService {
           email: `${provider}-${providerId}@oauth.local`,
           [field]: providerId,
           emailVerified: true,
+          lastLoginAt: new Date(),
         },
       });
     }
@@ -47,7 +48,12 @@ export class OAuthAccountService {
     if (!byEmail) {
       // 2a. 신규 생성
       return this.prisma.user.create({
-        data: { email, [field]: providerId, emailVerified: true },
+        data: {
+          email,
+          [field]: providerId,
+          emailVerified: true,
+          lastLoginAt: new Date(),
+        },
       });
     }
 
@@ -64,7 +70,7 @@ export class OAuthAccountService {
     // 2b. OAuth-only 유저 — providerId 자동 연결
     return this.prisma.user.update({
       where: { id: byEmail.id },
-      data: { [field]: providerId },
+      data: { [field]: providerId, lastLoginAt: new Date() },
     });
   }
 }

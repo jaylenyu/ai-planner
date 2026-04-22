@@ -57,6 +57,12 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (typeof window === 'undefined') return;
     const access = localStorage.getItem(ACCESS_TOKEN_KEY);
     const refresh = localStorage.getItem(REFRESH_TOKEN_KEY);
+    if (access) {
+      setCookie(ACCESS_TOKEN_KEY, access);
+    }
+    if (refresh) {
+      setCookie(REFRESH_TOKEN_KEY, refresh);
+    }
     set({
       accessToken: access,
       refreshToken: refresh,

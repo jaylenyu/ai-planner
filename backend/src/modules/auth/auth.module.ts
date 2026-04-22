@@ -14,6 +14,7 @@ import { EmailVerificationService } from './email-verification.service';
 import { OAuthAccountService } from './oauth-account.service';
 import { RedisModule } from '../../shared/redis/redis.module';
 import { CaptchaModule } from '../../shared/captcha/captcha.module';
+import { PrismaModule } from '../../prisma/prisma.module';
 
 @Module({
   imports: [
@@ -21,11 +22,18 @@ import { CaptchaModule } from '../../shared/captcha/captcha.module';
     EmailModule,
     RedisModule,
     CaptchaModule,
+    PrismaModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET'),
+        secret: (() => {
+          const secret = config.get<string>('JWT_SECRET')?.trim();
+          if (!secret) {
+            throw new Error('JWT_SECRET is required');
+          }
+          return secret;
+        })(),
         signOptions: {
           expiresIn: (config.get<string>('JWT_EXPIRES_IN') ??
             '15m') as SignOptions['expiresIn'],
