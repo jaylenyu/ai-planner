@@ -21,9 +21,13 @@ import type {
 
 const rawApiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 const normalizedApiUrl = rawApiUrl.replace(/\/+$/, "");
-export const API_BASE_URL = normalizedApiUrl.endsWith("/api")
+const absoluteApiBaseUrl = normalizedApiUrl.endsWith("/api")
   ? normalizedApiUrl
   : `${normalizedApiUrl}/api`;
+const browserApiBaseUrl = '/api';
+
+export const API_BASE_URL =
+  typeof window === 'undefined' ? absoluteApiBaseUrl : browserApiBaseUrl;
 
 export class ApiError extends Error {
   status: number;
