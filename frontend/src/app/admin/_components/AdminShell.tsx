@@ -27,8 +27,8 @@ export function AdminShell({
         />
 
         <div className="mx-auto flex w-full max-w-[1600px] gap-6 px-4 py-4 lg:min-h-[calc(100vh-56px)] lg:items-start lg:px-6 lg:py-6">
-          <aside className="hidden lg:block lg:w-[248px] lg:shrink-0">
-            <div className="sticky top-[72px]">
+          <aside className="hidden lg:block lg:w-[220px] lg:shrink-0">
+            <div className="sticky top-[72px] overflow-hidden rounded-xl border border-stone-100 bg-white shadow-sm">
               <AdminSidebar />
             </div>
           </aside>
