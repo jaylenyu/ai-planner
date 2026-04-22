@@ -7,7 +7,6 @@ on:
       - 'backend/**'
       - 'frontend/**'
       - '.github/workflows/canary.yml'
-      - '.github/workflows/deploy.yml'
 
 env:
   REGISTRY: ghcr.io
@@ -314,10 +313,11 @@ jobs:
             upsert_env APP_URL 'https://test.date-planner.us'
             upsert_env FRONTEND_URL 'https://test.date-planner.us'
             upsert_env CORS_ORIGIN 'https://test.date-planner.us'
-            upsert_env SEED_ADMIN_EMAIL 'jaylenyu96@gmail.com'
-            upsert_env SEED_ADMIN_PASSWORD 'Admin1234!'
-            upsert_env SEED_PUBLICADMIN_EMAIL 'publicadmin@ai-planner.local'
-            upsert_env SEED_PUBLICADMIN_PASSWORD 'PublicAdmin1234!'
+            upsert_env BACKEND_URL 'http://ai-planner-backend-test:4000'
+            upsert_env SEED_ADMIN_EMAIL '${{ secrets.SEED_ADMIN_EMAIL }}'
+            upsert_env SEED_ADMIN_PASSWORD '${{ secrets.SEED_ADMIN_PASSWORD }}'
+            upsert_env SEED_PUBLIC_ADMIN_EMAIL '${{ secrets.SEED_PUBLIC_ADMIN_EMAIL }}'
+            upsert_env SEED_PUBLIC_ADMIN_PASSWORD '${{ secrets.SEED_PUBLIC_ADMIN_PASSWORD }}'
             upsert_env NEXT_PUBLIC_TOSS_CLIENT_KEY '${{ secrets.NEXT_PUBLIC_TOSS_CLIENT_KEY }}'
             upsert_env NEXT_PUBLIC_SENTRY_DSN '${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}'
             upsert_env SENTRY_DSN '${{ secrets.SENTRY_DSN }}'
@@ -431,16 +431,16 @@ jobs:
             }
 
             async function main() {
-              await upsertAdmin(
-                process.env.SEED_ADMIN_EMAIL || 'jaylenyu96@gmail.com',
-                process.env.SEED_ADMIN_PASSWORD || 'Admin1234!',
-                false,
-              );
-              await upsertAdmin(
-                process.env.SEED_PUBLICADMIN_EMAIL || 'publicadmin@ai-planner.local',
-                process.env.SEED_PUBLICADMIN_PASSWORD || 'PublicAdmin1234!',
-                true,
-              );
+              const adminEmail = process.env.SEED_ADMIN_EMAIL;
+              const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+              const pubEmail = process.env.SEED_PUBLIC_ADMIN_EMAIL;
+              const pubPassword = process.env.SEED_PUBLIC_ADMIN_PASSWORD;
+              if (!adminEmail || !adminPassword || !pubEmail || !pubPassword) {
+                console.error('Missing SEED_* env vars');
+                process.exit(1);
+              }
+              await upsertAdmin(adminEmail, adminPassword, false);
+              await upsertAdmin(pubEmail, pubPassword, true);
               console.log('Seeded admin and publicadmin users');
             }
 

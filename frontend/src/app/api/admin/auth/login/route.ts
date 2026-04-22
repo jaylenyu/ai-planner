@@ -6,13 +6,13 @@ import {
   getAdminCookieOptions,
   verifyAdminAccessToken,
 } from '@/lib/server/admin-session';
-import { SERVER_API_BASE_URL } from '@/lib/server/api-url';
+import { BACKEND_INTERNAL_URL } from '@/lib/server/api-url';
 
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as { email?: string; password?: string };
-  const response = await fetch(`${SERVER_API_BASE_URL}/auth/admin/login`, {
+  const response = await fetch(`${BACKEND_INTERNAL_URL}/auth/admin/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

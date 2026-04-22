@@ -3,7 +3,7 @@ import { ADMIN_ACCESS_COOKIE, ADMIN_REFRESH_COOKIE } from '@/lib/admin-cookie';
 import {
   getAdminCookieOptions,
 } from '@/lib/server/admin-session';
-import { SERVER_API_BASE_URL } from '@/lib/server/api-url';
+import { BACKEND_INTERNAL_URL } from '@/lib/server/api-url';
 import { cookies } from 'next/headers';
 
 export const runtime = 'nodejs';
@@ -13,7 +13,7 @@ export async function POST() {
   const refreshToken = cookieStore.get(ADMIN_REFRESH_COOKIE)?.value;
 
   if (refreshToken) {
-    await fetch(`${SERVER_API_BASE_URL}/auth/logout`, {
+    await fetch(`${BACKEND_INTERNAL_URL}/auth/logout`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh_token: refreshToken }),

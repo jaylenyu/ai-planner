@@ -38,16 +38,27 @@ async function main() {
     throw new Error('DATABASE_URL가 설정되지 않았습니다.');
   }
 
+  const adminEmail = process.env.SEED_ADMIN_EMAIL ?? process.env.EMAIL_USER;
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+  const pubEmail = process.env.SEED_PUBLIC_ADMIN_EMAIL;
+  const pubPassword = process.env.SEED_PUBLIC_ADMIN_PASSWORD;
+
+  if (!adminEmail || !adminPassword || !pubEmail || !pubPassword) {
+    throw new Error(
+      'SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD, SEED_PUBLIC_ADMIN_EMAIL, SEED_PUBLIC_ADMIN_PASSWORD 환경변수가 필요합니다.',
+    );
+  }
+
   const seedUsers = [
     {
-      email: process.env.SEED_ADMIN_EMAIL ?? process.env.EMAIL_USER ?? 'jaylenyu96@gmail.com',
-      password: process.env.SEED_ADMIN_PASSWORD ?? 'Admin1234!',
+      email: adminEmail,
+      password: adminPassword,
       role: 'ADMIN' as const,
       adminReadOnly: false,
     },
     {
-      email: process.env.SEED_PUBLICADMIN_EMAIL ?? 'publicadmin@ai-planner.local',
-      password: process.env.SEED_PUBLICADMIN_PASSWORD ?? 'PublicAdmin1234!',
+      email: pubEmail,
+      password: pubPassword,
       role: 'ADMIN' as const,
       adminReadOnly: true,
     },
