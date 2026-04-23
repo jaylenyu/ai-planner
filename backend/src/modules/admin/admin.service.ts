@@ -683,7 +683,12 @@ export class AdminService {
               createdAt: true,
               updatedAt: true,
               owner: {
-                select: { id: true, email: true, role: true, adminReadOnly: true },
+                select: {
+                  id: true,
+                  email: true,
+                  role: true,
+                  adminReadOnly: true,
+                },
               },
               _count: { select: { members: true } },
             },
@@ -692,7 +697,13 @@ export class AdminService {
       }),
       this.prisma.plan.count(),
     ]);
-    return { items, total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) };
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    };
   }
 
   async listWorkspaces(page: number, limit: number) {
@@ -716,7 +727,13 @@ export class AdminService {
       }),
       this.prisma.workspace.count(),
     ]);
-    return { items, total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) };
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    };
   }
 
   async getApiUsageOverview() {
