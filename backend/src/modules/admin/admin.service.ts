@@ -996,9 +996,9 @@ export class AdminService {
 
     const apiKey = process.env.SENTRY_AUTH_TOKEN?.trim();
     const org = process.env.SENTRY_ORG?.trim();
-    const project = process.env.SENTRY_PROJECT?.trim();
+    const projectsRaw = process.env.SENTRY_PROJECT?.trim();
 
-    if (!apiKey || !org || !project) {
+    if (!apiKey || !org || !projectsRaw) {
       return {
         configured: false,
         available: false,
@@ -1008,45 +1008,59 @@ export class AdminService {
       };
     }
 
+    const projects = projectsRaw.split(',').map((p) => p.trim()).filter(Boolean);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
 
+    type SentryIssue = {
+      id: string;
+      title: string;
+      count: string;
+      firstSeen: string;
+      lastSeen: string;
+      permalink: string;
+    };
+
     try {
-      const response = await fetch(
-        `https://sentry.io/api/0/projects/${org}/${project}/issues/?query=is:unresolved&per_page=100`,
-        {
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            Accept: 'application/json',
-          },
-          signal: controller.signal,
-        },
+      const responses = await Promise.all(
+        projects.map((project) =>
+          fetch(
+            `https://sentry.io/api/0/projects/${org}/${project}/issues/?query=is:unresolved&per_page=100`,
+            {
+              headers: {
+                Authorization: `Bearer ${apiKey}`,
+                Accept: 'application/json',
+              },
+              signal: controller.signal,
+            },
+          ),
+        ),
       );
 
-      if (!response.ok) {
+      const failedResponse = responses.find((r) => !r.ok);
+      if (failedResponse) {
         return {
           configured: true,
           available: false,
-          error: `Sentry API 요청에 실패했습니다. (${response.status})`,
+          error: `Sentry API 요청에 실패했습니다. (${failedResponse.status})`,
           totalCount: 0,
           issues: [],
         };
       }
 
-      const data = (await response.json()) as Array<{
-        id: string;
-        title: string;
-        count: string;
-        firstSeen: string;
-        lastSeen: string;
-        permalink: string;
-      }>;
+      const allData = (
+        await Promise.all(responses.map((r) => r.json() as Promise<SentryIssue[]>))
+      ).flat();
+
+      allData.sort(
+        (a, b) => new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime(),
+      );
 
       const result = {
         configured: true,
         available: true,
-        totalCount: data.length,
-        issues: data.map((item) => ({
+        totalCount: allData.length,
+        issues: allData.map((item) => ({
           id: item.id,
           title: item.title,
           count: Number(item.count),
