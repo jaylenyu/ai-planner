@@ -28,7 +28,7 @@ export function AdminShell({
 
         <div className="mx-auto flex w-full max-w-[1600px] gap-6 px-4 py-4 lg:min-h-[calc(100vh-56px)] lg:items-start lg:px-6 lg:py-6">
           <aside className="hidden lg:block lg:w-[220px] lg:shrink-0">
-            <div className="sticky top-[72px] overflow-hidden rounded-xl shadow-lg" style={{ background: '#17171B' }}>
+            <div className="sticky top-[72px] overflow-hidden rounded-xl border border-stone-100 bg-white shadow-sm">
               <AdminSidebar />
             </div>
           </aside>
@@ -44,7 +44,7 @@ export function AdminShell({
           title="관리 메뉴"
           description="읽기 전용 모바일 탐색"
           containerClassName="items-start justify-start px-0 py-0"
-          panelClassName="max-w-none w-full h-full rounded-none [background:#17171B]"
+          panelClassName="max-w-none w-full h-full rounded-none"
           bodyClassName="px-0 py-0"
         >
           <AdminSidebar onNavigate={() => setMobileOpen(false)} />
