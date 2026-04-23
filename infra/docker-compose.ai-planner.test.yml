@@ -7,10 +7,12 @@ services:
     mem_reservation: 100m
     cpus: "0.5"
     logging:
-      driver: "json-file"
+      driver: "awslogs"
       options:
-        max-size: "10m"
-        max-file: "3"
+        awslogs-region: "${AWS_REGION}"
+        awslogs-group: "/ai-planner/backend"
+        awslogs-stream: "test-backend"
+        awslogs-create-group: "false"
     env_file: /srv/apps/ai-planner-test/.env
     environment:
       NODE_ENV: production
@@ -39,10 +41,12 @@ services:
     mem_reservation: 48m
     cpus: "0.25"
     logging:
-      driver: "json-file"
+      driver: "awslogs"
       options:
-        max-size: "10m"
-        max-file: "3"
+        awslogs-region: "${AWS_REGION}"
+        awslogs-group: "/ai-planner/frontend"
+        awslogs-stream: "test-frontend"
+        awslogs-create-group: "false"
     env_file: /srv/apps/ai-planner-test/.env
     environment:
       NODE_ENV: production

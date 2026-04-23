@@ -326,6 +326,11 @@ jobs:
             upsert_env SENTRY_PROJECT '${{ secrets.SENTRY_PROJECT }}'
             upsert_env TOSS_SECRET_KEY '${{ secrets.TOSS_SECRET_KEY }}'
             upsert_env TOSS_WEBHOOK_SECRET '${{ secrets.TOSS_WEBHOOK_SECRET }}'
+            upsert_env AWS_REGION '${{ secrets.AWS_REGION }}'
+            upsert_env AWS_ACCESS_KEY_ID '${{ secrets.AWS_ACCESS_KEY_ID }}'
+            upsert_env AWS_SECRET_ACCESS_KEY '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
+            upsert_env CLOUDWATCH_LOG_GROUP_BACKEND '/ai-planner/backend'
+            upsert_env CLOUDWATCH_LOG_GROUP_FRONTEND '/ai-planner/frontend'
 
             docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" config >/dev/null
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
