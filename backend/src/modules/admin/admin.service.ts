@@ -1008,7 +1008,10 @@ export class AdminService {
       };
     }
 
-    const projects = projectsRaw.split(',').map((p) => p.trim()).filter(Boolean);
+    const projects = projectsRaw
+      .split(',')
+      .map((p) => p.trim())
+      .filter(Boolean);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
 
@@ -1049,11 +1052,14 @@ export class AdminService {
       }
 
       const allData = (
-        await Promise.all(responses.map((r) => r.json() as Promise<SentryIssue[]>))
+        await Promise.all(
+          responses.map((r) => r.json() as Promise<SentryIssue[]>),
+        )
       ).flat();
 
       allData.sort(
-        (a, b) => new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime(),
+        (a, b) =>
+          new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime(),
       );
 
       const result = {
