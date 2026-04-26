@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 
@@ -71,6 +71,36 @@ export class OAuthAccountService {
     return this.prisma.user.update({
       where: { id: byEmail.id },
       data: { [field]: providerId, lastLoginAt: new Date() },
+    });
+  }
+
+  async linkProviderToUser({
+    userId,
+    provider,
+    providerId,
+    providerEmail: _providerEmail,
+  }: {
+    userId: string;
+    provider: OAuthProvider;
+    providerId: string;
+    providerEmail: string | null;
+  }) {
+    const field = providerField[provider];
+
+    // Check if providerId already belongs to another user
+    const existing = await this.prisma.user.findFirst({
+      where: {
+        [field]: providerId,
+        id: { not: userId },
+      } as unknown as Prisma.UserWhereInput,
+    });
+    if (existing) {
+      throw new ConflictException('PROVIDER_ALREADY_LINKED');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { [field]: providerId },
     });
   }
 }

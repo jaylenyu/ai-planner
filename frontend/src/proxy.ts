@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { ADMIN_ACCESS_COOKIE } from '@/lib/admin-cookie';
 
-const PROTECTED_PATHS = ['/dashboard', '/plan', '/library', '/workspace', '/plans', '/admin'];
+const PROTECTED_PATHS = ['/dashboard', '/plan', '/library', '/workspace', '/plans', '/admin', '/mypage', '/settings'];
 const AUTH_PATHS = ['/login', '/register'];
 
 function setPathHeader(request: NextRequest) {
@@ -65,6 +65,10 @@ export const config = {
     '/plans/:path*',
     '/admin',
     '/admin/:path*',
+    '/mypage',
+    '/mypage/:path*',
+    '/settings',
+    '/settings/:path*',
     '/login',
     '/register',
   ],

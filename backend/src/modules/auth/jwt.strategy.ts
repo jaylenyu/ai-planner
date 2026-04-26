@@ -36,10 +36,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         role: true,
         adminReadOnly: true,
         isSuspended: true,
+        deletedAt: true,
       },
     });
 
-    if (!user || user.isSuspended) {
+    if (!user || user.isSuspended || user.deletedAt) {
       throw new UnauthorizedException('정지되었거나 존재하지 않는 계정입니다.');
     }
 

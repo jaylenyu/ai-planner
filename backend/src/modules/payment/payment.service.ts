@@ -393,4 +393,29 @@ export class PaymentService {
   getClientKey() {
     return this.tossClientKey;
   }
+
+  async cancelByUser(userId: string): Promise<void> {
+    try {
+      const subscription = await this.prisma.subscription.findUnique({
+        where: { userId },
+      });
+
+      if (!subscription) return;
+      if (subscription.status !== 'active' && subscription.status !== 'grace') {
+        return;
+      }
+
+      await this.prisma.subscription.update({
+        where: { id: subscription.id },
+        data: {
+          status: 'cancelled',
+          cancelledAt: new Date(),
+        },
+      });
+
+      this.logger.log(`Subscription cancelled for user ${userId} (account deletion)`);
+    } catch (e) {
+      this.logger.warn(`cancelByUser failed for user ${userId}:`, e);
+    }
+  }
 }

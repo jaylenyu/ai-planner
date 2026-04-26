@@ -1,5 +1,9 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const cookieParser = require('cookie-parser') as (
+  ...args: unknown[]
+) => unknown;
 import { AppModule } from './app.module';
 import * as Sentry from '@sentry/node';
 import { SentryExceptionFilter } from './common/filters/sentry-exception.filter';
@@ -17,6 +21,7 @@ async function bootstrap() {
   }
 
   const app = await NestFactory.create(AppModule);
+  app.use(cookieParser());
   app.setGlobalPrefix('api', { exclude: ['health'] });
 
   const corsOrigin = process.env.CORS_ORIGIN ?? 'http://localhost:3000';

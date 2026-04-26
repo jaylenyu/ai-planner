@@ -175,21 +175,25 @@ export class WorkspaceService {
       process.env.FRONTEND_URL?.trim() || 'http://localhost:3000';
     const inviteUrl = `${frontendUrl}/workspace/join/${token}`;
 
-    try {
-      await this.emailService.sendWorkspaceInvite(
-        email,
-        membership.workspace.name,
-        inviteUrl,
-      );
-    } catch {
-      // Email config can be absent in local/dev. The invite URL is still returned.
-    }
-
     const invitedUser = await this.prisma.user.findUnique({
       where: { email },
-      select: { id: true },
+      select: { id: true, emailNotificationsEnabled: true },
     });
-    if (invitedUser) {
+
+    // Send invite email: always for non-users; for existing users only if they have email notifications enabled
+    const shouldSendEmail = !invitedUser || invitedUser.emailNotificationsEnabled;
+    if (shouldSendEmail) {
+      try {
+        await this.emailService.sendWorkspaceInvite(
+          email,
+          membership.workspace.name,
+          inviteUrl,
+        );
+      } catch {
+        // Email config can be absent in local/dev. The invite URL is still returned.
+      }
+    }
+    if (invitedUser?.id) {
       await this.notificationService.create(invitedUser.id, 'invite_received', {
         workspaceId,
         workspaceName: membership.workspace.name,
