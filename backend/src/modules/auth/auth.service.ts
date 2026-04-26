@@ -402,7 +402,11 @@ export class AuthService {
 
   async changePassword(
     userId: string,
-    dto: { currentPassword?: string; newPassword: string; verifyToken?: string },
+    dto: {
+      currentPassword?: string;
+      newPassword: string;
+      verifyToken?: string;
+    },
   ) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('사용자를 찾을 수 없습니다.');
@@ -410,9 +414,7 @@ export class AuthService {
     if (user.password) {
       // Has existing password — validate currentPassword
       if (!dto.currentPassword) {
-        throw new BadRequestException(
-          '현재 비밀번호를 입력해주세요.',
-        );
+        throw new BadRequestException('현재 비밀번호를 입력해주세요.');
       }
       const valid = await bcrypt.compare(dto.currentPassword, user.password);
       if (!valid) {
@@ -569,7 +571,9 @@ export class AuthService {
       ) {
         throw err;
       }
-      throw new BadRequestException('인증 토큰이 만료되었거나 유효하지 않습니다.');
+      throw new BadRequestException(
+        '인증 토큰이 만료되었거나 유효하지 않습니다.',
+      );
     }
   }
 
@@ -605,7 +609,13 @@ export class AuthService {
     const secret = this.getLinkTokenSecret();
     const iat = Math.floor(Date.now() / 1000);
     const exp = iat + 300; // 5 min
-    const payload = JSON.stringify({ sub: userId, intent: 'link', provider, iat, exp });
+    const payload = JSON.stringify({
+      sub: userId,
+      intent: 'link',
+      provider,
+      iat,
+      exp,
+    });
     const sig = crypto
       .createHmac('sha256', secret)
       .update(payload)
@@ -668,9 +678,9 @@ export class AuthService {
       };
 
     // Remaining providers after removal
-    const others: OAuthProvider[] = (['google', 'kakao', 'naver'] as const).filter(
-      (p) => p !== provider && user[fieldMap[p]] != null,
-    );
+    const others: OAuthProvider[] = (
+      ['google', 'kakao', 'naver'] as const
+    ).filter((p) => p !== provider && user[fieldMap[p]] != null);
 
     if (!user.password && others.length === 0) {
       throw new ConflictException('LAST_LOGIN_METHOD');

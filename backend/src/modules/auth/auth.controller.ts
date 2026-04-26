@@ -90,8 +90,7 @@ export class AuthController {
             `${this.getFrontendUrl()}/settings?linked=${provider}`,
           );
         } catch (err: unknown) {
-          const message =
-            err instanceof Error ? err.message : 'unknown';
+          const message = err instanceof Error ? err.message : 'unknown';
           this.logger.warn(`OAuth link failed: ${message}`);
           const errCode =
             message === 'PROVIDER_ALREADY_LINKED'
@@ -278,10 +277,7 @@ export class AuthController {
   @Delete('me')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  deleteMe(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: DeleteMeDto,
-  ) {
+  deleteMe(@CurrentUser() user: AuthenticatedUser, @Body() dto: DeleteMeDto) {
     return this.authService.deleteMe(user.userId, dto);
   }
 

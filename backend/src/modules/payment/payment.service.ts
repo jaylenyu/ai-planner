@@ -413,7 +413,9 @@ export class PaymentService {
         },
       });
 
-      this.logger.log(`Subscription cancelled for user ${userId} (account deletion)`);
+      this.logger.log(
+        `Subscription cancelled for user ${userId} (account deletion)`,
+      );
     } catch (e) {
       this.logger.warn(`cancelByUser failed for user ${userId}:`, e);
     }

@@ -181,7 +181,8 @@ export class WorkspaceService {
     });
 
     // Send invite email: always for non-users; for existing users only if they have email notifications enabled
-    const shouldSendEmail = !invitedUser || invitedUser.emailNotificationsEnabled;
+    const shouldSendEmail =
+      !invitedUser || invitedUser.emailNotificationsEnabled;
     if (shouldSendEmail) {
       try {
         await this.emailService.sendWorkspaceInvite(
