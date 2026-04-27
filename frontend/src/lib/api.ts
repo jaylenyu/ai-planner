@@ -329,6 +329,7 @@ export const billingApi = {
   confirm: (body: { paymentKey: string; orderId: string; amount: number }) =>
     api.post<SubscriptionStatusResponse>("/payment/confirm", body),
   status: () => api.get<SubscriptionStatusResponse>("/subscription/status"),
+  cancel: () => api.delete<void>("/subscription/cancel"),
 };
 
 export const authApi = {

@@ -1,16 +1,18 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Bell, Calendar, Settings, Users } from 'lucide-react';
 import { AppCard } from '@/components/ui/app-card';
 import { PrimaryButton } from '@/components/ui/primary-button';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useMe } from '@/hooks/useMe';
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { useNotifications } from '@/hooks/useNotifications';
 import { usePlanList } from '@/hooks/usePlanList';
+import { billingApi } from '@/lib/api';
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -30,12 +32,26 @@ function SkeletonCard({ rows = 3 }: { rows?: number }) {
 function MypageContent() {
   const router = useRouter();
   const { data: me, isLoading: meLoading } = useMe();
-  const { status: subStatus, loading: subLoading } = useSubscriptionStatus();
+  const { status: subStatus, loading: subLoading, refetch } = useSubscriptionStatus();
   const { workspace, loading: wsLoading } = useWorkspace();
   const { items: notifications, loading: notiLoading } = useNotifications();
   const { plans, loading: plansLoading } = usePlanList();
 
   const recentPlans = plans?.slice(0, 3) ?? [];
+
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
+
+  const handleCancelSubscription = async () => {
+    setCancelLoading(true);
+    try {
+      await billingApi.cancel();
+      await refetch();
+      setCancelOpen(false);
+    } finally {
+      setCancelLoading(false);
+    }
+  };
 
   return (
     <div className="bg-[var(--background)]">
@@ -94,11 +110,22 @@ function MypageContent() {
                   <p>다음 결제일 {formatDate(subStatus.subscription.currentPeriodEnd)}</p>
                 )}
               </div>
-              <Link href="/subscribe">
-                <PrimaryButton type="button" variant="brand" size="sm">
-                  구독 관리
+              {subStatus?.hasAccess ? (
+                <PrimaryButton
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCancelOpen(true)}
+                >
+                  구독 취소
                 </PrimaryButton>
-              </Link>
+              ) : (
+                <Link href="/subscribe">
+                  <PrimaryButton type="button" variant="brand" size="sm">
+                    구독 관리
+                  </PrimaryButton>
+                </Link>
+              )}
             </AppCard>
           )}
 
@@ -196,6 +223,18 @@ function MypageContent() {
           </AppCard>
         </div>
       </main>
+
+      <ConfirmDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        title="구독을 취소할까요?"
+        description="취소 후에도 현재 결제 기간이 끝날 때까지 서비스를 이용할 수 있습니다."
+        confirmLabel="구독 취소"
+        cancelLabel="돌아가기"
+        destructive
+        loading={cancelLoading}
+        onConfirm={() => void handleCancelSubscription()}
+      />
     </div>
   );
 }
