@@ -76,30 +76,32 @@ export class AuthController {
         linkCookie,
         provider,
       );
-      if (linkData) {
-        // Clear cookie immediately
-        res.clearCookie('oauth_link_token', { path: '/' });
-        try {
-          await this.oauthAccountService.linkProviderToUser({
-            userId: linkData.userId,
-            provider,
-            providerId: user.id,
-            providerEmail: user.email,
-          });
-          return res.redirect(
-            `${this.getFrontendUrl()}/settings?linked=${provider}`,
-          );
-        } catch (err: unknown) {
-          const message = err instanceof Error ? err.message : 'unknown';
-          this.logger.warn(`OAuth link failed: ${message}`);
-          const errCode =
-            message === 'PROVIDER_ALREADY_LINKED'
-              ? 'already_linked'
-              : 'link_error';
-          return res.redirect(
-            `${this.getFrontendUrl()}/settings?linkError=${errCode}`,
-          );
-        }
+      res.clearCookie('oauth_link_token', { path: '/' });
+      if (!linkData) {
+        return res.redirect(
+          `${this.getFrontendUrl()}/settings?linkError=link_token_invalid`,
+        );
+      }
+      try {
+        await this.oauthAccountService.linkProviderToUser({
+          userId: linkData.userId,
+          provider,
+          providerId: user.providerRawId ?? user.id,
+          providerEmail: user.email,
+        });
+        return res.redirect(
+          `${this.getFrontendUrl()}/settings?linked=${provider}`,
+        );
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'unknown';
+        this.logger.warn(`OAuth link failed: ${message}`);
+        const errCode =
+          message === 'PROVIDER_ALREADY_LINKED'
+            ? 'already_linked'
+            : 'link_error';
+        return res.redirect(
+          `${this.getFrontendUrl()}/settings?linkError=${errCode}`,
+        );
       }
     }
 

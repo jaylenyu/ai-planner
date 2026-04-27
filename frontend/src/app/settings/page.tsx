@@ -122,7 +122,7 @@ function SettingsContent() {
         ? { currentPassword: currentPw, newPassword: newPw }
         : { verifyToken, newPassword: newPw };
       const result = await changePassword(payload);
-      useAuthStore.getState().setTokens(result.accessToken, result.refreshToken);
+      useAuthStore.getState().setTokens(result.access_token, result.refresh_token);
       showToast('비밀번호가 변경되었습니다.');
       setCurrentPw('');
       setNewPw('');

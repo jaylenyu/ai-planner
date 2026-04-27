@@ -420,8 +420,8 @@ export async function changePassword(data: {
   currentPassword?: string;
   newPassword: string;
   verifyToken?: string;
-}): Promise<{ accessToken: string; refreshToken: string }> {
-  return api.patch<{ accessToken: string; refreshToken: string }>('/auth/password', data);
+}): Promise<{ access_token: string; refresh_token: string }> {
+  return api.patch<{ access_token: string; refresh_token: string }>('/auth/password', data);
 }
 
 export async function requestPasswordSetup(): Promise<void> {
