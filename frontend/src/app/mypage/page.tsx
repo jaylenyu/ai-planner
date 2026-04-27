@@ -7,6 +7,7 @@ import { Bell, Calendar, Settings, Users } from 'lucide-react';
 import { AppCard } from '@/components/ui/app-card';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Dialog } from '@/components/ui/dialog';
 import { useMe } from '@/hooks/useMe';
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 import { useWorkspace } from '@/hooks/useWorkspace';
@@ -41,13 +42,18 @@ function MypageContent() {
 
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelSuccessOpen, setCancelSuccessOpen] = useState(false);
+  const [cancelledUntil, setCancelledUntil] = useState<string | null>(null);
 
   const handleCancelSubscription = async () => {
     setCancelLoading(true);
     try {
+      const endDate = subStatus?.subscription.currentPeriodEnd ?? null;
       await billingApi.cancel();
       await refetch();
+      setCancelledUntil(endDate);
       setCancelOpen(false);
+      setCancelSuccessOpen(true);
     } finally {
       setCancelLoading(false);
     }
@@ -235,6 +241,30 @@ function MypageContent() {
         loading={cancelLoading}
         onConfirm={() => void handleCancelSubscription()}
       />
+
+      <Dialog
+        open={cancelSuccessOpen}
+        onOpenChange={setCancelSuccessOpen}
+        title="구독이 취소되었습니다"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-stone-600">
+            {cancelledUntil
+              ? `${formatDate(cancelledUntil)}까지 서비스를 계속 이용하실 수 있습니다.`
+              : '구독이 정상적으로 취소되었습니다.'}
+          </p>
+          <div className="flex justify-end">
+            <PrimaryButton
+              type="button"
+              variant="brand"
+              size="sm"
+              onClick={() => setCancelSuccessOpen(false)}
+            >
+              확인
+            </PrimaryButton>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }
