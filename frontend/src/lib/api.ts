@@ -393,6 +393,61 @@ export const authApi = {
     }),
 };
 
+export interface MeResponse {
+  id: string;
+  email: string;
+  role: string;
+  createdAt: string;
+  lastLoginAt: string | null;
+  hasPassword: boolean;
+  providers: { google: boolean; kakao: boolean; naver: boolean };
+  inAppNotificationsEnabled: boolean;
+  emailNotificationsEnabled: boolean;
+}
+
+export async function getMe(): Promise<MeResponse> {
+  return api.get<MeResponse>('/auth/me');
+}
+
+export async function updateSettings(data: {
+  inAppNotificationsEnabled?: boolean;
+  emailNotificationsEnabled?: boolean;
+}): Promise<void> {
+  return api.patch<void>('/auth/settings', data);
+}
+
+export async function changePassword(data: {
+  currentPassword?: string;
+  newPassword: string;
+  verifyToken?: string;
+}): Promise<{ accessToken: string; refreshToken: string }> {
+  return api.patch<{ accessToken: string; refreshToken: string }>('/auth/password', data);
+}
+
+export async function requestPasswordSetup(): Promise<void> {
+  return api.post<void>('/auth/password/setup-request', {});
+}
+
+export async function verifyPasswordSetup(code: string): Promise<{ verifyToken: string }> {
+  return api.post<{ verifyToken: string }>('/auth/password/setup-verify', { code });
+}
+
+export async function requestOAuthLinkToken(provider: 'google' | 'kakao' | 'naver'): Promise<void> {
+  return api.post<void>(`/auth/oauth/${provider}/link-token`, {});
+}
+
+export async function unlinkOAuth(provider: 'google' | 'kakao' | 'naver'): Promise<void> {
+  return api.delete<void>(`/auth/oauth/${provider}`);
+}
+
+export async function logoutAll(): Promise<void> {
+  return api.post<void>('/auth/logout-all', {});
+}
+
+export async function deleteMe(data: { password?: string; verifyToken?: string }): Promise<void> {
+  return api.delete<void>('/auth/me', data);
+}
+
 export const adminApi = {
   summary: () =>
     requestAppRaw<AdminSummaryResponse>('/api/admin/summary'),

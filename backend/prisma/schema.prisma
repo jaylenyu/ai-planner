@@ -36,7 +36,12 @@ model User {
   notifications       Notification[]
   refreshTokens       RefreshToken[]
   resetTokens         PasswordResetToken[]
-  createdAt           DateTime             @default(now())
+  deletedAt                 DateTime?
+  inAppNotificationsEnabled Boolean              @default(true)
+  emailNotificationsEnabled Boolean              @default(true)
+  createdAt                 DateTime             @default(now())
+
+  @@index([deletedAt])
 }
 
 model RefreshToken {

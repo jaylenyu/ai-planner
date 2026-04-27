@@ -15,6 +15,13 @@ export class NotificationService {
   }
 
   async create(userId: string, type: string, payload: Record<string, unknown>) {
+    // Respect inAppNotificationsEnabled preference
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { inAppNotificationsEnabled: true },
+    });
+    if (!user?.inAppNotificationsEnabled) return null;
+
     return this.prisma.notification.create({
       data: {
         userId,
@@ -31,8 +38,17 @@ export class NotificationService {
   ) {
     if (userIds.length === 0) return { count: 0 };
 
+    // Filter to users with in-app notifications enabled
+    const enabledUsers = await this.prisma.user.findMany({
+      where: { id: { in: userIds }, inAppNotificationsEnabled: true },
+      select: { id: true },
+    });
+    const enabledIds = enabledUsers.map((u) => u.id);
+
+    if (!enabledIds.length) return { count: 0 };
+
     return this.prisma.notification.createMany({
-      data: userIds.map((userId) => ({
+      data: enabledIds.map((userId) => ({
         userId,
         type,
         payload: payload as Prisma.InputJsonValue,

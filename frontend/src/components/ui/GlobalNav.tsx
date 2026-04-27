@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { getAuthUser } from "@/lib/auth";
 import { AppLogo } from "@/components/ui/AppLogo";
 import { NotificationBell } from "@/components/notification/NotificationBell";
+import { UserMenu } from "@/components/user/UserMenu";
 import {
   LayoutDashboard,
   CalendarPlus,
@@ -13,6 +14,7 @@ import {
   Users,
   LogOut,
   Crown,
+  User,
 } from "lucide-react";
 
 interface NavLinkProps {
@@ -92,11 +94,19 @@ export function GlobalNav() {
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:py-4 sm:px-6">
           <AppLogo size="md" showSubtitle />
 
-          {/* 모바일: 알림 + 로그아웃만 */}
+          {/* 모바일: 알림 + 마이페이지 + 로그아웃 */}
           <div className="flex items-center gap-3 sm:hidden">
             {!hydrated ? null : isLoggedIn ? (
               <>
                 <NotificationBell />
+                <button
+                  type="button"
+                  onClick={() => router.push('/mypage')}
+                  className="flex items-center justify-center h-9 w-9 rounded-full text-stone-400 active:bg-stone-100 transition-colors"
+                  aria-label="마이페이지"
+                >
+                  <User className="h-4 w-4" />
+                </button>
                 <button
                   type="button"
                   onClick={handleLogout}
@@ -155,13 +165,7 @@ export function GlobalNav() {
               </>
             ) : null}
             {!hydrated ? null : isLoggedIn ? (
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="text-sm font-medium text-stone-500 hover:text-stone-800 transition-colors"
-              >
-                로그아웃
-              </button>
+              <UserMenu />
             ) : (
               <div className="flex items-center gap-4">
                 <NavLink href="/login">로그인</NavLink>

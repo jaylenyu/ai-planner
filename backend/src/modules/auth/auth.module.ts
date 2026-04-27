@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -15,6 +15,7 @@ import { OAuthAccountService } from './oauth-account.service';
 import { RedisModule } from '../../shared/redis/redis.module';
 import { CaptchaModule } from '../../shared/captcha/captcha.module';
 import { PrismaModule } from '../../prisma/prisma.module';
+import { PaymentModule } from '../payment/payment.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { PrismaModule } from '../../prisma/prisma.module';
     RedisModule,
     CaptchaModule,
     PrismaModule,
+    forwardRef(() => PaymentModule),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -51,6 +53,6 @@ import { PrismaModule } from '../../prisma/prisma.module';
     EmailVerificationService,
     OAuthAccountService,
   ],
-  exports: [JwtModule],
+  exports: [JwtModule, AuthService],
 })
 export class AuthModule {}
