@@ -30,7 +30,12 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     try {
       const email = profile.emails?.[0]?.value ?? null;
       if (req.cookies?.['oauth_link_token']) {
-        return done(null, { id: 'link-mode', email: email ?? '', role: 'USER', providerRawId: profile.id });
+        return done(null, {
+          id: 'link-mode',
+          email: email ?? '',
+          role: 'USER',
+          providerRawId: profile.id,
+        });
       }
       const user = await this.oauthAccount.findOrLinkOrCreate(
         'google',

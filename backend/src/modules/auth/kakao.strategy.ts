@@ -43,7 +43,12 @@ export class KakaoStrategy extends PassportStrategy(Strategy, 'kakao') {
 
       const email: string | null = profile._json?.kakao_account?.email ?? null;
       if (req.cookies?.['oauth_link_token']) {
-        return done(null, { id: 'link-mode', email: email ?? '', role: 'USER', providerRawId: kakaoId });
+        return done(null, {
+          id: 'link-mode',
+          email: email ?? '',
+          role: 'USER',
+          providerRawId: kakaoId,
+        });
       }
       const user = await this.oauthAccount.findOrLinkOrCreate(
         'kakao',

@@ -45,7 +45,12 @@ export class NaverStrategy extends PassportStrategy(Strategy, 'naver') {
 
       const email: string | null = profile?._json?.email ?? null;
       if (req.cookies?.['oauth_link_token']) {
-        return done(null, { id: 'link-mode', email: email ?? '', role: 'USER', providerRawId: naverId });
+        return done(null, {
+          id: 'link-mode',
+          email: email ?? '',
+          role: 'USER',
+          providerRawId: naverId,
+        });
       }
       const user = await this.oauthAccount.findOrLinkOrCreate(
         'naver',
