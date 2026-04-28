@@ -57,9 +57,7 @@ export default function DashboardPage() {
           ? "커플 플랜을 만들고 파트너를 초대하면 공유 일정과 메모를 함께 관리할 수 있습니다."
           : "구독을 활성화하면 커플 플랜 생성과 파트너 초대 기능을 사용할 수 있습니다.",
         ctaHref: status?.hasAccess ? "/workspace" : "/subscribe",
-        ctaLabel: status?.hasAccess
-          ? "커플 플랜 만들기"
-          : "구독하고 시작하기",
+        ctaLabel: status?.hasAccess ? "커플 플랜 만들기" : "구독하고 시작하기",
       };
     }
 
@@ -188,7 +186,7 @@ export default function DashboardPage() {
                     </p>
                     <p className="mt-1 text-stone-500">
                       월 구독료:{" "}
-                      {status?.monthlyAmount?.toLocaleString?.() ?? "9,900"}원
+                      {status?.monthlyAmount?.toLocaleString?.() ?? "3,900"}원
                     </p>
                   </div>
                 )}
@@ -362,7 +360,7 @@ export default function DashboardPage() {
                       <p className="font-semibold text-stone-900">
                         읽지 않은 알림 {unreadCount}건
                       </p>
-                    <p className="mt-1 text-stone-500">
+                      <p className="mt-1 text-stone-500">
                         공유 일정과 커플 플랜 변경사항을 빠르게 확인하세요.
                       </p>
                     </div>

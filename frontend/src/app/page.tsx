@@ -48,7 +48,7 @@ const stats = [
     detail: "자연어로 바로 시작",
   },
   { label: "기본 관리", value: "무료", detail: "보관함 · 카테고리 · 삭제" },
-  { label: "공유 기능", value: "유료", detail: "파트너 초대 · 메모 · 수정" },
+  { label: "공유 기능", value: "3,900원", detail: "파트너 초대 · 메모 · 수정" },
 ];
 
 const steps = [
@@ -126,8 +126,9 @@ export default async function Home() {
                 className="max-w-md text-base leading-relaxed sm:text-lg"
                 style={{ color: "var(--text-secondary)" }}
               >
-                자연어 입력 → 일정 생성 → 보관함 정리 → 커플 플랜 공유까지 한 번에.
-                데이트 코스와 당일치기 여행을 더 빠르게 정리할 수 있습니다.
+                자연어 입력 → 일정 생성 → 보관함 정리 → 커플 플랜 공유까지 한
+                번에. 데이트 코스와 당일치기 여행을 더 빠르게 정리할 수
+                있습니다.
               </p>
               <div className="flex flex-wrap gap-3">
                 <PrimaryButton asChild variant="brand" size="lg">
