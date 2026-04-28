@@ -27,8 +27,8 @@ type TossConfirmResponse = {
   raw?: unknown;
 };
 
-const DEFAULT_MONTHLY_AMOUNT = 9900;
-const PLAN_CODE = 'couple_monthly';
+import { PLAN_CODE, resolveMonthlyAmount } from '../../config/billing.config';
+
 const GRACE_PERIOD_MS = 3 * 24 * 60 * 60 * 1000;
 const SUBSCRIPTION_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -42,11 +42,7 @@ export class PaymentService {
   ) {}
 
   private get monthlyAmount() {
-    const raw = process.env.SUBSCRIPTION_MONTHLY_AMOUNT?.trim();
-    const parsed = raw ? Number(raw) : DEFAULT_MONTHLY_AMOUNT;
-    return Number.isFinite(parsed) && parsed > 0
-      ? Math.round(parsed)
-      : DEFAULT_MONTHLY_AMOUNT;
+    return resolveMonthlyAmount();
   }
 
   private get tossSecretKey() {

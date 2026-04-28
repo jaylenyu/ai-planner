@@ -60,8 +60,9 @@
   --surface-sunken: #f7f6f3;
 
   /* ── Shadows ── */
-  --shadow-card: 0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.06);
-  --shadow-card-hover: 0 4px 8px rgba(0,0,0,0.06), 0 16px 40px rgba(0,0,0,0.10);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.06);
+  --shadow-card-hover:
+    0 4px 8px rgba(0, 0, 0, 0.06), 0 16px 40px rgba(0, 0, 0, 0.1);
   --shadow-brand: 0 4px 24px rgba(249, 115, 22, 0.24);
   --shadow-brand-lg: 0 8px 40px rgba(249, 115, 22, 0.32);
 
@@ -73,17 +74,23 @@
 
   /* ── Gradients ── */
   --gradient-brand: linear-gradient(135deg, #f97316 0%, #ec4899 100%);
-  --gradient-brand-subtle: linear-gradient(135deg, rgba(249,115,22,0.08) 0%, rgba(236,72,153,0.06) 100%);
+  --gradient-brand-subtle: linear-gradient(
+    135deg,
+    rgba(249, 115, 22, 0.08) 0%,
+    rgba(236, 72, 153, 0.06) 100%
+  );
 
   /* ── Divider ── */
-  --divider: rgba(0,0,0,0.06);
+  --divider: rgba(0, 0, 0, 0.06);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans-stack: 'Pretendard', 'Noto Sans KR', 'Apple SD Gothic Neo', system-ui, sans-serif;
-  --font-mono-stack: 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  --font-sans-stack:
+    "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif;
+  --font-mono-stack:
+    "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   --font-sans: var(--font-sans-stack);
   --font-mono: var(--font-mono-stack);
 }
@@ -115,7 +122,9 @@ body {
 }
 
 /* Smooth transitions globally */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -143,8 +152,12 @@ body {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideInLeft {
@@ -159,18 +172,32 @@ body {
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 @keyframes pulse-soft {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
 }
 
 .animate-fade-in-up {
@@ -207,14 +234,30 @@ body {
 .stagger-children > * {
   animation: fadeInUp 0.4s ease-out both;
 }
-.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
-.stagger-children > *:nth-child(2) { animation-delay: 60ms; }
-.stagger-children > *:nth-child(3) { animation-delay: 120ms; }
-.stagger-children > *:nth-child(4) { animation-delay: 180ms; }
-.stagger-children > *:nth-child(5) { animation-delay: 240ms; }
-.stagger-children > *:nth-child(6) { animation-delay: 300ms; }
-.stagger-children > *:nth-child(7) { animation-delay: 360ms; }
-.stagger-children > *:nth-child(8) { animation-delay: 420ms; }
+.stagger-children > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+.stagger-children > *:nth-child(2) {
+  animation-delay: 60ms;
+}
+.stagger-children > *:nth-child(3) {
+  animation-delay: 120ms;
+}
+.stagger-children > *:nth-child(4) {
+  animation-delay: 180ms;
+}
+.stagger-children > *:nth-child(5) {
+  animation-delay: 240ms;
+}
+.stagger-children > *:nth-child(6) {
+  animation-delay: 300ms;
+}
+.stagger-children > *:nth-child(7) {
+  animation-delay: 360ms;
+}
+.stagger-children > *:nth-child(8) {
+  animation-delay: 420ms;
+}
 
 /* Gradient text */
 .text-gradient {
@@ -226,20 +269,34 @@ body {
 
 /* Hero pattern background */
 .hero-pattern {
-  background-image: radial-gradient(circle at 20% 50%, rgba(251, 146, 60, 0.08) 0%, transparent 50%),
-                    radial-gradient(circle at 80% 50%, rgba(244, 114, 182, 0.08) 0%, transparent 50%),
-                    radial-gradient(circle at 50% 100%, rgba(139, 92, 246, 0.06) 0%, transparent 50%);
+  background-image:
+    radial-gradient(
+      circle at 20% 50%,
+      rgba(251, 146, 60, 0.08) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 80% 50%,
+      rgba(244, 114, 182, 0.08) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 50% 100%,
+      rgba(139, 92, 246, 0.06) 0%,
+      transparent 50%
+    );
 }
 
 /* Glass effect */
 .glass {
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
 
 /* Focus ring style */
-input:focus, textarea:focus {
+input:focus,
+textarea:focus {
   outline: none;
 }
 
@@ -278,7 +335,10 @@ select {
   border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
-  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
 }
 
 .btn-brand {
@@ -287,7 +347,10 @@ select {
   font-weight: 600;
   border-radius: var(--radius-pill);
   box-shadow: var(--shadow-brand);
-  transition: box-shadow 0.2s ease, transform 0.15s ease, opacity 0.15s ease;
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.15s ease,
+    opacity 0.15s ease;
 }
 .btn-brand:hover {
   box-shadow: var(--shadow-brand-lg);
@@ -298,9 +361,15 @@ select {
   opacity: 0.92;
 }
 
-.bg-section-alt { background: var(--surface-sunken); }
-.bg-section-brand-tint { background: var(--gradient-brand-subtle); }
-.text-balance { text-wrap: balance; }
+.bg-section-alt {
+  background: var(--surface-sunken);
+}
+.bg-section-brand-tint {
+  background: var(--gradient-brand-subtle);
+}
+.text-balance {
+  text-wrap: balance;
+}
 
 .metric-value {
   font-size: clamp(2rem, 4vw, 3rem);
@@ -311,7 +380,11 @@ select {
 
 .timeline-line {
   width: 1px;
-  background: linear-gradient(to bottom, var(--border-default) 0%, transparent 100%);
+  background: linear-gradient(
+    to bottom,
+    var(--border-default) 0%,
+    transparent 100%
+  );
   flex: 1;
   min-height: 20px;
   margin: 4px auto;
@@ -319,8 +392,14 @@ select {
 
 /* ── Scale-in animation ── */
 @keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.97) translateY(8px); }
-  to   { opacity: 1; transform: scale(1)    translateY(0); }
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 .animate-scale-in {
   animation: scaleIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;

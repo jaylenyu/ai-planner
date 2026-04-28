@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { Menu, UserCircle2 } from 'lucide-react';
-import { authApi } from '@/lib/api';
+import { Menu, UserCircle2 } from "lucide-react";
+import { authApi } from "@/lib/api";
 
 export function AdminTopBar({
   adminEmail,
@@ -14,9 +14,9 @@ export function AdminTopBar({
 }) {
   const handleLogout = async () => {
     await authApi.logoutAdmin();
-    localStorage.removeItem('ai_planner_admin_token');
-    localStorage.removeItem('ai_planner_admin_refresh');
-    window.location.href = '/admin/login';
+    localStorage.removeItem("ai_planner_admin_token");
+    localStorage.removeItem("ai_planner_admin_refresh");
+    window.location.href = "/admin/login";
   };
 
   return (
@@ -33,20 +33,21 @@ export function AdminTopBar({
           </button>
           <div>
             <p className="text-sm font-bold text-stone-900">AI Planner Admin</p>
-            <p className="text-xs text-stone-500">TossPayments Docs 스타일 운영 대시보드</p>
           </div>
         </div>
         <div className="flex items-center gap-2 rounded-full border border-[var(--border-default)] bg-white px-2 py-1.5 text-sm text-stone-700 shadow-sm">
           <UserCircle2 className="h-4 w-4 text-[var(--brand-600)]" />
-          <span className="hidden max-w-[220px] truncate sm:inline">{adminEmail}</span>
+          <span className="hidden max-w-[220px] truncate sm:inline">
+            {adminEmail}
+          </span>
           <span
             className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${
               adminReadOnly
-                ? 'bg-stone-100 text-stone-500'
-                : 'bg-orange-50 text-orange-600'
+                ? "bg-stone-100 text-stone-500"
+                : "bg-orange-50 text-orange-600"
             }`}
           >
-            {adminReadOnly ? '읽기 전용' : '전체 권한'}
+            {adminReadOnly ? "읽기 전용" : "전체 권한"}
           </span>
           <button
             type="button"
