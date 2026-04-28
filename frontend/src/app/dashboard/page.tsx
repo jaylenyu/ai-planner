@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { MONTHLY_AMOUNT } from "@/config/billing";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -186,7 +187,7 @@ export default function DashboardPage() {
                     </p>
                     <p className="mt-1 text-stone-500">
                       월 구독료:{" "}
-                      {status?.monthlyAmount?.toLocaleString?.() ?? "3,900"}원
+                      {(status?.monthlyAmount ?? MONTHLY_AMOUNT).toLocaleString("ko-KR")}원
                     </p>
                   </div>
                 )}

@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { MONTHLY_AMOUNT_DISPLAY } from "@/config/billing";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
@@ -48,7 +49,7 @@ const stats = [
     detail: "자연어로 바로 시작",
   },
   { label: "기본 관리", value: "무료", detail: "보관함 · 카테고리 · 삭제" },
-  { label: "공유 기능", value: "3,900원", detail: "파트너 초대 · 메모 · 수정" },
+  { label: "공유 기능", value: MONTHLY_AMOUNT_DISPLAY, detail: "파트너 초대 · 메모 · 수정" },
 ];
 
 const steps = [
