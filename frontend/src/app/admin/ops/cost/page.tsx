@@ -1,14 +1,26 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Pie, PieChart, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { adminApi } from '@/lib/api';
 import { AdminPageHeader } from '../../_components/AdminPageHeader';
 import { AdminSectionCard } from '../../_components/AdminSectionCard';
 
-function MoneyBar({ value, max }: { value: number; max: number }) {
-  const width = max === 0 ? 0 : Math.max(8, Math.round((value / max) * 100));
-  return <div className="h-3 rounded-full bg-[var(--brand-500)]" style={{ width: `${width}%` }} />;
+const PALETTE = [
+  '#e07b39', '#f5a623', '#4a90d9', '#7ed321', '#9b59b6',
+  '#1abc9c', '#e74c3c', '#3498db', '#f39c12', '#2ecc71',
+];
+
+function CostTooltip({ active, payload }: { active?: boolean; payload?: Array<{ name: string; value: number }> }) {
+  if (!active || !payload?.length) return null;
+  const { name, value } = payload[0];
+  return (
+    <div className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm shadow-lg">
+      <p className="font-medium text-stone-700">{name}</p>
+      <p className="font-mono text-stone-900">${value.toFixed(2)}</p>
+    </div>
+  );
 }
 
 export default function AdminCostPage() {
@@ -24,7 +36,9 @@ export default function AdminCostPage() {
     },
   });
 
-  const max = Math.max(...Object.values(query.data?.byService ?? { x: 0 }));
+  const chartData = Object.entries(query.data?.byService ?? {})
+    .filter(([, v]) => v > 0)
+    .map(([name, value], i) => ({ name, value, fill: PALETTE[i % PALETTE.length] }));
 
   return (
     <div className="space-y-6">
@@ -54,11 +68,9 @@ export default function AdminCostPage() {
             {query.data.error ?? 'Cost Explorer 대신 API 사용량 기반 추정치를 보여줍니다.'}
           </div>
         ) : null}
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-sm text-stone-500">월 누적</p>
-            <p className="text-3xl font-bold text-stone-900">${(query.data?.monthly ?? 0).toFixed(2)}</p>
-          </div>
+        <div>
+          <p className="text-sm text-stone-500">월 누적</p>
+          <p className="text-3xl font-bold text-stone-900">${(query.data?.monthly ?? 0).toFixed(2)}</p>
         </div>
       </AdminSectionCard>
 
@@ -66,21 +78,34 @@ export default function AdminCostPage() {
         title="서비스별 분해"
         description="비용 비중이 높은 영역을 빠르게 확인합니다."
       >
-        <div className="space-y-4">
-          {Object.entries(query.data?.byService ?? {})
-            .filter(([, value]) => value > 0)
-            .map(([service, value]) => (
-            <div key={service} className="space-y-1">
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium text-stone-700">{service}</span>
-                <span className="text-stone-500">${value.toFixed(2)}</span>
-              </div>
-              <div className="h-3 rounded-full bg-stone-100">
-                <MoneyBar value={value} max={max} />
-              </div>
-            </div>
-            ))}
-        </div>
+        {chartData.length === 0 ? (
+          <p className="text-sm text-stone-400">표시할 비용 데이터가 없습니다.</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={chartData}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                innerRadius={70}
+                outerRadius={110}
+                paddingAngle={2}
+              >
+                {chartData.map((entry) => (
+                  <Cell key={entry.name} fill={entry.fill} />
+                ))}
+              </Pie>
+              <Tooltip content={<CostTooltip />} />
+              <Legend
+                iconType="circle"
+                iconSize={8}
+                formatter={(value) => <span className="text-xs text-stone-600">{value}</span>}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        )}
       </AdminSectionCard>
     </div>
   );
