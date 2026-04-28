@@ -763,7 +763,11 @@ export class AdminService {
       take: 10,
     });
 
-    let openrouter: { configured: boolean; usage: number | null; error?: string } = {
+    let openrouter: {
+      configured: boolean;
+      usage: number | null;
+      error?: string;
+    } = {
       configured: false,
       usage: null,
     };
@@ -777,7 +781,11 @@ export class AdminService {
           const body = (await res.json()) as { data: { usage: number } };
           openrouter = { configured: true, usage: body.data.usage };
         } else {
-          openrouter = { configured: true, usage: null, error: `HTTP ${res.status}` };
+          openrouter = {
+            configured: true,
+            usage: null,
+            error: `HTTP ${res.status}`,
+          };
         }
       } catch (e) {
         openrouter = { configured: true, usage: null, error: String(e) };
