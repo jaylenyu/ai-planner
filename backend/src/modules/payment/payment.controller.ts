@@ -53,4 +53,11 @@ export class SubscriptionController {
   async cancel(@CurrentUser() user: { userId: string }) {
     await this.paymentService.cancelByUser(user.userId);
   }
+
+  @Post('resubscribe')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(204)
+  async resubscribe(@CurrentUser() user: { userId: string }) {
+    await this.paymentService.resubscribeByUser(user.userId);
+  }
 }

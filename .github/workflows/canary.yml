@@ -116,6 +116,7 @@ jobs:
             NEXT_PUBLIC_POSTHOG_KEY=${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}
             NEXT_PUBLIC_POSTHOG_HOST=${{ secrets.NEXT_PUBLIC_POSTHOG_HOST }}
             NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+            NEXT_PUBLIC_ADMIN_PUBLIC_LOGIN_ENABLED=true
             SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
             SENTRY_ORG=${{ secrets.SENTRY_ORG }}
             SENTRY_PROJECT=${{ secrets.SENTRY_PROJECT }}
@@ -319,6 +320,7 @@ jobs:
             upsert_env SEED_ADMIN_PASSWORD '${{ secrets.SEED_ADMIN_PASSWORD }}'
             upsert_env SEED_PUBLIC_ADMIN_EMAIL '${{ secrets.SEED_PUBLIC_ADMIN_EMAIL }}'
             upsert_env SEED_PUBLIC_ADMIN_PASSWORD '${{ secrets.SEED_PUBLIC_ADMIN_PASSWORD }}'
+            upsert_env ADMIN_PUBLIC_LOGIN_ENABLED 'true'
             upsert_env NEXT_PUBLIC_TOSS_CLIENT_KEY '${{ secrets.NEXT_PUBLIC_TOSS_CLIENT_KEY }}'
             upsert_env NEXT_PUBLIC_SENTRY_DSN '${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}'
             upsert_env SENTRY_DSN '${{ secrets.SENTRY_DSN }}'

@@ -6,15 +6,12 @@ import {
   getAdminCookieOptions,
   verifyAdminAccessToken,
 } from "@/lib/server/admin-session";
-import { BACKEND_INTERNAL_URL } from "@/lib/server/api-url";
+import { getBackendInternalUrl } from "@/lib/server/api-url";
 
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
-  if (
-    process.env.ADMIN_PUBLIC_LOGIN_ENABLED !== "true" ||
-    process.env.NODE_ENV === "production"
-  ) {
+  if (process.env.ADMIN_PUBLIC_LOGIN_ENABLED !== "true") {
     return NextResponse.json(
       { message: "publicadmin 로그인이 비활성화되어 있습니다." },
       { status: 404 },
@@ -39,7 +36,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const response = await fetch(`${BACKEND_INTERNAL_URL}/auth/admin/login`, {
+  const backendUrl = getBackendInternalUrl();
+  const response = await fetch(`${backendUrl}/auth/admin/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
