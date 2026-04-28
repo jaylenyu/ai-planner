@@ -11,4 +11,5 @@ export type OAuthAuthenticatedUser = {
   role: 'USER' | 'ADMIN';
   isSuspended?: boolean;
   adminReadOnly?: boolean;
+  providerRawId?: string;
 };

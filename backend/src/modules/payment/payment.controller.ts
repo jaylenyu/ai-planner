@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { ConfirmPaymentDto } from './dto/confirm-payment.dto';
@@ -37,5 +45,12 @@ export class SubscriptionController {
   @UseGuards(JwtAuthGuard)
   status(@CurrentUser() user: { userId: string }) {
     return this.paymentService.getStatus(user.userId);
+  }
+
+  @Delete('cancel')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(204)
+  async cancel(@CurrentUser() user: { userId: string }) {
+    await this.paymentService.cancelByUser(user.userId);
   }
 }

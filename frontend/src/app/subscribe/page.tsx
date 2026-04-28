@@ -4,6 +4,8 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AppCard } from "@/components/ui/app-card";
 import { PrimaryButton } from "@/components/ui/primary-button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Dialog } from "@/components/ui/dialog";
 import { TossPaymentWidget } from "@/components/payment/TossPaymentWidget";
 import { billingApi } from "@/lib/api";
 import { useSubscriptionStatus } from "@/hooks/useSubscriptionStatus";
@@ -12,15 +14,23 @@ import type {
 } from "@/lib/types";
 import { getToken } from "@/lib/auth";
 
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" });
+}
+
 function SubscribePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { status, loading, error: statusError } = useSubscriptionStatus();
+  const { status, loading, error: statusError, refetch } = useSubscriptionStatus();
   const [prepare, setPrepare] = useState<PaymentPrepareResponse | null>(null);
   const [preparing, setPreparing] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const [widgetError, setWidgetError] = useState<string | null>(null);
   const [autoOpenAfterFail, setAutoOpenAfterFail] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelSuccessOpen, setCancelSuccessOpen] = useState(false);
+  const [cancelledUntil, setCancelledUntil] = useState<string | null>(null);
 
   useEffect(() => {
     if (!getToken()) {
@@ -48,6 +58,20 @@ function SubscribePageContent() {
     () => status?.subscription.status ?? "inactive",
     [status],
   );
+
+  const handleCancelSubscription = async () => {
+    setCancelLoading(true);
+    try {
+      const endDate = status?.subscription.currentPeriodEnd ?? null;
+      await billingApi.cancel();
+      await refetch();
+      setCancelledUntil(endDate);
+      setCancelOpen(false);
+      setCancelSuccessOpen(true);
+    } finally {
+      setCancelLoading(false);
+    }
+  };
 
   const preparePayment = useCallback(async () => {
     try {
@@ -111,56 +135,87 @@ function SubscribePageContent() {
               </div>
             )}
 
-            {status && (
-              <div className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-4 text-sm text-stone-700">
-                <p className="font-semibold text-stone-900">
-                  현재 상태: {currentState}
-                </p>
-                <p className="mt-1">
-                  {status.hasAccess
-                    ? "유료 기능을 사용할 수 있습니다."
-                    : "아직 유료 기능이 비활성 상태입니다."}
-                </p>
-                <p className="mt-1 text-stone-500">
-                  월 구독료: {status.monthlyAmount.toLocaleString()}원
-                </p>
+            {status?.hasAccess ? (
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-4 text-sm text-green-800">
+                  <p className="font-semibold text-green-900">구독 중</p>
+                  {status.subscription.currentPeriodEnd && (
+                    <p className="mt-1">
+                      다음 결제일: {formatDate(status.subscription.currentPeriodEnd)}
+                    </p>
+                  )}
+                  <p className="mt-1 text-green-700">
+                    월 {status.monthlyAmount.toLocaleString()}원
+                  </p>
+                </div>
+
+                {currentState === "grace" && status.subscription.graceEndsAt && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    결제에 실패하여 유예 기간 중입니다.{" "}
+                    {formatDate(status.subscription.graceEndsAt)}까지 서비스를 이용할 수 있습니다.
+                  </div>
+                )}
+
+                <PrimaryButton
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCancelOpen(true)}
+                >
+                  구독 취소
+                </PrimaryButton>
               </div>
-            )}
+            ) : (
+              <>
+                {status && (
+                  <div className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-4 text-sm text-stone-700">
+                    <p className="mt-1">
+                      아직 유료 기능이 비활성 상태입니다.
+                    </p>
+                    <p className="mt-1 text-stone-500">
+                      월 구독료: {status.monthlyAmount.toLocaleString()}원
+                    </p>
+                  </div>
+                )}
 
-            {!clientKey && (
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                NEXT_PUBLIC_TOSS_CLIENT_KEY가 설정되어 있지 않습니다.
-              </div>
-            )}
+                {!clientKey && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    NEXT_PUBLIC_TOSS_CLIENT_KEY가 설정되어 있지 않습니다.
+                  </div>
+                )}
 
-            {!prepare && clientKey && (
-              <PrimaryButton
-                type="button"
-                variant="brand"
-                size="sm"
-                loading={preparing}
-                onClick={() => void preparePayment()}
-              >
-                결제창 불러오기
-              </PrimaryButton>
-            )}
+                {!prepare && clientKey && (
+                  <PrimaryButton
+                    type="button"
+                    variant="brand"
+                    size="sm"
+                    loading={preparing}
+                    onClick={() => void preparePayment()}
+                  >
+                    결제창 불러오기
+                  </PrimaryButton>
+                )}
 
-            {prepare && clientKey && (
-              <TossPaymentWidget
-                clientKey={clientKey}
-                customerKey={prepare.customerKey}
-                amount={prepare.payment.amount}
-                orderId={prepare.orderId}
-                orderName={prepare.orderName}
-                externalError={widgetError}
-                onExternalErrorClear={() => setWidgetError(null)}
-              />
+                {prepare && clientKey && (
+                  <TossPaymentWidget
+                    clientKey={clientKey}
+                    customerKey={prepare.customerKey}
+                    amount={prepare.payment.amount}
+                    orderId={prepare.orderId}
+                    orderName={prepare.orderName}
+                    externalError={widgetError}
+                    onExternalErrorClear={() => setWidgetError(null)}
+                  />
+                )}
+              </>
             )}
           </AppCard>
 
           <AppCard padding="lg" className="space-y-5">
             <div>
-              <p className="text-sm font-semibold text-stone-900">포함 기능</p>
+              <p className="text-sm font-semibold text-stone-900">
+                {status?.hasAccess ? "이용 중인 기능" : "포함 기능"}
+              </p>
               <ul className="mt-3 space-y-2 text-sm text-stone-600">
                 <li>공유 일정 열람과 편집</li>
                 <li>일정에 메모 추가</li>
@@ -171,6 +226,42 @@ function SubscribePageContent() {
           </AppCard>
         </div>
       </main>
+
+      <ConfirmDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        title="구독을 취소할까요?"
+        description="취소 후에도 현재 결제 기간이 끝날 때까지 서비스를 이용할 수 있습니다."
+        confirmLabel="구독 취소"
+        cancelLabel="돌아가기"
+        destructive
+        loading={cancelLoading}
+        onConfirm={() => void handleCancelSubscription()}
+      />
+
+      <Dialog
+        open={cancelSuccessOpen}
+        onOpenChange={setCancelSuccessOpen}
+        title="구독이 취소되었습니다"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-stone-600">
+            {cancelledUntil
+              ? `${formatDate(cancelledUntil)}까지 서비스를 계속 이용하실 수 있습니다.`
+              : "구독이 정상적으로 취소되었습니다."}
+          </p>
+          <div className="flex justify-end">
+            <PrimaryButton
+              type="button"
+              variant="brand"
+              size="sm"
+              onClick={() => setCancelSuccessOpen(false)}
+            >
+              확인
+            </PrimaryButton>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }

@@ -23,7 +23,12 @@ export class UserCleanupService {
 
     for (const { id } of users) {
       try {
-        await this.prisma.user.delete({ where: { id } });
+        await this.prisma.$transaction([
+          this.prisma.passwordResetToken.deleteMany({ where: { userId: id } }),
+          this.prisma.refreshToken.deleteMany({ where: { userId: id } }),
+          this.prisma.plan.deleteMany({ where: { userId: id } }),
+          this.prisma.user.delete({ where: { id } }),
+        ]);
         this.logger.log(`Hard-deleted user ${id}`);
       } catch (e) {
         this.logger.error(`Hard-delete failed for user ${id}:`, e);
