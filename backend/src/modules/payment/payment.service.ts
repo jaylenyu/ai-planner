@@ -415,4 +415,20 @@ export class PaymentService {
       this.logger.warn(`cancelByUser failed for user ${userId}:`, e);
     }
   }
+
+  async resubscribeByUser(userId: string): Promise<void> {
+    const subscription = await this.prisma.subscription.findUnique({
+      where: { userId },
+    });
+
+    if (!subscription?.cancelledAt) return;
+    if (subscription.status !== 'active' && subscription.status !== 'grace') {
+      return;
+    }
+
+    await this.prisma.subscription.update({
+      where: { id: subscription.id },
+      data: { cancelledAt: null },
+    });
+  }
 }

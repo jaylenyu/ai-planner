@@ -31,6 +31,7 @@ function SubscribePageContent() {
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelSuccessOpen, setCancelSuccessOpen] = useState(false);
   const [cancelledUntil, setCancelledUntil] = useState<string | null>(null);
+  const [resubscribeLoading, setResubscribeLoading] = useState(false);
 
   useEffect(() => {
     if (!getToken()) {
@@ -70,6 +71,16 @@ function SubscribePageContent() {
       setCancelSuccessOpen(true);
     } finally {
       setCancelLoading(false);
+    }
+  };
+
+  const handleResubscribe = async () => {
+    setResubscribeLoading(true);
+    try {
+      await billingApi.resubscribe();
+      await refetch();
+    } finally {
+      setResubscribeLoading(false);
     }
   };
 
@@ -135,7 +146,27 @@ function SubscribePageContent() {
               </div>
             )}
 
-            {status?.hasAccess ? (
+            {status?.hasAccess && status.subscription.cancelledAt ? (
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
+                  <p className="font-semibold text-amber-900">구독 취소됨</p>
+                  {status.subscription.currentPeriodEnd && (
+                    <p className="mt-1">
+                      {formatDate(status.subscription.currentPeriodEnd)}까지 이용 가능합니다.
+                    </p>
+                  )}
+                </div>
+                <PrimaryButton
+                  type="button"
+                  variant="brand"
+                  size="sm"
+                  loading={resubscribeLoading}
+                  onClick={() => void handleResubscribe()}
+                >
+                  다시 구독하기
+                </PrimaryButton>
+              </div>
+            ) : status?.hasAccess ? (
               <div className="space-y-4">
                 <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-4 text-sm text-green-800">
                   <p className="font-semibold text-green-900">구독 중</p>
@@ -172,6 +203,11 @@ function SubscribePageContent() {
                     <p className="mt-1">
                       아직 유료 기능이 비활성 상태입니다.
                     </p>
+                    {status.subscription.currentPeriodEnd && (
+                      <p className="mt-1 text-stone-500">
+                        마지막 구독일: {formatDate(status.subscription.currentPeriodEnd)}
+                      </p>
+                    )}
                     <p className="mt-1 text-stone-500">
                       월 구독료: {status.monthlyAmount.toLocaleString()}원
                     </p>
@@ -192,7 +228,7 @@ function SubscribePageContent() {
                     loading={preparing}
                     onClick={() => void preparePayment()}
                   >
-                    결제창 불러오기
+                    최초 결제하기
                   </PrimaryButton>
                 )}
 

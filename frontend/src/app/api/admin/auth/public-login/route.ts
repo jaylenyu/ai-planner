@@ -11,10 +11,7 @@ import { BACKEND_INTERNAL_URL } from "@/lib/server/api-url";
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
-  if (
-    process.env.ADMIN_PUBLIC_LOGIN_ENABLED !== "true" ||
-    process.env.NODE_ENV === "production"
-  ) {
+  if (process.env.ADMIN_PUBLIC_LOGIN_ENABLED !== "true") {
     return NextResponse.json(
       { message: "publicadmin 로그인이 비활성화되어 있습니다." },
       { status: 404 },
