@@ -309,6 +309,7 @@ jobs:
           timeout: 180s
           script: |
             set -euo pipefail
+            ENV_FILE=/srv/apps/ai-planner/.env
             cat > /tmp/seed_admin_users.js <<'NODE'
             const bcrypt = require('bcrypt');
             const { PrismaClient } = require('@prisma/client');
