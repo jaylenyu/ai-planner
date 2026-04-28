@@ -25,7 +25,6 @@ export class ApiBudgetMiddleware implements NestMiddleware {
     const rawIp =
       req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
     const ipAddress = (Array.isArray(rawIp) ? rawIp[0] : rawIp) ?? 'unknown';
-    const userAgent = req.headers['user-agent'] || 'unknown';
 
     try {
       // Check if user has exceeded daily limit
@@ -66,8 +65,8 @@ export class ApiBudgetMiddleware implements NestMiddleware {
         );
       }
 
-      // Track the request (cost=0; actual cost is recorded after pipeline completes)
-      await this.apiBudgetService.trackRequest(userId, ipAddress, userAgent, 0);
+      // Increment daily counter only; DB record written after pipeline with actual cost
+      this.apiBudgetService.incrementDailyCount(userId, ipAddress);
 
       // Add budget headers to response
       res.setHeader('X-API-Daily-Limit', dailyLimit.limit);

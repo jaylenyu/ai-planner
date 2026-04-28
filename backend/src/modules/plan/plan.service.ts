@@ -281,7 +281,12 @@ export class PlanService {
     }
 
     const result = await this.aiService.runPipeline(dto.rawInput, dto.mode);
-    void this.apiBudgetService.patchLastCost(userId, result.llmCost);
+    void this.apiBudgetService.trackRequest(
+      userId,
+      'unknown',
+      'unknown',
+      result.llmCost,
+    );
 
     const plan = await this.prisma.plan.create({
       data: {

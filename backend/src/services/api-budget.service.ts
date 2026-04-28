@@ -133,82 +133,47 @@ export class ApiBudgetService implements OnModuleInit {
     });
   }
 
-  trackRequest(
+  /** Rate-limit only: increments the in-memory daily counter without a DB write. */
+  incrementDailyCount(userId: string, ipAddress: string): void {
+    const cacheKey = userId !== 'anonymous' ? userId : ipAddress;
+    const currentCount = this.dailyUsageCache.get(cacheKey) || 0;
+    this.dailyUsageCache.set(cacheKey, currentCount + 1);
+  }
+
+  /** Records the actual pipeline cost to DB and updates the monthly total. */
+  async trackRequest(
     userId: string,
     ipAddress: string,
     userAgent: string,
     cost: number,
   ): Promise<void> {
-    const now = new Date();
-    const cacheKey = userId !== 'anonymous' ? userId : ipAddress;
-
     try {
-      // Update in-memory cache
-      const currentCount = this.dailyUsageCache.get(cacheKey) || 0;
-      this.dailyUsageCache.set(cacheKey, currentCount + 1);
-
-      // Update monthly usage
       this.currentMonthUsage += cost;
 
-      // Store in database (async, don't wait)
-      this.storeUsageRecord({
+      await this.storeUsageRecord({
         userId,
         ipAddress,
         userAgent,
         endpoint: 'ai-pipeline',
         cost,
-        timestamp: now,
-      }).catch((error: unknown) => {
-        this.logger.error(
-          `Failed to store usage record: ${this.getErrorMessage(error)}`,
-        );
+        timestamp: new Date(),
       });
 
-      // Log budget status periodically
       if (Math.random() < 0.1) {
-        // 10% chance to log
         const remaining = this.monthlyBudget - this.currentMonthUsage;
         this.logger.log(
-          `API Budget: $${this.currentMonthUsage.toFixed(4)}/${
-            this.monthlyBudget
-          } used, $${remaining.toFixed(4)} remaining`,
+          `API Budget: $${this.currentMonthUsage.toFixed(4)}/${this.monthlyBudget} used, $${remaining.toFixed(4)} remaining`,
         );
       }
 
-      // Warn if approaching budget limit
       if (this.currentMonthUsage > this.monthlyBudget * 0.8) {
         this.logger.warn(
-          `API Budget warning: $${this.currentMonthUsage.toFixed(4)}/${
-            this.monthlyBudget
-          } used (${Math.round((this.currentMonthUsage / this.monthlyBudget) * 100)}%)`,
+          `API Budget warning: $${this.currentMonthUsage.toFixed(4)}/${this.monthlyBudget} used (${Math.round((this.currentMonthUsage / this.monthlyBudget) * 100)}%)`,
         );
       }
     } catch (error: unknown) {
       this.logger.error(
         `Error tracking API request: ${this.getErrorMessage(error)}`,
-      );
-      // Don't throw - we don't want to break the user experience
-    }
-    return Promise.resolve();
-  }
-
-  async patchLastCost(userId: string, cost: number): Promise<void> {
-    if (cost <= 0) return;
-    try {
-      const record = await this.prisma.apiUsage.findFirst({
-        where: { userId },
-        orderBy: { timestamp: 'desc' },
-      });
-      if (record) {
-        await this.prisma.apiUsage.update({
-          where: { id: record.id },
-          data: { cost },
-        });
-      }
-      this.currentMonthUsage += cost;
-    } catch (error: unknown) {
-      this.logger.error(
-        `Error patching last cost: ${this.getErrorMessage(error)}`,
       );
     }
   }
