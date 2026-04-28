@@ -29,7 +29,7 @@ export default function WorkspaceJoinPage() {
         router.replace('/workspace');
       } catch (err) {
         if (!mounted) return;
-        setError(err instanceof Error ? err.message : '초대 참여에 실패했습니다.');
+        setError(err instanceof Error ? err.message : '커플 플랜 참여에 실패했습니다.');
         setLoading(false);
       }
     }
@@ -47,7 +47,7 @@ export default function WorkspaceJoinPage() {
           <div>
             <p className="text-sm font-semibold text-orange-600">초대 수락</p>
             <h1 className="mt-1 text-2xl font-bold text-stone-900">
-              워크스페이스에 참여하는 중입니다
+              커플 플랜에 참여하는 중입니다
             </h1>
           </div>
           {loading && <p className="text-sm text-stone-500">초대를 확인하는 중...</p>}
@@ -58,7 +58,7 @@ export default function WorkspaceJoinPage() {
           )}
           <div className="flex gap-2">
             <PrimaryButton asChild variant="outline" size="sm">
-              <Link href="/workspace">워크스페이스로 이동</Link>
+              <Link href="/workspace">커플 플랜으로 이동</Link>
             </PrimaryButton>
             <PrimaryButton asChild variant="outline" size="sm">
               <Link href="/plan">일정으로 이동</Link>

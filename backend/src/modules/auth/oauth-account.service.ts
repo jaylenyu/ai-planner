@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 
@@ -28,7 +32,12 @@ export class OAuthAccountService {
     const existing = await this.prisma.user.findUnique({
       where: providerWhere as unknown as Prisma.UserWhereUniqueInput,
     });
-    if (existing) return existing;
+    if (existing) {
+      return this.prisma.user.update({
+        where: { id: existing.id },
+        data: { lastLoginAt: new Date() },
+      });
+    }
 
     // email 없을 경우 (Kakao 이메일 동의 미제공 등) — placeholder 이메일로 신규 생성
     if (!email) {
@@ -37,6 +46,7 @@ export class OAuthAccountService {
           email: `${provider}-${providerId}@oauth.local`,
           [field]: providerId,
           emailVerified: true,
+          lastLoginAt: new Date(),
         },
       });
     }
@@ -47,7 +57,12 @@ export class OAuthAccountService {
     if (!byEmail) {
       // 2a. 신규 생성
       return this.prisma.user.create({
-        data: { email, [field]: providerId, emailVerified: true },
+        data: {
+          email,
+          [field]: providerId,
+          emailVerified: true,
+          lastLoginAt: new Date(),
+        },
       });
     }
 
@@ -64,6 +79,36 @@ export class OAuthAccountService {
     // 2b. OAuth-only 유저 — providerId 자동 연결
     return this.prisma.user.update({
       where: { id: byEmail.id },
+      data: { [field]: providerId, lastLoginAt: new Date() },
+    });
+  }
+
+  async linkProviderToUser({
+    userId,
+    provider,
+    providerId,
+    providerEmail: _providerEmail,
+  }: {
+    userId: string;
+    provider: OAuthProvider;
+    providerId: string;
+    providerEmail: string | null;
+  }) {
+    const field = providerField[provider];
+
+    // Check if providerId already belongs to another user
+    const existing = await this.prisma.user.findFirst({
+      where: {
+        [field]: providerId,
+        id: { not: userId },
+      } as unknown as Prisma.UserWhereInput,
+    });
+    if (existing) {
+      throw new ConflictException('PROVIDER_ALREADY_LINKED');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
       data: { [field]: providerId },
     });
   }

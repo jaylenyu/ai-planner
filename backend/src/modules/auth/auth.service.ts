@@ -4,12 +4,18 @@ import {
   UnauthorizedException,
   BadRequestException,
   ForbiddenException,
+  NotFoundException,
+  HttpException,
+  HttpStatus,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import type { SignOptions } from 'jsonwebtoken';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import * as jose from 'jsonwebtoken';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { RedisService } from '../../shared/redis/redis.service';
@@ -18,9 +24,21 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { PaymentService } from '../payment/payment.service';
 
 const LOGIN_FAIL_TTL = 600; // 10분
 const MAX_LOGIN_FAILS = 5;
+const CODE_TTL = 300; // 5분 (password_setup)
+const RESEND_COOLDOWN = 60; // 1분
+const MAX_ATTEMPTS = 5;
+const ATTEMPT_TTL = 600;
+
+type LoginOptions = {
+  namespace?: 'user' | 'admin';
+  requireAdmin?: boolean;
+};
+
+export type OAuthProvider = 'google' | 'kakao' | 'naver';
 
 @Injectable()
 export class AuthService {
@@ -31,11 +49,27 @@ export class AuthService {
     private readonly emailService: EmailService,
     private readonly redis: RedisService,
     private readonly emailVerification: EmailVerificationService,
+    @Inject(forwardRef(() => PaymentService))
+    private readonly paymentService: PaymentService,
   ) {}
 
-  private async generateTokenPair(userId: string, email: string) {
+  // ── Helpers ──────────────────────────────────────────────────────
+
+  private isAccountAccessible(user: {
+    isSuspended: boolean;
+    deletedAt: Date | null;
+  }): boolean {
+    return !user.isSuspended && !user.deletedAt;
+  }
+
+  private async generateTokenPair(
+    userId: string,
+    email: string,
+    role: 'USER' | 'ADMIN',
+    adminReadOnly = false,
+  ) {
     const access_token = this.jwtService.sign(
-      { sub: userId, email },
+      { sub: userId, email, role, adminReadOnly },
       {
         expiresIn: (this.config.get<string>('JWT_EXPIRES_IN') ??
           '15m') as SignOptions['expiresIn'],
@@ -55,8 +89,15 @@ export class AuthService {
     return { access_token, refresh_token: rawRefresh };
   }
 
+  private getJwtSecret(): string {
+    const secret = this.config.get<string>('JWT_SECRET')?.trim();
+    if (!secret) throw new Error('JWT_SECRET is required');
+    return secret;
+  }
+
+  // ── Register / Login ──────────────────────────────────────────────
+
   async register(dto: RegisterDto) {
-    // 이메일 인증 통과 여부 확인 (통과 마커 소비)
     await this.emailVerification.assertVerified(dto.email);
 
     const existing = await this.prisma.user.findUnique({
@@ -66,10 +107,24 @@ export class AuthService {
 
     const hashed = await bcrypt.hash(dto.password, 10);
     const user = await this.prisma.user.create({
-      data: { email: dto.email, password: hashed, emailVerified: true },
+      data: {
+        email: dto.email,
+        password: hashed,
+        emailVerified: true,
+        lastLoginAt: new Date(),
+      },
     });
 
-    return this.generateTokenPair(user.id, user.email);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+    return this.generateTokenPair(
+      user.id,
+      user.email,
+      user.role,
+      user.adminReadOnly,
+    );
   }
 
   async checkEmailAvailability(email: string) {
@@ -98,11 +153,21 @@ export class AuthService {
     }
   }
 
-  async login(dto: LoginDto, _ip: string) {
-    const lockKey = `login_lock:${dto.email}`;
-    const failKey = `login_fail:${dto.email}`;
+  private getLoginKeys(email: string, _namespace: 'user' | 'admin') {
+    return {
+      lockKey: `login_lock:${email}`,
+      failKey: `login_fail:${email}`,
+    };
+  }
 
-    // 잠금 체크
+  private async loginInternal(
+    dto: LoginDto,
+    _ip: string,
+    options: LoginOptions = {},
+  ) {
+    const namespace = options.namespace ?? 'user';
+    const { lockKey, failKey } = this.getLoginKeys(dto.email, namespace);
+
     const locked = await this.redis.get(lockKey);
     if (locked) {
       const remaining = await this.redis.ttl(lockKey);
@@ -136,15 +201,68 @@ export class AuthService {
       );
     }
 
-    // 성공: 실패 카운터 초기화
+    if (!this.isAccountAccessible(user)) {
+      throw new ForbiddenException('정지되었거나 탈퇴한 계정입니다.');
+    }
+
+    if (options.requireAdmin && user.role !== 'ADMIN') {
+      const fails = await this.redis.incr(failKey, LOGIN_FAIL_TTL);
+      if (fails >= MAX_LOGIN_FAILS) {
+        await this.redis.set(lockKey, '1', LOGIN_FAIL_TTL);
+      }
+      throw new UnauthorizedException(
+        '이메일 또는 비밀번호가 올바르지 않습니다.',
+      );
+    }
+
     await this.redis.del(failKey);
     await this.redis.del(lockKey);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
 
-    return this.generateTokenPair(user.id, user.email);
+    return this.generateTokenPair(
+      user.id,
+      user.email,
+      user.role,
+      user.adminReadOnly,
+    );
   }
 
-  async oauthLogin(user: { id: string; email: string }) {
-    return this.generateTokenPair(user.id, user.email);
+  async login(dto: LoginDto, ip: string) {
+    return this.loginInternal(dto, ip, { namespace: 'user' });
+  }
+
+  async adminLogin(dto: LoginDto, ip: string) {
+    return this.loginInternal(dto, ip, {
+      namespace: 'admin',
+      requireAdmin: true,
+    });
+  }
+
+  async oauthLogin(user: {
+    id: string;
+    email: string;
+    role: 'USER' | 'ADMIN';
+    isSuspended?: boolean;
+    deletedAt?: Date | null;
+    adminReadOnly?: boolean;
+  }) {
+    if (
+      !this.isAccountAccessible({
+        isSuspended: user.isSuspended ?? false,
+        deletedAt: user.deletedAt ?? null,
+      })
+    ) {
+      throw new ForbiddenException('정지되었거나 탈퇴한 계정입니다.');
+    }
+    return this.generateTokenPair(
+      user.id,
+      user.email,
+      user.role,
+      user.adminReadOnly,
+    );
   }
 
   async refreshTokens(rawToken: string) {
@@ -156,8 +274,16 @@ export class AuthService {
     for (const stored of tokens) {
       const match = await bcrypt.compare(rawToken, stored.token);
       if (match) {
+        if (!this.isAccountAccessible(stored.user)) {
+          throw new ForbiddenException('정지되었거나 탈퇴한 계정입니다.');
+        }
         await this.prisma.refreshToken.delete({ where: { id: stored.id } });
-        return this.generateTokenPair(stored.user.id, stored.user.email);
+        return this.generateTokenPair(
+          stored.user.id,
+          stored.user.email,
+          stored.user.role as 'USER' | 'ADMIN',
+          stored.user.adminReadOnly,
+        );
       }
     }
 
@@ -180,9 +306,8 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
-    if (!user) return; // 이메일 존재 여부 노출 방지
+    if (!user) return;
 
-    // OAuth-only 계정: 비밀번호 재설정 대신 안내 메일
     if (!user.password && (user.googleId || user.kakaoId || user.naverId)) {
       const providers: string[] = [];
       if (user.googleId) providers.push('Google');
@@ -232,5 +357,390 @@ export class AuthService {
       where: { id: matched.id },
       data: { used: true },
     });
+  }
+
+  // ── GET /auth/me ──────────────────────────────────────────────────
+
+  async getMe(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        createdAt: true,
+        lastLoginAt: true,
+        password: true,
+        googleId: true,
+        kakaoId: true,
+        naverId: true,
+        inAppNotificationsEnabled: true,
+        emailNotificationsEnabled: true,
+      },
+    });
+
+    if (!user) throw new NotFoundException('사용자를 찾을 수 없습니다.');
+
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      createdAt: user.createdAt,
+      lastLoginAt: user.lastLoginAt,
+      hasPassword: user.password != null,
+      providers: {
+        google: user.googleId != null,
+        kakao: user.kakaoId != null,
+        naver: user.naverId != null,
+      },
+      inAppNotificationsEnabled: user.inAppNotificationsEnabled,
+      emailNotificationsEnabled: user.emailNotificationsEnabled,
+    };
+  }
+
+  // ── PATCH /auth/password ──────────────────────────────────────────
+
+  async changePassword(
+    userId: string,
+    dto: {
+      currentPassword?: string;
+      newPassword: string;
+      verifyToken?: string;
+    },
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('사용자를 찾을 수 없습니다.');
+
+    if (user.password) {
+      // Has existing password — validate currentPassword
+      if (!dto.currentPassword) {
+        throw new BadRequestException('현재 비밀번호를 입력해주세요.');
+      }
+      const valid = await bcrypt.compare(dto.currentPassword, user.password);
+      if (!valid) {
+        throw new UnauthorizedException('현재 비밀번호가 올바르지 않습니다.');
+      }
+    } else {
+      // OAuth-only — validate verifyToken
+      if (!dto.verifyToken) {
+        throw new BadRequestException('인증 토큰이 필요합니다.');
+      }
+      this.verifyPasswordSetupToken(dto.verifyToken, userId);
+    }
+
+    const hashed = await bcrypt.hash(dto.newPassword, 10);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashed },
+    });
+
+    // Invalidate all refresh tokens
+    await this.prisma.refreshToken.deleteMany({ where: { userId } });
+
+    // Issue new token pair
+    return this.generateTokenPair(
+      user.id,
+      user.email,
+      user.role,
+      user.adminReadOnly,
+    );
+  }
+
+  // ── POST /auth/password/setup-request ────────────────────────────
+
+  async requestPasswordSetup(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, password: true },
+    });
+    if (!user) throw new NotFoundException('사용자를 찾을 수 없습니다.');
+    if (user.password) {
+      throw new BadRequestException('이미 비밀번호가 설정된 계정입니다.');
+    }
+
+    const normalized = user.email.trim().toLowerCase();
+
+    if (!this.redis.isEnabled()) {
+      throw new BadRequestException(
+        '인증코드 저장소가 구성되지 않아 인증을 진행할 수 없습니다.',
+      );
+    }
+
+    const resendKey = `password_setup:resend:${normalized}`;
+    const onCooldown = await this.redis.get(resendKey);
+    if (onCooldown) {
+      const remaining = await this.redis.ttl(resendKey);
+      throw new HttpException(
+        `인증코드 재전송은 ${remaining}초 후에 가능합니다.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    const code = crypto.randomInt(100000, 1000000).toString();
+    const codeKey = `password_setup:code:${normalized}`;
+    const attemptsKey = `password_setup:attempts:${normalized}`;
+
+    await this.redis.set(codeKey, code, CODE_TTL);
+    await this.redis.del(attemptsKey);
+    await this.redis.set(resendKey, '1', RESEND_COOLDOWN);
+    await this.emailService.sendVerificationCode(user.email, code);
+
+    return { message: '인증코드를 전송했습니다.' };
+  }
+
+  // ── POST /auth/password/setup-verify ─────────────────────────────
+
+  async verifyPasswordSetup(userId: string, code: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, password: true },
+    });
+    if (!user) throw new NotFoundException('사용자를 찾을 수 없습니다.');
+    if (user.password) {
+      throw new BadRequestException('이미 비밀번호가 설정된 계정입니다.');
+    }
+
+    const normalized = user.email.trim().toLowerCase();
+
+    if (this.redis.isEnabled()) {
+      const codeKey = `password_setup:code:${normalized}`;
+      const attemptsKey = `password_setup:attempts:${normalized}`;
+
+      const attemptsStr = await this.redis.get(attemptsKey);
+      const attempts = attemptsStr ? parseInt(attemptsStr, 10) : 0;
+      if (attempts >= MAX_ATTEMPTS) {
+        throw new BadRequestException(
+          '인증 시도 횟수가 초과되었습니다. 인증코드를 다시 요청해주세요.',
+        );
+      }
+
+      const stored = await this.redis.get(codeKey);
+      if (!stored) {
+        throw new BadRequestException(
+          '인증코드가 만료되었습니다. 다시 요청해주세요.',
+        );
+      }
+
+      await this.redis.incr(attemptsKey, ATTEMPT_TTL);
+
+      if (stored !== code) {
+        const newAttempts = attempts + 1;
+        const remaining = MAX_ATTEMPTS - newAttempts;
+        throw new BadRequestException(
+          remaining > 0
+            ? `인증코드가 올바르지 않습니다. (${remaining}회 남음)`
+            : '인증 시도 횟수가 초과되었습니다. 인증코드를 다시 요청해주세요.',
+        );
+      }
+
+      await this.redis.del(codeKey);
+      await this.redis.del(attemptsKey);
+    } else {
+      throw new BadRequestException(
+        '인증코드 저장소가 구성되지 않아 인증을 진행할 수 없습니다.',
+      );
+    }
+
+    // Issue verifyToken JWT (5min)
+    const secret = this.getJwtSecret();
+    const verifyToken = this.jwtService.sign(
+      { sub: userId, purpose: 'password_setup' },
+      { secret, expiresIn: '5m' },
+    );
+
+    return { verifyToken };
+  }
+
+  private verifyPasswordSetupToken(token: string, userId: string): void {
+    try {
+      const secret = this.getJwtSecret();
+      const payload = jose.verify(token, secret) as {
+        sub: string;
+        purpose: string;
+      };
+      if (payload.purpose !== 'password_setup') {
+        throw new BadRequestException('유효하지 않은 인증 토큰입니다.');
+      }
+      if (payload.sub !== userId) {
+        throw new UnauthorizedException('인증 토큰이 일치하지 않습니다.');
+      }
+    } catch (err) {
+      if (
+        err instanceof BadRequestException ||
+        err instanceof UnauthorizedException
+      ) {
+        throw err;
+      }
+      throw new BadRequestException(
+        '인증 토큰이 만료되었거나 유효하지 않습니다.',
+      );
+    }
+  }
+
+  // ── PATCH /auth/settings ──────────────────────────────────────────
+
+  async updateSettings(
+    userId: string,
+    dto: {
+      inAppNotificationsEnabled?: boolean;
+      emailNotificationsEnabled?: boolean;
+    },
+  ) {
+    if (
+      dto.inAppNotificationsEnabled === undefined &&
+      dto.emailNotificationsEnabled === undefined
+    ) {
+      throw new BadRequestException('변경할 설정이 없습니다.');
+    }
+
+    const data: Record<string, boolean> = {};
+    if (dto.inAppNotificationsEnabled !== undefined)
+      data['inAppNotificationsEnabled'] = dto.inAppNotificationsEnabled;
+    if (dto.emailNotificationsEnabled !== undefined)
+      data['emailNotificationsEnabled'] = dto.emailNotificationsEnabled;
+
+    await this.prisma.user.update({ where: { id: userId }, data });
+    return { updated: true };
+  }
+
+  // ── POST /auth/oauth/:provider/link-token ─────────────────────────
+
+  createOAuthLinkToken(userId: string, provider: OAuthProvider): string {
+    const secret = this.getLinkTokenSecret();
+    const iat = Math.floor(Date.now() / 1000);
+    const exp = iat + 300; // 5 min
+    const payload = JSON.stringify({
+      sub: userId,
+      intent: 'link',
+      provider,
+      iat,
+      exp,
+    });
+    const sig = crypto
+      .createHmac('sha256', secret)
+      .update(payload)
+      .digest('hex');
+    return Buffer.from(JSON.stringify({ payload, sig })).toString('base64');
+  }
+
+  verifyOAuthLinkToken(
+    token: string,
+    provider: OAuthProvider,
+  ): { userId: string } | null {
+    try {
+      const secret = this.getLinkTokenSecret();
+      const { payload, sig } = JSON.parse(
+        Buffer.from(token, 'base64').toString('utf8'),
+      ) as { payload: string; sig: string };
+      const expected = crypto
+        .createHmac('sha256', secret)
+        .update(payload)
+        .digest('hex');
+      if (expected !== sig) return null;
+      const data = JSON.parse(payload) as {
+        sub: string;
+        intent: string;
+        provider: string;
+        iat: number;
+        exp: number;
+      };
+      if (
+        data.intent !== 'link' ||
+        data.provider !== provider ||
+        data.exp < Math.floor(Date.now() / 1000)
+      ) {
+        return null;
+      }
+      return { userId: data.sub };
+    } catch {
+      return null;
+    }
+  }
+
+  private getLinkTokenSecret(): string {
+    return (
+      this.config.get<string>('LINK_TOKEN_SECRET')?.trim() ||
+      this.getJwtSecret()
+    );
+  }
+
+  // ── DELETE /auth/oauth/:provider ─────────────────────────────────
+
+  async unlinkOAuth(userId: string, provider: OAuthProvider) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('사용자를 찾을 수 없습니다.');
+
+    const fieldMap: Record<OAuthProvider, 'googleId' | 'kakaoId' | 'naverId'> =
+      {
+        google: 'googleId',
+        kakao: 'kakaoId',
+        naver: 'naverId',
+      };
+
+    // Remaining providers after removal
+    const others: OAuthProvider[] = (
+      ['google', 'kakao', 'naver'] as const
+    ).filter((p) => p !== provider && user[fieldMap[p]] != null);
+
+    if (!user.password && others.length === 0) {
+      throw new ConflictException('LAST_LOGIN_METHOD');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { [fieldMap[provider]]: null },
+    });
+
+    return { unlinked: true };
+  }
+
+  // ── POST /auth/logout-all ─────────────────────────────────────────
+
+  async logoutAll(userId: string) {
+    await this.prisma.refreshToken.deleteMany({ where: { userId } });
+    return { loggedOut: true };
+  }
+
+  // ── DELETE /auth/me ───────────────────────────────────────────────
+
+  async deleteMe(
+    userId: string,
+    dto: { password?: string; verifyToken?: string },
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('사용자를 찾을 수 없습니다.');
+
+    if (user.password) {
+      if (!dto.password) {
+        throw new BadRequestException('비밀번호를 입력해주세요.');
+      }
+      const valid = await bcrypt.compare(dto.password, user.password);
+      if (!valid) {
+        throw new UnauthorizedException('비밀번호가 올바르지 않습니다.');
+      }
+    } else {
+      if (!dto.verifyToken) {
+        throw new BadRequestException('인증 토큰이 필요합니다.');
+      }
+      this.verifyPasswordSetupToken(dto.verifyToken, userId);
+    }
+
+    // Cancel active subscription (best-effort)
+    try {
+      await this.paymentService.cancelByUser(userId);
+    } catch (e) {
+      console.warn(`cancelByUser failed for ${userId}:`, e);
+    }
+
+    // Invalidate all refresh tokens
+    await this.prisma.refreshToken.deleteMany({ where: { userId } });
+
+    // Soft-delete
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { deletedAt: new Date() },
+    });
+
+    return { deleted: true };
   }
 }

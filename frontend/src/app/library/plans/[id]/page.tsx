@@ -83,7 +83,7 @@ export default function PlanDetailPage() {
               size="sm"
               className="w-auto shrink-0"
             >
-              <Link href="/workspace">워크스페이스</Link>
+              <Link href="/workspace">커플 플랜</Link>
             </PrimaryButton>
           </div>
         </div>
@@ -110,7 +110,7 @@ export default function PlanDetailPage() {
                     </h1>
                     {plan.workspace && (
                       <p className="mt-2 break-keep text-sm text-violet-700">
-                        {plan.workspace.name} 워크스페이스에서 공유 중
+                        {plan.workspace.name} 커플 플랜에서 공유 중
                       </p>
                     )}
                   </div>

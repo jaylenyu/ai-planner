@@ -82,6 +82,7 @@ export class AiService {
       polyline: ctx.polyline!,
       totalDurationMin: endMin - startMin,
       unsupportedHints: ctx.unsupportedHints ?? [],
+      llmCost: ctx.llmCost ?? 0,
     };
   }
 

@@ -15,6 +15,7 @@ import { DeletePlanItemDto } from './dto/delete-plan-item.dto';
 import { GeneratePlanDto } from './dto/generate-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { UpdatePlanItemDto } from './dto/update-plan-item.dto';
+import { ApiBudgetService } from '../../services/api-budget.service';
 
 const planInclude = {
   category: true,
@@ -54,6 +55,7 @@ export class PlanService {
     private readonly aiService: AiService,
     private readonly paymentService: PaymentService,
     private readonly notificationService: NotificationService,
+    private readonly apiBudgetService: ApiBudgetService,
   ) {}
 
   private buildAccessibleWhere(userId: string, planId?: string) {
@@ -82,7 +84,7 @@ export class PlanService {
   private async assertWorkspaceWritable(userId: string, workspaceId: string) {
     const membership = await this.getWorkspaceMembership(userId, workspaceId);
     if (!membership) {
-      throw new NotFoundException('워크스페이스를 찾을 수 없습니다.');
+      throw new NotFoundException('커플 플랜을 찾을 수 없습니다.');
     }
 
     const ownerStatus = await this.paymentService.getStatus(
@@ -90,7 +92,7 @@ export class PlanService {
     );
     if (!ownerStatus.hasAccess) {
       throw new ForbiddenException(
-        '공유 워크스페이스 구독이 만료되어 읽기 전용입니다.',
+        '커플 플랜 구독이 만료되어 읽기 전용입니다.',
       );
     }
 
@@ -279,6 +281,12 @@ export class PlanService {
     }
 
     const result = await this.aiService.runPipeline(dto.rawInput, dto.mode);
+    void this.apiBudgetService.trackRequest(
+      userId,
+      'unknown',
+      'unknown',
+      result.llmCost,
+    );
 
     const plan = await this.prisma.plan.create({
       data: {

@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { MONTHLY_AMOUNT_DISPLAY } from "@/config/billing";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
@@ -34,7 +35,7 @@ const features = [
   },
   {
     title: "보관함과 커플 공유",
-    body: "저장한 일정을 보관함에서 관리하고, 구독 시 파트너와 공유 일정과 메모를 함께 쓸 수 있습니다.",
+    body: "저장한 일정을 보관함에서 관리하고, 커플 플랜으로 공유 일정과 메모를 함께 쓸 수 있습니다.",
     icon: Compass,
     color: "text-violet-500",
     bg: "bg-violet-50",
@@ -48,7 +49,7 @@ const stats = [
     detail: "자연어로 바로 시작",
   },
   { label: "기본 관리", value: "무료", detail: "보관함 · 카테고리 · 삭제" },
-  { label: "공유 기능", value: "유료", detail: "파트너 초대 · 메모 · 수정" },
+  { label: "공유 기능", value: MONTHLY_AMOUNT_DISPLAY, detail: "파트너 초대 · 메모 · 수정" },
 ];
 
 const steps = [
@@ -74,7 +75,7 @@ const steps = [
     label: "공유",
     title: "파트너와 함께 관리하기",
     description:
-      "구독을 활성화하면 워크스페이스를 만들고 파트너를 초대해 공유 일정과 메모를 함께 관리할 수 있습니다.",
+      "구독을 활성화하면 커플 플랜을 만들고 파트너를 초대해 공유 일정과 메모를 함께 관리할 수 있습니다.",
   },
 ];
 
@@ -126,8 +127,9 @@ export default async function Home() {
                 className="max-w-md text-base leading-relaxed sm:text-lg"
                 style={{ color: "var(--text-secondary)" }}
               >
-                자연어 입력 → 일정 생성 → 보관함 정리 → 파트너 공유까지 한 번에.
-                데이트 코스와 당일치기 여행을 더 빠르게 정리할 수 있습니다.
+                자연어 입력 → 일정 생성 → 보관함 정리 → 커플 플랜 공유까지 한
+                번에. 데이트 코스와 당일치기 여행을 더 빠르게 정리할 수
+                있습니다.
               </p>
               <div className="flex flex-wrap gap-3">
                 <PrimaryButton asChild variant="brand" size="lg">

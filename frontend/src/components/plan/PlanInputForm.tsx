@@ -113,11 +113,11 @@ export function PlanInputForm({
           >
             <div className="min-w-0 flex-1 text-left">
               <p className="font-semibold">
-                {saveToWorkspace ? '공유 일정으로 저장' : '개인 일정으로 저장'}
+                {saveToWorkspace ? '커플 플랜으로 저장' : '개인 일정으로 저장'}
               </p>
               <p className="mt-0.5 text-xs opacity-80">
                 {saveToWorkspace
-                  ? `${workspaceName ?? '워크스페이스'}에 함께 보입니다.`
+                  ? `${workspaceName ?? '커플 플랜'}에 함께 보입니다.`
                   : '내 보관함에만 저장됩니다.'}
               </p>
             </div>
@@ -179,7 +179,7 @@ export function PlanInputForm({
         loading={loading}
       >
         {loading && <Spinner size="sm" />}
-        {loading ? 'AI가 최적 일정을 짜는 중...' : '일정 만들기'}
+        {loading ? 'AI가 최적 일정을 짜는 중...' : '커플 플랜 만들기'}
       </PrimaryButton>
     </form>
   );

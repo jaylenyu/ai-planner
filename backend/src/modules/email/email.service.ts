@@ -164,11 +164,11 @@ export class EmailService {
         this.config.get<string>('EMAIL_FROM') ??
         'DatePlanner <no-reply@date-planner.us>',
       to,
-      subject: '[DatePlanner] 커플 워크스페이스 초대',
+      subject: '[DatePlanner] 커플 플랜 초대',
       html: this.buildHtml(`
-        <h1 style="margin:0 0 16px;font-size:18px;font-weight:700;color:#1a1a1a;">[DatePlanner] 커플 워크스페이스 초대</h1>
+        <h1 style="margin:0 0 16px;font-size:18px;font-weight:700;color:#1a1a1a;">[DatePlanner] 커플 플랜 초대</h1>
         <p style="margin:0 0 24px;font-size:15px;color:#3d3d3d;line-height:1.6;">
-          <strong>${workspaceName}</strong> 워크스페이스에 초대되었어요.<br>
+          <strong>${workspaceName}</strong> 커플 플랜에 초대되었어요.<br>
           수락하면 공유 일정과 메모 기능을 함께 사용할 수 있어요.
         </p>
         <table width="100%" cellpadding="0" cellspacing="0">

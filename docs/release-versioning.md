@@ -13,7 +13,13 @@
 4. Deploy `canary` to the test environment.
 5. Promote `canary` to `main` with a PR when the test environment is stable.
 6. Merge into `main` to trigger `Deploy to Production`.
-7. Create a version tag on `main` to publish a GitHub Release.
+7. Apply exactly one release label to the `canary -> main` PR:
+   - `release:patch`
+   - `release:minor`
+   - `release:major`
+8. Merge into `main` to trigger `Deploy to Production`.
+9. After merge, `Auto Tag Release` creates the next SemVer tag automatically.
+10. The `Release` workflow publishes GitHub Release notes from that tag.
 
 ## Branch Protection
 
@@ -46,8 +52,10 @@ Use SemVer tags in the form `vMAJOR.MINOR.PATCH`.
 2. Open `canary -> main` PR and wait for `Backend CI` and `Frontend CI`.
 3. Merge to `main`.
 4. Confirm production deployment is healthy.
-5. Create the next SemVer tag on `main`.
-6. Let the `Release` workflow publish GitHub Release notes.
+5. Add one release label to the `canary -> main` PR.
+6. Merge to `main`.
+7. Confirm the auto-tag workflow created the next SemVer tag.
+8. Let the `Release` workflow publish GitHub Release notes.
 
 ## Example Cadence
 
@@ -55,3 +63,11 @@ Use SemVer tags in the form `vMAJOR.MINOR.PATCH`.
 - Backward-compatible feature release: `v1.1.0`
 - Hotfix on production: `v1.1.1`
 - Breaking API release: `v2.0.0`
+
+## Label Rules
+
+- `release:patch`: bug fixes, infra fixes, copy changes, non-breaking polish
+- `release:minor`: new backward-compatible user-facing features
+- `release:major`: breaking API, schema, or rollout changes
+
+Use exactly one release label on each `main` promotion PR. If no release label is present, auto-tagging is skipped.

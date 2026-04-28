@@ -7,7 +7,6 @@ on:
       - 'backend/**'
       - 'frontend/**'
       - '.github/workflows/canary.yml'
-      - '.github/workflows/deploy.yml'
 
 env:
   REGISTRY: ghcr.io
@@ -111,11 +110,15 @@ jobs:
           push: true
           tags: ${{ env.IMAGE_FRONTEND }}:canary,${{ env.IMAGE_FRONTEND }}:canary-${{ github.sha }}
           build-args: |
-            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_API_URL=https://test.date-planner.us/api
             NEXT_PUBLIC_NAVER_MAP_CLIENT_ID=${{ secrets.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID }}
             NEXT_PUBLIC_TOSS_CLIENT_KEY=${{ secrets.NEXT_PUBLIC_TOSS_CLIENT_KEY }}
             NEXT_PUBLIC_POSTHOG_KEY=${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}
             NEXT_PUBLIC_POSTHOG_HOST=${{ secrets.NEXT_PUBLIC_POSTHOG_HOST }}
+            NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+            SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
+            SENTRY_ORG=${{ secrets.SENTRY_ORG }}
+            SENTRY_PROJECT=${{ secrets.SENTRY_PROJECT }}
           cache-from: type=gha,scope=frontend-canary
           cache-to: type=gha,scope=frontend-canary,mode=max
 
@@ -199,6 +202,7 @@ jobs:
               docker run -d \
                 --name "$FRONTEND_CONTAINER" \
                 --restart unless-stopped \
+                --env-file "$ENV_FILE" \
                 -p "${FRONTEND_PORT}:3000" \
                 ${{ env.IMAGE_FRONTEND }}:canary
             fi
@@ -270,3 +274,191 @@ jobs:
             cat /tmp/canary-subscription.json
             LOGS=$(docker logs --since "$START_TS" "$BACKEND_CONTAINER" 2>&1 || true)
             echo "$LOGS" | tail -80
+
+  deploy-test:
+    name: Deploy Test Stack
+    runs-on: ubuntu-latest
+    needs: [changes, build-backend, build-frontend, deploy]
+    if: |
+      always() &&
+      !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled') &&
+      (needs.changes.outputs.frontend_changed == 'true' || needs.changes.outputs.backend_changed == 'true')
+    steps:
+      - name: Pull images and restart test containers
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          timeout: 120s
+          script: |
+            set -euo pipefail
+            STACK_DIR=/srv/apps/ai-planner-test
+            COMPOSE_FILE=$STACK_DIR/compose.yml
+            ENV_FILE=$STACK_DIR/.env
+            BACKEND_CHANGED=${{ needs.changes.outputs.backend_changed }}
+            FRONTEND_CHANGED=${{ needs.changes.outputs.frontend_changed }}
+
+            upsert_env() {
+              local key="$1"
+              local value="$2"
+              if grep -q "^${key}=" "$ENV_FILE"; then
+                sed -i "s|^${key}=.*|${key}=${value}|" "$ENV_FILE"
+              else
+                printf '%s=%s\n' "$key" "$value" >> "$ENV_FILE"
+              fi
+            }
+
+            upsert_env APP_URL 'https://test.date-planner.us'
+            upsert_env FRONTEND_URL 'https://test.date-planner.us'
+            upsert_env CORS_ORIGIN 'https://test.date-planner.us'
+            upsert_env BACKEND_URL 'http://ai-planner-backend-test:4000'
+            upsert_env SEED_ADMIN_EMAIL '${{ secrets.SEED_ADMIN_EMAIL }}'
+            upsert_env SEED_ADMIN_PASSWORD '${{ secrets.SEED_ADMIN_PASSWORD }}'
+            upsert_env SEED_PUBLIC_ADMIN_EMAIL '${{ secrets.SEED_PUBLIC_ADMIN_EMAIL }}'
+            upsert_env SEED_PUBLIC_ADMIN_PASSWORD '${{ secrets.SEED_PUBLIC_ADMIN_PASSWORD }}'
+            upsert_env NEXT_PUBLIC_TOSS_CLIENT_KEY '${{ secrets.NEXT_PUBLIC_TOSS_CLIENT_KEY }}'
+            upsert_env NEXT_PUBLIC_SENTRY_DSN '${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}'
+            upsert_env SENTRY_DSN '${{ secrets.SENTRY_DSN }}'
+            upsert_env SENTRY_AUTH_TOKEN '${{ secrets.SENTRY_AUTH_TOKEN }}'
+            upsert_env SENTRY_ORG '${{ secrets.SENTRY_ORG }}'
+            upsert_env SENTRY_PROJECT '${{ secrets.SENTRY_PROJECT }}'
+            upsert_env TOSS_SECRET_KEY '${{ secrets.TOSS_SECRET_KEY }}'
+            upsert_env TOSS_WEBHOOK_SECRET '${{ secrets.TOSS_WEBHOOK_SECRET }}'
+            upsert_env AWS_REGION '${{ secrets.AWS_REGION }}'
+            upsert_env AWS_ACCESS_KEY_ID '${{ secrets.AWS_ACCESS_KEY_ID }}'
+            upsert_env AWS_SECRET_ACCESS_KEY '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
+            upsert_env CLOUDWATCH_LOG_GROUP_BACKEND '/ai-planner-test/backend'
+            upsert_env CLOUDWATCH_LOG_GROUP_FRONTEND '/ai-planner-test/frontend'
+
+            docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" config >/dev/null
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            docker image prune -af >/dev/null 2>&1 || true
+
+            SERVICES=""
+            if [ "$BACKEND_CHANGED" = "true" ]; then
+              docker pull ${{ env.IMAGE_BACKEND }}:canary
+              SERVICES="$SERVICES backend"
+            fi
+            if [ "$FRONTEND_CHANGED" = "true" ]; then
+              docker pull ${{ env.IMAGE_FRONTEND }}:canary
+              SERVICES="$SERVICES frontend"
+            fi
+
+            if [ -z "$SERVICES" ]; then
+              echo "No services to update — skipping"
+              exit 0
+            fi
+
+            docker compose \
+              -f "$COMPOSE_FILE" \
+              --env-file "$ENV_FILE" \
+              up -d --no-build $SERVICES
+
+      - name: Test health check
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          timeout: 180s
+          script: |
+            set -euo pipefail
+            BACKEND_CHANGED=${{ needs.changes.outputs.backend_changed }}
+            FRONTEND_CHANGED=${{ needs.changes.outputs.frontend_changed }}
+            MAX_RETRY=20
+
+            wait_for_health() {
+              CONTAINER_NAME="$1"
+              LABEL="$2"
+              COUNT=0
+              until docker inspect --format='{{.State.Health.Status}}' "$CONTAINER_NAME" 2>/dev/null | grep -q "healthy"; do
+                COUNT=$((COUNT + 1))
+                if [ "$COUNT" -ge "$MAX_RETRY" ]; then
+                  echo "$LABEL failed to become healthy"
+                  docker logs --tail 30 "$CONTAINER_NAME"
+                  exit 1
+                fi
+                echo "Waiting for $LABEL... ($COUNT/$MAX_RETRY)"
+                sleep 3
+              done
+              echo "$LABEL healthy!"
+            }
+
+            if [ "$BACKEND_CHANGED" = "true" ]; then
+              wait_for_health ai-planner-backend-test backend-test
+            fi
+            if [ "$FRONTEND_CHANGED" = "true" ]; then
+              wait_for_health ai-planner-frontend-test frontend-test
+            fi
+
+            docker compose -f /srv/apps/ai-planner-test/compose.yml --env-file /srv/apps/ai-planner-test/.env ps
+
+      - name: Seed admin users in test database
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          timeout: 180s
+          script: |
+            set -euo pipefail
+            cat > /tmp/seed_admin_users.js <<'NODE'
+            const bcrypt = require('bcrypt');
+            const { PrismaClient } = require('@prisma/client');
+
+            const prisma = new PrismaClient();
+
+            async function upsertAdmin(email, password, adminReadOnly) {
+              const hashedPassword = await bcrypt.hash(password, 10);
+              const user = await prisma.user.upsert({
+                where: { email },
+                update: {
+                  password: hashedPassword,
+                  emailVerified: true,
+                  role: 'ADMIN',
+                  adminReadOnly,
+                  isSuspended: false,
+                },
+                create: {
+                  email,
+                  password: hashedPassword,
+                  emailVerified: true,
+                  role: 'ADMIN',
+                  adminReadOnly,
+                },
+              });
+              await prisma.refreshToken.deleteMany({ where: { userId: user.id } });
+            }
+
+            async function main() {
+              const adminEmail = process.env.SEED_ADMIN_EMAIL;
+              const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+              const pubEmail = process.env.SEED_PUBLIC_ADMIN_EMAIL;
+              const pubPassword = process.env.SEED_PUBLIC_ADMIN_PASSWORD;
+              if (!adminEmail || !adminPassword || !pubEmail || !pubPassword) {
+                console.error('Missing SEED_* env vars');
+                process.exit(1);
+              }
+              await upsertAdmin(adminEmail, adminPassword, false);
+              await upsertAdmin(pubEmail, pubPassword, true);
+              console.log('Seeded admin and publicadmin users');
+            }
+
+            main()
+              .catch((error) => {
+                console.error(error);
+                process.exit(1);
+              })
+              .finally(async () => {
+                await prisma.$disconnect();
+              });
+            NODE
+            docker cp /tmp/seed_admin_users.js ai-planner-backend-test:/app/seed_admin_users.js
+            docker exec ai-planner-backend-test sh -lc 'cd /app && node seed_admin_users.js'
+            rm -f /tmp/seed_admin_users.js

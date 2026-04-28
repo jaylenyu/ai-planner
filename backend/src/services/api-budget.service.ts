@@ -25,6 +25,8 @@ interface ApiRequest {
   timestamp: Date;
 }
 
+const DAILY_LIMIT_ENDPOINT = 'daily-limit';
+
 @Injectable()
 export class ApiBudgetService implements OnModuleInit {
   private readonly logger = new Logger(ApiBudgetService.name);
@@ -92,6 +94,7 @@ export class ApiBudgetService implements OnModuleInit {
             { userId: userId !== 'anonymous' ? userId : undefined },
             { ipAddress: ipAddress },
           ],
+          endpoint: DAILY_LIMIT_ENDPOINT,
           timestamp: {
             gte: startOfDay,
           },
@@ -133,63 +136,72 @@ export class ApiBudgetService implements OnModuleInit {
     });
   }
 
-  trackRequest(
+  /** Rate-limit only: increments the in-memory daily counter without a DB write. */
+  incrementDailyCount(userId: string, ipAddress: string): void {
+    const cacheKey = userId !== 'anonymous' ? userId : ipAddress;
+    const currentCount = this.dailyUsageCache.get(cacheKey) || 0;
+    this.dailyUsageCache.set(cacheKey, currentCount + 1);
+  }
+
+  async recordDailyRequest(
+    userId: string,
+    ipAddress: string,
+    userAgent: string,
+  ): Promise<void> {
+    this.incrementDailyCount(userId, ipAddress);
+
+    try {
+      await this.storeUsageRecord({
+        userId,
+        ipAddress,
+        userAgent,
+        endpoint: DAILY_LIMIT_ENDPOINT,
+        cost: 0,
+        timestamp: new Date(),
+      });
+    } catch (error: unknown) {
+      this.logger.error(
+        `Error recording daily API request: ${this.getErrorMessage(error)}`,
+      );
+    }
+  }
+
+  /** Records the actual pipeline cost to DB and updates the monthly total. */
+  async trackRequest(
     userId: string,
     ipAddress: string,
     userAgent: string,
     cost: number,
   ): Promise<void> {
-    const now = new Date();
-    const cacheKey = userId !== 'anonymous' ? userId : ipAddress;
-
     try {
-      // Update in-memory cache
-      const currentCount = this.dailyUsageCache.get(cacheKey) || 0;
-      this.dailyUsageCache.set(cacheKey, currentCount + 1);
-
-      // Update monthly usage
       this.currentMonthUsage += cost;
 
-      // Store in database (async, don't wait)
-      this.storeUsageRecord({
+      await this.storeUsageRecord({
         userId,
         ipAddress,
         userAgent,
         endpoint: 'ai-pipeline',
         cost,
-        timestamp: now,
-      }).catch((error: unknown) => {
-        this.logger.error(
-          `Failed to store usage record: ${this.getErrorMessage(error)}`,
-        );
+        timestamp: new Date(),
       });
 
-      // Log budget status periodically
       if (Math.random() < 0.1) {
-        // 10% chance to log
         const remaining = this.monthlyBudget - this.currentMonthUsage;
         this.logger.log(
-          `API Budget: $${this.currentMonthUsage.toFixed(4)}/${
-            this.monthlyBudget
-          } used, $${remaining.toFixed(4)} remaining`,
+          `API Budget: $${this.currentMonthUsage.toFixed(4)}/${this.monthlyBudget} used, $${remaining.toFixed(4)} remaining`,
         );
       }
 
-      // Warn if approaching budget limit
       if (this.currentMonthUsage > this.monthlyBudget * 0.8) {
         this.logger.warn(
-          `API Budget warning: $${this.currentMonthUsage.toFixed(4)}/${
-            this.monthlyBudget
-          } used (${Math.round((this.currentMonthUsage / this.monthlyBudget) * 100)}%)`,
+          `API Budget warning: $${this.currentMonthUsage.toFixed(4)}/${this.monthlyBudget} used (${Math.round((this.currentMonthUsage / this.monthlyBudget) * 100)}%)`,
         );
       }
     } catch (error: unknown) {
       this.logger.error(
         `Error tracking API request: ${this.getErrorMessage(error)}`,
       );
-      // Don't throw - we don't want to break the user experience
     }
-    return Promise.resolve();
   }
 
   async getUsageStats(userId?: string): Promise<{
@@ -210,6 +222,7 @@ export class ApiBudgetService implements OnModuleInit {
       this.prisma.apiUsage.count({
         where: {
           ...whereClause,
+          endpoint: DAILY_LIMIT_ENDPOINT,
           timestamp: { gte: today },
         },
       }),
@@ -220,7 +233,10 @@ export class ApiBudgetService implements OnModuleInit {
         },
       }),
       this.prisma.apiUsage.count({
-        where: whereClause,
+        where: {
+          ...whereClause,
+          endpoint: DAILY_LIMIT_ENDPOINT,
+        },
       }),
     ]);
 

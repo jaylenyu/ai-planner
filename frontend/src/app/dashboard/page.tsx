@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { MONTHLY_AMOUNT } from "@/config/billing";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -52,14 +53,12 @@ export default function DashboardPage() {
   const workspaceCard = useMemo(() => {
     if (!workspace) {
       return {
-        title: "파트너와 아직 연결되지 않았어요",
+        title: "커플 플랜이 아직 준비되지 않았어요",
         body: status?.hasAccess
-          ? "워크스페이스를 만들고 파트너를 초대하면 공유 일정과 메모를 함께 관리할 수 있습니다."
-          : "구독을 활성화하면 파트너 초대와 공유 일정 기능을 사용할 수 있습니다.",
+          ? "커플 플랜을 만들고 파트너를 초대하면 공유 일정과 메모를 함께 관리할 수 있습니다."
+          : "구독을 활성화하면 커플 플랜 생성과 파트너 초대 기능을 사용할 수 있습니다.",
         ctaHref: status?.hasAccess ? "/workspace" : "/subscribe",
-        ctaLabel: status?.hasAccess
-          ? "워크스페이스 만들기"
-          : "구독하고 시작하기",
+        ctaLabel: status?.hasAccess ? "커플 플랜 만들기" : "구독하고 시작하기",
       };
     }
 
@@ -74,9 +73,9 @@ export default function DashboardPage() {
 
     return {
       title: "파트너 연결이 완료됐어요",
-      body: `${workspace.name} 워크스페이스에서 일정과 메모를 함께 관리할 수 있습니다. 현재 멤버 ${memberCount}명 · 내 역할 ${role ?? "member"}`,
+      body: `${workspace.name} 커플 플랜에서 일정과 메모를 함께 관리할 수 있습니다. 현재 멤버 ${memberCount}명 · 내 역할 ${role === "owner" ? "플랜 오너" : role === "member" ? "파트너" : "미정"}`,
       ctaHref: "/workspace",
-      ctaLabel: "워크스페이스 열기",
+      ctaLabel: "커플 플랜 열기",
     };
   }, [workspace, memberCount, role, status?.hasAccess]);
 
@@ -114,7 +113,7 @@ export default function DashboardPage() {
           <div className="space-y-2">
             <p className="text-sm font-semibold text-orange-600">Dashboard</p>
             <h1 className="text-3xl font-bold text-stone-900">
-              오늘의 일정 허브
+              오늘의 커플 플랜 허브
             </h1>
             <p className="break-keep text-sm leading-6 text-stone-600">
               파트너 연결 상태와 최근 일정, 구독 상태를 한 번에 보고 바로 새
@@ -131,14 +130,14 @@ export default function DashboardPage() {
                 <div className="space-y-2">
                   <div className="inline-flex items-center gap-2 rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">
                     <HeartHandshake className="h-3.5 w-3.5" />
-                    파트너 / 워크스페이스
+                    파트너 / 커플 플랜
                   </div>
                   <h2 className="text-2xl font-bold text-stone-900">
                     {workspaceCard.title}
                   </h2>
                   <p className="break-keep text-sm leading-6 text-stone-600">
                     {workspaceLoading
-                      ? "워크스페이스 상태를 확인하는 중..."
+                      ? "커플 플랜 상태를 확인하는 중..."
                       : workspaceCard.body}
                   </p>
                 </div>
@@ -188,7 +187,7 @@ export default function DashboardPage() {
                     </p>
                     <p className="mt-1 text-stone-500">
                       월 구독료:{" "}
-                      {status?.monthlyAmount?.toLocaleString?.() ?? "9,900"}원
+                      {(status?.monthlyAmount ?? MONTHLY_AMOUNT).toLocaleString("ko-KR")}원
                     </p>
                   </div>
                 )}
@@ -363,7 +362,7 @@ export default function DashboardPage() {
                         읽지 않은 알림 {unreadCount}건
                       </p>
                       <p className="mt-1 text-stone-500">
-                        공유 일정과 워크스페이스 변경사항을 빠르게 확인하세요.
+                        공유 일정과 커플 플랜 변경사항을 빠르게 확인하세요.
                       </p>
                     </div>
                     <div className="space-y-3">
@@ -388,7 +387,7 @@ export default function DashboardPage() {
                       )}
                     </div>
                     <PrimaryButton asChild variant="outline" size="sm">
-                      <Link href="/workspace">워크스페이스로 이동</Link>
+                      <Link href="/workspace">커플 플랜으로 이동</Link>
                     </PrimaryButton>
                   </>
                 )}

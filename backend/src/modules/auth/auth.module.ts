@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -14,6 +14,8 @@ import { EmailVerificationService } from './email-verification.service';
 import { OAuthAccountService } from './oauth-account.service';
 import { RedisModule } from '../../shared/redis/redis.module';
 import { CaptchaModule } from '../../shared/captcha/captcha.module';
+import { PrismaModule } from '../../prisma/prisma.module';
+import { PaymentModule } from '../payment/payment.module';
 
 @Module({
   imports: [
@@ -21,11 +23,19 @@ import { CaptchaModule } from '../../shared/captcha/captcha.module';
     EmailModule,
     RedisModule,
     CaptchaModule,
+    PrismaModule,
+    forwardRef(() => PaymentModule),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET'),
+        secret: (() => {
+          const secret = config.get<string>('JWT_SECRET')?.trim();
+          if (!secret) {
+            throw new Error('JWT_SECRET is required');
+          }
+          return secret;
+        })(),
         signOptions: {
           expiresIn: (config.get<string>('JWT_EXPIRES_IN') ??
             '15m') as SignOptions['expiresIn'],
@@ -43,6 +53,6 @@ import { CaptchaModule } from '../../shared/captcha/captcha.module';
     EmailVerificationService,
     OAuthAccountService,
   ],
-  exports: [JwtModule],
+  exports: [JwtModule, AuthService],
 })
 export class AuthModule {}

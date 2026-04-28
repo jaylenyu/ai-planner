@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { getAuthUser } from "@/lib/auth";
 import { AppLogo } from "@/components/ui/AppLogo";
 import { NotificationBell } from "@/components/notification/NotificationBell";
+import { UserMenu } from "@/components/user/UserMenu";
 import {
   LayoutDashboard,
   CalendarPlus,
@@ -12,6 +14,7 @@ import {
   Users,
   LogOut,
   Crown,
+  User,
 } from "lucide-react";
 
 interface NavLinkProps {
@@ -69,9 +72,17 @@ function MobileTab({ href, icon, label }: MobileTabProps) {
 }
 
 export function GlobalNav() {
-  const { isLoggedIn, logout } = useAuth();
+  const router = useRouter();
+  const { isLoggedIn, hydrated, logout } = useAuth();
   const pathname = usePathname();
+  const authUser = getAuthUser();
+  const isAdmin = authUser?.role === 'ADMIN';
   const showMarketingLinks = !isLoggedIn && pathname === "/";
+
+  const handleLogout = async () => {
+    await logout();
+    router.replace("/login");
+  };
 
   return (
     <>
@@ -83,17 +94,22 @@ export function GlobalNav() {
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:py-4 sm:px-6">
           <AppLogo size="md" showSubtitle />
 
-          {/* 모바일: 알림 + 로그아웃만 */}
+          {/* 모바일: 알림 + 마이페이지 + 로그아웃 */}
           <div className="flex items-center gap-3 sm:hidden">
-            {isLoggedIn ? (
+            {!hydrated ? null : isLoggedIn ? (
               <>
                 <NotificationBell />
                 <button
                   type="button"
-                  onClick={() => {
-                    logout();
-                    window.location.href = "/login";
-                  }}
+                  onClick={() => router.push('/mypage')}
+                  className="flex items-center justify-center h-9 w-9 rounded-full text-stone-400 active:bg-stone-100 transition-colors"
+                  aria-label="마이페이지"
+                >
+                  <User className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLogout}
                   className="flex items-center justify-center h-9 w-9 rounded-full text-stone-400 active:bg-stone-100 transition-colors"
                   aria-label="로그아웃"
                 >
@@ -122,13 +138,14 @@ export function GlobalNav() {
 
           {/* 데스크톱 메뉴 */}
           <nav className="hidden items-center gap-5 sm:flex">
-            {isLoggedIn ? (
+            {!hydrated ? null : isLoggedIn ? (
               <>
                 <NotificationBell />
                 <NavLink href="/dashboard">대시보드</NavLink>
                 <NavLink href="/plan">일정 만들기</NavLink>
                 <NavLink href="/library">보관함</NavLink>
-                <NavLink href="/workspace">워크스페이스</NavLink>
+                <NavLink href="/workspace">커플 플랜</NavLink>
+                {isAdmin && <NavLink href="/admin">관리자</NavLink>}
                 <NavLink href="/subscribe">구독</NavLink>
               </>
             ) : showMarketingLinks ? (
@@ -147,17 +164,8 @@ export function GlobalNav() {
                 </Link>
               </>
             ) : null}
-            {isLoggedIn ? (
-              <button
-                type="button"
-                onClick={() => {
-                  logout();
-                  window.location.href = "/login";
-                }}
-                className="text-sm font-medium text-stone-500 hover:text-stone-800 transition-colors"
-              >
-                로그아웃
-              </button>
+            {!hydrated ? null : isLoggedIn ? (
+              <UserMenu />
             ) : (
               <div className="flex items-center gap-4">
                 <NavLink href="/login">로그인</NavLink>
@@ -174,7 +182,7 @@ export function GlobalNav() {
       </header>
 
       {/* 모바일 Bottom Tab Bar */}
-      {isLoggedIn && (
+      {hydrated && isLoggedIn && (
         <nav
           className="fixed bottom-0 left-0 right-0 z-50 sm:hidden bg-white"
           style={{ borderTop: "1px solid var(--divider)" }}
@@ -198,7 +206,7 @@ export function GlobalNav() {
             <MobileTab
               href="/workspace"
               icon={<Users className="h-5 w-5" />}
-              label="공유"
+              label="플랜"
             />
             <MobileTab
               href="/subscribe"

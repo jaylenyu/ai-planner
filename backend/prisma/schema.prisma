@@ -3,6 +3,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
 generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
@@ -12,6 +17,10 @@ model User {
   id                  String               @id @default(uuid())
   email               String               @unique
   password            String?
+  role                Role                 @default(USER)
+  adminReadOnly       Boolean              @default(false)
+  isSuspended         Boolean              @default(false)
+  lastLoginAt         DateTime?
   googleId            String?              @unique
   kakaoId             String?              @unique
   naverId             String?              @unique
@@ -27,7 +36,12 @@ model User {
   notifications       Notification[]
   refreshTokens       RefreshToken[]
   resetTokens         PasswordResetToken[]
-  createdAt           DateTime             @default(now())
+  deletedAt                 DateTime?
+  inAppNotificationsEnabled Boolean              @default(true)
+  emailNotificationsEnabled Boolean              @default(true)
+  createdAt                 DateTime             @default(now())
+
+  @@index([deletedAt])
 }
 
 model RefreshToken {

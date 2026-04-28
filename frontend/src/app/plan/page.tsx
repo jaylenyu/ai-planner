@@ -203,7 +203,7 @@ function PlanPageContent() {
           )}
           {result.workspace && (
             <div className="mb-5 rounded-2xl border border-violet-200 bg-violet-50 px-5 py-4 text-sm text-violet-800">
-              이 일정은 <strong>{result.workspace.name}</strong> 워크스페이스에
+              이 일정은 <strong>{result.workspace.name}</strong> 커플 플랜에
               공유되었습니다.
             </div>
           )}

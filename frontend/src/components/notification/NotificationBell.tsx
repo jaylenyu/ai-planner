@@ -39,7 +39,7 @@ export function NotificationBell() {
         open={open}
         onOpenChange={setOpen}
         title="알림"
-        description="공유 일정과 워크스페이스 변경사항"
+        description="커플 플랜과 일정 변경사항"
       >
         <div className="space-y-4">
           <div className="flex items-center justify-between">

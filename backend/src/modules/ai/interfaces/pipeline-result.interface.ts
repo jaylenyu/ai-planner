@@ -31,6 +31,7 @@ export interface PipelineContext {
   polyline?: [number, number][];
   summary?: string;
   unsupportedHints?: string[];
+  llmCost?: number;
 }
 
 export interface LocationCandidateLog {
@@ -46,4 +47,5 @@ export interface PipelineResult {
   polyline: [number, number][];
   totalDurationMin: number;
   unsupportedHints: string[];
+  llmCost: number;
 }

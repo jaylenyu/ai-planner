@@ -38,32 +38,65 @@ async function main() {
     throw new Error('DATABASE_URL가 설정되지 않았습니다.');
   }
 
-  const email = process.env.SEED_USER_EMAIL ?? 'test@example.com';
-  const password = process.env.SEED_USER_PASSWORD ?? 'test1234';
-  const hashedPassword = await bcrypt.hash(password, 10);
+  const adminEmail = process.env.SEED_ADMIN_EMAIL ?? process.env.EMAIL_USER;
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+  const pubEmail = process.env.SEED_PUBLIC_ADMIN_EMAIL;
+  const pubPassword = process.env.SEED_PUBLIC_ADMIN_PASSWORD;
+
+  if (!adminEmail || !adminPassword || !pubEmail || !pubPassword) {
+    throw new Error(
+      'SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD, SEED_PUBLIC_ADMIN_EMAIL, SEED_PUBLIC_ADMIN_PASSWORD 환경변수가 필요합니다.',
+    );
+  }
+
+  const seedUsers = [
+    {
+      email: adminEmail,
+      password: adminPassword,
+      role: 'ADMIN' as const,
+      adminReadOnly: false,
+    },
+    {
+      email: pubEmail,
+      password: pubPassword,
+      role: 'ADMIN' as const,
+      adminReadOnly: true,
+    },
+  ];
 
   const prisma = new PrismaClient();
 
   try {
-    const user = await prisma.user.upsert({
-      where: { email },
-      update: {
-        password: hashedPassword,
-        emailVerified: true,
-      },
-      create: {
-        email,
-        password: hashedPassword,
-        emailVerified: true,
-      },
-    });
+    for (const seedUser of seedUsers) {
+      const hashedPassword = await bcrypt.hash(seedUser.password, 10);
 
-    await prisma.refreshToken.deleteMany({ where: { userId: user.id } });
-    await prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
+      const user = await prisma.user.upsert({
+        where: { email: seedUser.email },
+        update: {
+          password: hashedPassword,
+          emailVerified: true,
+          role: seedUser.role,
+          adminReadOnly: seedUser.adminReadOnly,
+        },
+        create: {
+          email: seedUser.email,
+          password: hashedPassword,
+          emailVerified: true,
+          role: seedUser.role,
+          adminReadOnly: seedUser.adminReadOnly,
+        },
+      });
+
+      await prisma.refreshToken.deleteMany({ where: { userId: user.id } });
+      await prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
+    }
 
     console.log('seed complete');
-    console.log(`email: ${email}`);
-    console.log(`password: ${password}`);
+    for (const seedUser of seedUsers) {
+      console.log(
+        `${seedUser.adminReadOnly ? 'admin(read-only)' : seedUser.role.toLowerCase()}: ${seedUser.email}`,
+      );
+    }
   } finally {
     await prisma.$disconnect();
   }

@@ -1,12 +1,18 @@
-import {
-  getToken,
-  setToken,
-  setRefreshToken,
-  getRefreshToken,
-  clearAllTokens,
-} from "./auth";
+import { useAuthStore } from "../stores/authStore";
 import type {
   CategorySummary,
+  AdminApiUsageResponse,
+  AdminBillingResponse,
+  AdminCostResponse,
+  AdminLogsResponse,
+  AdminPlanListResponse,
+  AdminPlansResponse,
+  AdminSentryResponse,
+  AdminWorkspaceListResponse,
+  AdminSummaryResponse,
+  AdminUserDetail,
+  AdminUserListResponse,
+  AdminUserUpdateResponse,
   NotificationItem,
   PaymentPrepareResponse,
   PlanMemo,
@@ -17,9 +23,13 @@ import type {
 
 const rawApiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 const normalizedApiUrl = rawApiUrl.replace(/\/+$/, "");
-export const API_BASE_URL = normalizedApiUrl.endsWith("/api")
+const absoluteApiBaseUrl = normalizedApiUrl.endsWith("/api")
   ? normalizedApiUrl
   : `${normalizedApiUrl}/api`;
+const browserApiBaseUrl = '/api';
+
+export const API_BASE_URL =
+  typeof window === 'undefined' ? absoluteApiBaseUrl : browserApiBaseUrl;
 
 export class ApiError extends Error {
   status: number;
@@ -33,8 +43,16 @@ export class ApiError extends Error {
   }
 }
 
-async function tryRefresh(): Promise<boolean> {
-  const refreshToken = getRefreshToken();
+type AuthAdapter = {
+  getAccessToken: () => string | null;
+  getRefreshToken: () => string | null;
+  setTokens: (access: string, refresh: string) => void;
+  setAccessToken?: (access: string) => void;
+  clearTokens: () => void;
+};
+
+async function tryRefresh(auth: AuthAdapter): Promise<boolean> {
+  const refreshToken = auth.getRefreshToken();
   if (!refreshToken) return false;
 
   try {
@@ -45,44 +63,29 @@ async function tryRefresh(): Promise<boolean> {
     });
 
     if (!res.ok) {
-      clearAllTokens();
+      auth.clearTokens();
       return false;
     }
 
     const data = await res.json();
-    setToken(data.access_token);
-    setRefreshToken(data.refresh_token);
+    auth.setTokens(data.access_token, data.refresh_token);
     return true;
   } catch {
-    clearAllTokens();
+    auth.clearTokens();
     return false;
   }
 }
 
-async function request<T>(
+async function requestRaw<T>(
   path: string,
   options: RequestInit = {},
-  retry = true,
 ): Promise<T> {
-  const token = getToken();
   const headers: HeadersInit = {
     "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...options.headers,
   };
 
   const res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
-
-  if (res.status === 401 && retry) {
-    const refreshed = await tryRefresh();
-    if (refreshed) {
-      return request<T>(path, options, false);
-    }
-    if (typeof window !== "undefined") {
-      window.location.href = "/login";
-    }
-    throw new Error("인증이 만료되었습니다. 다시 로그인해주세요.");
-  }
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -111,17 +114,154 @@ async function request<T>(
   return JSON.parse(text) as T;
 }
 
+async function requestAppRaw<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+
+  const res = await fetch(path, { ...options, headers });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    let message = '요청 실패';
+    let payload: unknown;
+    if (text) {
+      try {
+        const parsed = JSON.parse(text) as { message?: string };
+        payload = parsed;
+        if (parsed?.message) message = parsed.message;
+      } catch {
+        message = text;
+      }
+    }
+    throw new ApiError(message, res.status, payload);
+  }
+
+  if (res.status === 204 || res.status === 205) {
+    return undefined as T;
+  }
+
+  const text = await res.text();
+  if (!text) {
+    return {} as T;
+  }
+  return JSON.parse(text) as T;
+}
+
+async function requestWithAuth<T>(
+  auth: AuthAdapter,
+  loginPath: string,
+  path: string,
+  options: RequestInit = {},
+  retry = true,
+): Promise<T> {
+  const token = auth.getAccessToken();
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...options.headers,
+  };
+
+  const res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+
+  if (res.status === 401 && retry) {
+    const refreshed = await tryRefresh(auth);
+    if (refreshed) {
+      return requestWithAuth<T>(auth, loginPath, path, options, false);
+    }
+    auth.clearTokens();
+    if (typeof window !== 'undefined') {
+      window.location.href = loginPath;
+    }
+    throw new Error('인증이 만료되었습니다. 다시 로그인해주세요.');
+  }
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    let message = '요청 실패';
+    let payload: unknown;
+    if (text) {
+      try {
+        const parsed = JSON.parse(text) as { message?: string };
+        payload = parsed;
+        if (parsed?.message) message = parsed.message;
+      } catch {
+        message = text;
+      }
+    }
+    throw new ApiError(message, res.status, payload);
+  }
+
+  if (res.status === 204 || res.status === 205) {
+    return undefined as T;
+  }
+
+  const text = await res.text();
+  if (!text) {
+    return {} as T;
+  }
+  return JSON.parse(text) as T;
+}
+
 export const api = {
   post: <T>(path: string, body: unknown) =>
-    request<T>(path, { method: "POST", body: JSON.stringify(body) }),
-  get: <T>(path: string) => request<T>(path),
+    requestWithAuth<T>(
+      {
+        getAccessToken: () => useAuthStore.getState().accessToken,
+        getRefreshToken: () => useAuthStore.getState().refreshToken,
+        setTokens: (access, refresh) => useAuthStore.getState().setTokens(access, refresh),
+        setAccessToken: (access) => useAuthStore.getState().setAccessToken(access),
+        clearTokens: () => useAuthStore.getState().clearTokens(),
+      },
+      '/login',
+      path,
+      { method: 'POST', body: JSON.stringify(body) },
+    ),
+  get: <T>(path: string) =>
+    requestWithAuth<T>(
+      {
+        getAccessToken: () => useAuthStore.getState().accessToken,
+        getRefreshToken: () => useAuthStore.getState().refreshToken,
+        setTokens: (access, refresh) => useAuthStore.getState().setTokens(access, refresh),
+        setAccessToken: (access) => useAuthStore.getState().setAccessToken(access),
+        clearTokens: () => useAuthStore.getState().clearTokens(),
+      },
+      '/login',
+      path,
+    ),
   patch: <T>(path: string, body: unknown) =>
-    request<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
+    requestWithAuth<T>(
+      {
+        getAccessToken: () => useAuthStore.getState().accessToken,
+        getRefreshToken: () => useAuthStore.getState().refreshToken,
+        setTokens: (access, refresh) => useAuthStore.getState().setTokens(access, refresh),
+        setAccessToken: (access) => useAuthStore.getState().setAccessToken(access),
+        clearTokens: () => useAuthStore.getState().clearTokens(),
+      },
+      '/login',
+      path,
+      { method: 'PATCH', body: JSON.stringify(body) },
+    ),
   delete: <T>(path: string, body?: unknown) =>
-    request<T>(path, {
-      method: "DELETE",
+    requestWithAuth<T>(
+      {
+        getAccessToken: () => useAuthStore.getState().accessToken,
+        getRefreshToken: () => useAuthStore.getState().refreshToken,
+        setTokens: (access, refresh) => useAuthStore.getState().setTokens(access, refresh),
+        setAccessToken: (access) => useAuthStore.getState().setAccessToken(access),
+        clearTokens: () => useAuthStore.getState().clearTokens(),
+      },
+      '/login',
+      path,
+      {
+        method: "DELETE",
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    }),
+      },
+    ),
 };
 
 export const planApi = {
@@ -189,22 +329,27 @@ export const billingApi = {
   confirm: (body: { paymentKey: string; orderId: string; amount: number }) =>
     api.post<SubscriptionStatusResponse>("/payment/confirm", body),
   status: () => api.get<SubscriptionStatusResponse>("/subscription/status"),
+  cancel: () => api.delete<void>("/subscription/cancel"),
 };
 
 export const authApi = {
   checkEmail: (email: string) =>
-    api.post<{ available: boolean; message: string }>("/auth/email/check", {
-      email,
+    requestRaw<{ available: boolean; message: string }>("/auth/email/check", {
+      method: 'POST',
+      body: JSON.stringify({ email }),
     }),
 
   requestEmailCode: (email: string, captchaToken: string) =>
-    api.post<{ message: string }>("/auth/email/request-code", {
-      email,
-      captchaToken,
+    requestRaw<{ message: string }>("/auth/email/request-code", {
+      method: 'POST',
+      body: JSON.stringify({ email, captchaToken }),
     }),
 
   verifyEmailCode: (email: string, code: string) =>
-    api.post<{ verified: boolean }>("/auth/email/verify-code", { email, code }),
+    requestRaw<{ verified: boolean }>("/auth/email/verify-code", {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
+    }),
 
   register: (
     email: string,
@@ -212,19 +357,145 @@ export const authApi = {
     agreedTerms: boolean,
     agreedPrivacy: boolean,
   ) =>
-    api.post<{ access_token: string; refresh_token: string }>(
+    requestRaw<{ access_token: string; refresh_token: string }>(
       "/auth/register",
       {
-        email,
-        password,
-        agreedTerms,
-        agreedPrivacy,
+        method: 'POST',
+        body: JSON.stringify({
+          email,
+          password,
+          agreedTerms,
+          agreedPrivacy,
+        }),
       },
     ),
 
   login: (email: string, password: string) =>
-    api.post<{ access_token: string; refresh_token: string }>("/auth/login", {
-      email,
-      password,
+    requestRaw<{ access_token: string; refresh_token: string }>("/auth/login", {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
     }),
+  loginAdmin: (email: string, password: string) =>
+    requestAppRaw<{
+      ok: true;
+      user: {
+        userId: string;
+        email: string;
+        role: 'ADMIN';
+        adminReadOnly: boolean;
+      };
+    }>('/api/admin/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+  logoutAdmin: () =>
+    requestAppRaw<{ ok: true }>('/api/admin/auth/logout', {
+      method: 'POST',
+    }),
+};
+
+export interface MeResponse {
+  id: string;
+  email: string;
+  role: string;
+  createdAt: string;
+  lastLoginAt: string | null;
+  hasPassword: boolean;
+  providers: { google: boolean; kakao: boolean; naver: boolean };
+  inAppNotificationsEnabled: boolean;
+  emailNotificationsEnabled: boolean;
+}
+
+export async function getMe(): Promise<MeResponse> {
+  return api.get<MeResponse>('/auth/me');
+}
+
+export async function updateSettings(data: {
+  inAppNotificationsEnabled?: boolean;
+  emailNotificationsEnabled?: boolean;
+}): Promise<void> {
+  return api.patch<void>('/auth/settings', data);
+}
+
+export async function changePassword(data: {
+  currentPassword?: string;
+  newPassword: string;
+  verifyToken?: string;
+}): Promise<{ access_token: string; refresh_token: string }> {
+  return api.patch<{ access_token: string; refresh_token: string }>('/auth/password', data);
+}
+
+export async function requestPasswordSetup(): Promise<void> {
+  return api.post<void>('/auth/password/setup-request', {});
+}
+
+export async function verifyPasswordSetup(code: string): Promise<{ verifyToken: string }> {
+  return api.post<{ verifyToken: string }>('/auth/password/setup-verify', { code });
+}
+
+export async function requestOAuthLinkToken(provider: 'google' | 'kakao' | 'naver'): Promise<void> {
+  return api.post<void>(`/auth/oauth/${provider}/link-token`, {});
+}
+
+export async function unlinkOAuth(provider: 'google' | 'kakao' | 'naver'): Promise<void> {
+  return api.delete<void>(`/auth/oauth/${provider}`);
+}
+
+export async function logoutAll(): Promise<void> {
+  return api.post<void>('/auth/logout-all', {});
+}
+
+export async function deleteMe(data: { password?: string; verifyToken?: string }): Promise<void> {
+  return api.delete<void>('/auth/me', data);
+}
+
+export const adminApi = {
+  summary: () =>
+    requestAppRaw<AdminSummaryResponse>('/api/admin/summary'),
+  users: (query: Record<string, string | number | boolean | undefined>) => {
+    const params = new URLSearchParams();
+    Object.entries(query).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === '') return;
+      params.set(key, String(value));
+    });
+    const search = params.toString();
+    return requestAppRaw<AdminUserListResponse>(
+      search ? `/api/admin/users?${search}` : '/api/admin/users',
+    );
+  },
+  user: (id: string) =>
+    requestAppRaw<AdminUserDetail>(`/api/admin/users/${id}`),
+  updateRole: (id: string, role: 'USER' | 'ADMIN') =>
+    requestAppRaw<AdminUserUpdateResponse>(
+      `/api/admin/users/${id}/role`,
+      { method: 'PATCH', body: JSON.stringify({ role }) },
+    ),
+  suspendUser: (id: string, suspended: boolean) =>
+    requestAppRaw<AdminUserUpdateResponse>(
+      `/api/admin/users/${id}/suspend`,
+      { method: 'PATCH', body: JSON.stringify({ suspended }) },
+    ),
+  billing: () =>
+    requestAppRaw<AdminBillingResponse>('/api/admin/billing'),
+  plans: () =>
+    requestAppRaw<AdminPlansResponse>('/api/admin/plans'),
+  plansList: (page: number, limit = 10) =>
+    requestAppRaw<AdminPlanListResponse>(`/api/admin/plans/list?page=${page}&limit=${limit}`),
+  workspacesList: (page: number, limit = 10) =>
+    requestAppRaw<AdminWorkspaceListResponse>(`/api/admin/plans/workspaces?page=${page}&limit=${limit}`),
+  logs: (container: 'backend' | 'frontend', search?: string) => {
+    const params = new URLSearchParams({ container });
+    if (search) params.set('search', search);
+    return requestAppRaw<AdminLogsResponse>(
+      `/api/admin/ops/logs?${params.toString()}`,
+    );
+  },
+  cost: (refresh = false) =>
+    requestAppRaw<AdminCostResponse>(
+      `/api/admin/ops/cost${refresh ? '?refresh=1' : ''}`,
+    ),
+  sentry: () =>
+    requestAppRaw<AdminSentryResponse>('/api/admin/ops/sentry'),
+  apiUsage: () =>
+    requestAppRaw<AdminApiUsageResponse>('/api/admin/ops/api-usage'),
 };

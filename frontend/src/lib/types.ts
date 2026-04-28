@@ -66,6 +66,8 @@ export interface PaymentPrepareResponse extends SubscriptionStatusResponse {
 export interface UserSummary {
   id: string;
   email: string;
+  role?: 'USER' | 'ADMIN';
+  adminReadOnly?: boolean;
 }
 
 export interface CategorySummary {
@@ -140,7 +142,304 @@ export interface NotificationItem {
   createdAt: string;
 }
 
+export interface AdminKpis {
+  totalUsers: number;
+  activeSubscriptions: number;
+  mrr: number;
+  plansToday: number;
+  monthlyAwsCost: number;
+  unresolvedSentryCount: number;
+}
+
+export interface AdminSummaryResponse {
+  kpis: AdminKpis;
+  recentFailures: Array<{
+    id: string;
+    orderId: string;
+    amount: number;
+    method: string;
+    status: string;
+    failReason: string | null;
+    createdAt: string;
+    user: UserSummary;
+    subscription: {
+      id: string;
+      status: string;
+      planCode: string;
+    };
+  }>;
+  recentUsers: Array<{
+    id: string;
+    email: string;
+    role: 'USER' | 'ADMIN';
+    emailVerified: boolean;
+    lastLoginAt: string | null;
+    createdAt: string;
+  }>;
+}
+
+export interface AdminUserListResponse {
+  items: Array<{
+    id: string;
+    email: string;
+    role: 'USER' | 'ADMIN';
+    emailVerified: boolean;
+    isSuspended: boolean;
+    googleId: string | null;
+    kakaoId: string | null;
+    naverId: string | null;
+    lastLoginAt: string | null;
+    createdAt: string;
+    subscription?: {
+      status: string;
+      planCode: string;
+      currentPeriodEnd: string | null;
+      graceEndsAt: string | null;
+      cancelledAt: string | null;
+    } | null;
+    _count: {
+      plans: number;
+      payments: number;
+      notifications: number;
+    };
+  }>;
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface AdminUserDetail {
+  id: string;
+  email: string;
+  role: 'USER' | 'ADMIN';
+  isSuspended: boolean;
+  emailVerified: boolean;
+  googleId: string | null;
+  kakaoId: string | null;
+  naverId: string | null;
+  lastLoginAt: string | null;
+  createdAt: string;
+  subscription: {
+    id: string;
+    status: string;
+    planCode: string;
+    currentPeriodEnd: string | null;
+    graceEndsAt: string | null;
+    cancelledAt: string | null;
+    payments: Array<{
+      id: string;
+      orderId: string;
+      amount: number;
+      method: string;
+      status: string;
+      failReason: string | null;
+      createdAt: string;
+    }>;
+  } | null;
+  payments: Array<{
+    id: string;
+    orderId: string;
+    amount: number;
+    method: string;
+    status: string;
+    failReason: string | null;
+    createdAt: string;
+  }>;
+  plans: PlanSummary[];
+  ownedWorkspaces: Array<{
+    id: string;
+    name: string;
+    ownerId: string;
+    createdAt: string;
+    updatedAt: string;
+    members: Array<{
+      id: string;
+      role: string;
+      user: UserSummary;
+    }>;
+    invites: WorkspaceInvite[];
+    plans: PlanSummary[];
+  }>;
+  workspaceMembership: {
+    id: string;
+    role: string;
+    workspace: {
+      id: string;
+      name: string;
+      owner: UserSummary;
+      members: Array<{
+        id: string;
+        role: string;
+        user: UserSummary;
+      }>;
+    };
+  } | null;
+}
+
+export interface AdminBillingResponse {
+  statusCounts: Record<string, number>;
+  subscriptions: Array<{
+    id: string;
+    userId: string;
+    planCode: string;
+    status: string;
+    currentPeriodEnd: string | null;
+    graceEndsAt: string | null;
+    cancelledAt: string | null;
+    createdAt: string;
+    updatedAt: string;
+    user: UserSummary;
+  }>;
+  payments: Array<{
+    id: string;
+    userId: string;
+    subscriptionId: string;
+    orderId: string;
+    paymentKey: string | null;
+    amount: number;
+    method: string;
+    status: string;
+    requestedAt: string;
+    confirmedAt: string | null;
+    failReason: string | null;
+    createdAt: string;
+    user: UserSummary;
+  }>;
+  failedPayments: Array<{
+    id: string;
+    orderId: string;
+    amount: number;
+    method: string;
+    status: string;
+    failReason: string | null;
+    createdAt: string;
+    user: UserSummary;
+  }>;
+}
+
+export interface AdminPlansResponse {
+  timeline: {
+    daily: number;
+    weekly: number;
+    monthly: number;
+  };
+  suspiciousUsers: Array<{
+    userId: string;
+    count: number;
+    user: UserSummary;
+  }>;
+  workspaces: Array<{
+    id: string;
+    name: string;
+    ownerId: string;
+    createdAt: string;
+    updatedAt: string;
+    owner: UserSummary;
+    _count: {
+      members: number;
+      plans: number;
+      invites: number;
+    };
+  }>;
+  plans: Array<PlanSummary & {
+    user: UserSummary;
+    workspace: {
+      id: string;
+      name: string;
+      ownerId: string;
+      createdAt: string;
+      updatedAt: string;
+      owner: UserSummary;
+      _count: {
+        members: number;
+      };
+    } | null;
+  }>;
+}
+
+export interface AdminPlanListResponse {
+  items: Array<AdminPlansResponse['plans'][number]>;
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface AdminWorkspaceListResponse {
+  items: Array<AdminPlansResponse['workspaces'][number]>;
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface AdminApiUsageResponse {
+  totalsByDay: Record<string, { count: number; cost: number }>;
+  topUsers: Array<{
+    userId: string;
+    _sum: { cost: number | null };
+    _count: { _all: number };
+  }>;
+  openrouter: {
+    configured: boolean;
+    usage: number | null;
+    error?: string;
+  };
+}
+
+export interface AdminCostResponse {
+  configured: boolean;
+  available: boolean;
+  source: 'cost-explorer' | 'fallback';
+  currency: string;
+  total: number;
+  monthly: number;
+  deltaPct: number;
+  byService: Record<string, number>;
+  points: Array<{ date: string; cost: number }>;
+  error?: string;
+}
+
+export interface AdminSentryResponse {
+  configured: boolean;
+  available: boolean;
+  error?: string;
+  totalCount: number;
+  issues: Array<{
+    id: string;
+    title: string;
+    count: number;
+    firstSeen: string;
+    lastSeen: string;
+    permalink: string;
+  }>;
+}
+
+export interface AdminLogsResponse {
+  configured: boolean;
+  available: boolean;
+  source: 'cloudwatch' | 'fallback';
+  container: 'backend' | 'frontend';
+  search: string;
+  error?: string;
+  lines: Array<{
+    timestamp: string;
+    level: 'INFO' | 'WARN' | 'ERROR';
+    message: string;
+    raw?: unknown;
+  }>;
+}
+
+export interface AdminUserUpdateResponse {
+  id: string;
+  email: string;
+  role: 'USER' | 'ADMIN';
+  isSuspended: boolean;
+}
+
 export type PlanMode = 'date' | 'trip';
+export type UserRole = 'USER' | 'ADMIN';
 
 export const TYPE_ICONS: Record<string, string> = {
   food: '🍽',
