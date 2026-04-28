@@ -309,6 +309,7 @@ jobs:
           timeout: 180s
           script: |
             set -euo pipefail
+            ENV_FILE=/srv/apps/ai-planner/.env
             cat > /tmp/seed_admin_users.js <<'NODE'
             const bcrypt = require('bcrypt');
             const { PrismaClient } = require('@prisma/client');
@@ -361,5 +362,14 @@ jobs:
               });
             NODE
             docker cp /tmp/seed_admin_users.js ai-planner-backend:/app/seed_admin_users.js
-            docker exec ai-planner-backend sh -lc 'cd /app && node seed_admin_users.js'
+            SEED_ADMIN_EMAIL=$(grep '^SEED_ADMIN_EMAIL=' "$ENV_FILE" | cut -d= -f2-)
+            SEED_ADMIN_PASSWORD=$(grep '^SEED_ADMIN_PASSWORD=' "$ENV_FILE" | cut -d= -f2-)
+            SEED_PUBLIC_ADMIN_EMAIL=$(grep '^SEED_PUBLIC_ADMIN_EMAIL=' "$ENV_FILE" | cut -d= -f2-)
+            SEED_PUBLIC_ADMIN_PASSWORD=$(grep '^SEED_PUBLIC_ADMIN_PASSWORD=' "$ENV_FILE" | cut -d= -f2-)
+            docker exec \
+              -e SEED_ADMIN_EMAIL="$SEED_ADMIN_EMAIL" \
+              -e SEED_ADMIN_PASSWORD="$SEED_ADMIN_PASSWORD" \
+              -e SEED_PUBLIC_ADMIN_EMAIL="$SEED_PUBLIC_ADMIN_EMAIL" \
+              -e SEED_PUBLIC_ADMIN_PASSWORD="$SEED_PUBLIC_ADMIN_PASSWORD" \
+              ai-planner-backend sh -lc 'cd /app && node seed_admin_users.js'
             rm -f /tmp/seed_admin_users.js
