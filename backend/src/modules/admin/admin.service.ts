@@ -14,6 +14,7 @@ import {
   GetCostAndUsageCommand,
 } from '@aws-sdk/client-cost-explorer';
 import { PrismaService } from '../../prisma/prisma.service';
+import { resolveMonthlyAmount } from '../../config/billing.config';
 import type { AuthenticatedUser } from '../auth/types';
 
 type UserListFilters = {
@@ -89,11 +90,6 @@ function startOfDay(date = new Date()) {
   return next;
 }
 
-function toNumber(value: string | undefined, fallback: number) {
-  const parsed = value ? Number(value) : fallback;
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
-
 function getAwsClientConfig() {
   const region = process.env.AWS_REGION?.trim();
   if (!region) return null;
@@ -118,7 +114,7 @@ export class AdminService {
   constructor(private readonly prisma: PrismaService) {}
 
   private get monthlyAmount() {
-    return toNumber(process.env.SUBSCRIPTION_MONTHLY_AMOUNT, 9900);
+    return resolveMonthlyAmount();
   }
 
   async getSummary() {

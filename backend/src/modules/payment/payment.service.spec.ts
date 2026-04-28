@@ -44,7 +44,7 @@ describe('PaymentService', () => {
     });
     prisma.payment.create.mockResolvedValue({
       id: 'pay-1',
-      amount: 9900,
+      amount: 3900,
       status: 'READY',
       method: 'TOSSPAY',
     });
@@ -53,7 +53,7 @@ describe('PaymentService', () => {
 
     expect(result.customerKey).toBe('user-1');
     expect(result.orderId).toMatch(/^sub_/);
-    expect(result.payment.amount).toBe(9900);
+    expect(result.payment.amount).toBe(3900);
   });
 
   it('confirm은 mock 모드에서 구독을 active로 전환한다', async () => {
@@ -62,7 +62,7 @@ describe('PaymentService', () => {
       subscriptionId: 'sub-1',
       orderId: 'order-1',
       paymentKey: null,
-      amount: 9900,
+      amount: 3900,
       method: 'TOSSPAY',
       status: 'READY',
       user: {
@@ -83,7 +83,7 @@ describe('PaymentService', () => {
     prisma.payment.update.mockResolvedValue({
       id: 'pay-1',
       orderId: 'order-1',
-      amount: 9900,
+      amount: 3900,
       status: 'DONE',
       method: 'TOSSPAY',
       paymentKey: 'pk_test',
@@ -104,7 +104,7 @@ describe('PaymentService', () => {
     const result = await service.confirm('user-1', {
       paymentKey: 'pk_test',
       orderId: 'order-1',
-      amount: 9900,
+      amount: 3900,
     });
 
     expect(result.subscription.status).toBe('active');
@@ -112,7 +112,7 @@ describe('PaymentService', () => {
       expect.objectContaining({
         to: 'jaylenyu96@gmail.com',
         orderId: 'order-1',
-        amount: 9900,
+        amount: 3900,
       }),
     );
     expect(prisma.payment.update).toHaveBeenCalledWith(
