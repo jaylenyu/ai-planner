@@ -1,28 +1,46 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bar, BarChart, Cell, Tooltip, XAxis, YAxis, ResponsiveContainer } from 'recharts';
+import {
+  Bar,
+  BarChart,
+  Cell,
+  Tooltip,
+  XAxis,
+  YAxis,
+  ResponsiveContainer,
+} from 'recharts';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { adminApi } from '@/lib/api';
 import { AdminPageHeader } from '../../_components/AdminPageHeader';
 import { AdminSectionCard } from '../../_components/AdminSectionCard';
 
 const PALETTE = [
-  '#e07b39', '#f5a623', '#4a90d9', '#7ed321', '#9b59b6',
-  '#1abc9c', '#e74c3c', '#3498db', '#f39c12', '#2ecc71',
+  '#e07b39',
+  '#f5a623',
+  '#4a90d9',
+  '#7ed321',
+  '#9b59b6',
+  '#1abc9c',
+  '#e74c3c',
+  '#3498db',
+  '#f39c12',
+  '#2ecc71',
 ];
 
-function dollarTick(v: unknown) {
-  return `$${Number(v).toFixed(2)}`;
-}
-
-function CostTooltip({ active, payload }: { active?: boolean; payload?: Array<{ name: string; value: number }> }) {
+function CostTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{ name: string; value: number; payload: { name: string } }>;
+}) {
   if (!active || !payload?.length) return null;
-  const { name, value } = payload[0];
+  const { value, payload: item } = payload[0];
   return (
-    <div className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm shadow-lg">
-      <p className="font-medium text-stone-700">{name}</p>
-      <p className="font-mono text-stone-900">${value.toFixed(2)}</p>
+    <div className="rounded-lg border border-border bg-background px-3 py-2 text-sm shadow-md">
+      <p className="mb-1 font-medium text-foreground">{item.name}</p>
+      <p className="font-mono text-muted-foreground">${value.toFixed(2)}</p>
     </div>
   );
 }
@@ -42,7 +60,15 @@ export default function AdminCostPage() {
 
   const chartData = Object.entries(query.data?.byService ?? {})
     .filter(([, v]) => v > 0)
-    .map(([name, value], i) => ({ name, value, fill: PALETTE[i % PALETTE.length] }));
+    .sort(([, a], [, b]) => b - a)
+    .map(([name, value], i) => ({
+      name,
+      value,
+      fill: PALETTE[i % PALETTE.length],
+    }));
+
+  const barHeight = 36;
+  const chartHeight = Math.max(180, chartData.length * barHeight + 24);
 
   return (
     <div className="space-y-6">
@@ -69,12 +95,15 @@ export default function AdminCostPage() {
       >
         {query.data?.source === 'fallback' ? (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            {query.data.error ?? 'Cost Explorer 대신 API 사용량 기반 추정치를 보여줍니다.'}
+            {query.data.error ??
+              'Cost Explorer 대신 API 사용량 기반 추정치를 보여줍니다.'}
           </div>
         ) : null}
         <div>
           <p className="text-sm text-stone-500">월 누적</p>
-          <p className="text-3xl font-bold text-stone-900">${(query.data?.monthly ?? 0).toFixed(2)}</p>
+          <p className="text-3xl font-bold text-stone-900">
+            ${(query.data?.monthly ?? 0).toFixed(2)}
+          </p>
         </div>
       </AdminSectionCard>
 
@@ -83,14 +112,36 @@ export default function AdminCostPage() {
         description="비용 비중이 높은 영역을 빠르게 확인합니다."
       >
         {chartData.length === 0 ? (
-          <p className="text-sm text-stone-400">표시할 비용 데이터가 없습니다.</p>
+          <p className="text-sm text-stone-400">
+            표시할 비용 데이터가 없습니다.
+          </p>
         ) : (
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={chartData} margin={{ top: 4, right: 16, left: 8, bottom: 4 }}>
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#78716c' }} />
-              <YAxis tickFormatter={dollarTick} tick={{ fontSize: 11, fill: '#78716c' }} width={56} />
-              <Tooltip content={<CostTooltip />} cursor={{ fill: '#f5f5f4' }} />
-              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+          <ResponsiveContainer width="100%" height={chartHeight}>
+            <BarChart
+              layout="vertical"
+              data={chartData}
+              margin={{ top: 0, right: 16, left: 8, bottom: 0 }}
+            >
+              <XAxis
+                type="number"
+                tickFormatter={(v: number) => `$${v.toFixed(2)}`}
+                tick={{ fontSize: 11, fill: '#78716c' }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                type="category"
+                dataKey="name"
+                tick={{ fontSize: 12, fill: '#57534e' }}
+                axisLine={false}
+                tickLine={false}
+                width={140}
+              />
+              <Tooltip
+                content={<CostTooltip />}
+                cursor={{ fill: '#f5f5f4' }}
+              />
+              <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
                 {chartData.map((entry) => (
                   <Cell key={entry.name} fill={entry.fill} />
                 ))}
