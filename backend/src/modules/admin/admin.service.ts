@@ -763,9 +763,31 @@ export class AdminService {
       take: 10,
     });
 
+    let openrouter: { configured: boolean; usage: number | null; error?: string } = {
+      configured: false,
+      usage: null,
+    };
+    const openrouterKey = process.env.OPENROUTER_API_KEY?.trim();
+    if (openrouterKey) {
+      try {
+        const res = await fetch('https://openrouter.ai/api/v1/auth/key', {
+          headers: { Authorization: `Bearer ${openrouterKey}` },
+        });
+        if (res.ok) {
+          const body = (await res.json()) as { data: { usage: number } };
+          openrouter = { configured: true, usage: body.data.usage };
+        } else {
+          openrouter = { configured: true, usage: null, error: `HTTP ${res.status}` };
+        }
+      } catch (e) {
+        openrouter = { configured: true, usage: null, error: String(e) };
+      }
+    }
+
     return {
       totalsByDay,
       topUsers,
+      openrouter,
     };
   }
 

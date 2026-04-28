@@ -12,6 +12,8 @@ export default function AdminApiUsagePage() {
     queryFn: () => adminApi.apiUsage(),
   });
 
+  const or = query.data?.openrouter;
+
   return (
     <div className="space-y-6">
       <AdminPageHeader
@@ -19,6 +21,24 @@ export default function AdminApiUsagePage() {
         title="API 사용량 & 비용"
         description="일별 사용량과 비용, 그리고 상위 사용자 목록을 보여줍니다."
       />
+
+      <AdminSectionCard
+        title="OpenRouter 실제 지출"
+        description="OPENROUTER_API_KEY 기준 누적 크레딧 사용액입니다."
+      >
+        {!or ? (
+          <p className="text-sm text-stone-400">로딩 중...</p>
+        ) : !or.configured ? (
+          <p className="text-sm text-stone-400">OPENROUTER_API_KEY가 설정되지 않았습니다.</p>
+        ) : or.usage === null ? (
+          <p className="text-sm text-red-500">오류: {or.error}</p>
+        ) : (
+          <p className="text-2xl font-bold text-stone-900">
+            ${or.usage.toFixed(4)}
+            <span className="ml-2 text-sm font-normal text-stone-500">USD (누적)</span>
+          </p>
+        )}
+      </AdminSectionCard>
 
       <AdminSectionCard
         title="Top 10 사용자"

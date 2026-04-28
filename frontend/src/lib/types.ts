@@ -381,6 +381,11 @@ export interface AdminApiUsageResponse {
     _sum: { cost: number | null };
     _count: { _all: number };
   }>;
+  openrouter: {
+    configured: boolean;
+    usage: number | null;
+    error?: string;
+  };
 }
 
 export interface AdminCostResponse {
