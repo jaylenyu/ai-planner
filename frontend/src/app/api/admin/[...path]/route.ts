@@ -7,7 +7,7 @@ import {
   getAdminCookieOptions,
   verifyAdminAccessToken,
 } from "@/lib/server/admin-session";
-import { BACKEND_INTERNAL_URL } from "@/lib/server/api-url";
+import { getBackendInternalUrl } from "@/lib/server/api-url";
 
 export const runtime = "nodejs";
 
@@ -16,7 +16,8 @@ async function refreshAdminSession(refreshToken: string | undefined) {
     return null;
   }
 
-  const response = await fetch(`${BACKEND_INTERNAL_URL}/auth/refresh`, {
+  const backendUrl = getBackendInternalUrl();
+  const response = await fetch(`${backendUrl}/auth/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refresh_token: refreshToken }),
@@ -45,7 +46,8 @@ async function forwardAdminRequest(
   accessToken: string,
   body: string | undefined,
 ) {
-  const target = new URL(`${BACKEND_INTERNAL_URL}/admin/${path.join("/")}`);
+  const backendUrl = getBackendInternalUrl();
+  const target = new URL(`${backendUrl}/admin/${path.join("/")}`);
   target.search = request.nextUrl.search;
 
   return fetch(target, {

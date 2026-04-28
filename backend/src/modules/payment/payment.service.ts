@@ -391,29 +391,23 @@ export class PaymentService {
   }
 
   async cancelByUser(userId: string): Promise<void> {
-    try {
-      const subscription = await this.prisma.subscription.findUnique({
-        where: { userId },
-      });
+    const subscription = await this.prisma.subscription.findUnique({
+      where: { userId },
+    });
 
-      if (!subscription) return;
-      if (subscription.status !== 'active' && subscription.status !== 'grace') {
-        return;
-      }
-
-      await this.prisma.subscription.update({
-        where: { id: subscription.id },
-        data: {
-          cancelledAt: new Date(),
-        },
-      });
-
-      this.logger.log(
-        `Subscription cancelled for user ${userId} (account deletion)`,
-      );
-    } catch (e) {
-      this.logger.warn(`cancelByUser failed for user ${userId}:`, e);
+    if (!subscription) return;
+    if (subscription.status !== 'active' && subscription.status !== 'grace') {
+      return;
     }
+
+    await this.prisma.subscription.update({
+      where: { id: subscription.id },
+      data: {
+        cancelledAt: new Date(),
+      },
+    });
+
+    this.logger.log(`Subscription cancelled for user ${userId}`);
   }
 
   async resubscribeByUser(userId: string): Promise<void> {

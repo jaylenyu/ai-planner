@@ -6,7 +6,7 @@ import {
   getAdminCookieOptions,
   verifyAdminAccessToken,
 } from "@/lib/server/admin-session";
-import { BACKEND_INTERNAL_URL } from "@/lib/server/api-url";
+import { getBackendInternalUrl } from "@/lib/server/api-url";
 
 export const runtime = "nodejs";
 
@@ -36,7 +36,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const response = await fetch(`${BACKEND_INTERNAL_URL}/auth/admin/login`, {
+  const backendUrl = getBackendInternalUrl();
+  const response = await fetch(`${backendUrl}/auth/admin/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),

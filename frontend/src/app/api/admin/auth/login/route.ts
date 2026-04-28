@@ -1,22 +1,23 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { ADMIN_ACCESS_COOKIE, ADMIN_REFRESH_COOKIE } from '@/lib/admin-cookie';
+import { NextRequest, NextResponse } from "next/server";
+import { ADMIN_ACCESS_COOKIE, ADMIN_REFRESH_COOKIE } from "@/lib/admin-cookie";
 import {
   ADMIN_ACCESS_COOKIE_MAX_AGE,
   ADMIN_REFRESH_COOKIE_MAX_AGE,
   getAdminCookieOptions,
   verifyAdminAccessToken,
-} from '@/lib/server/admin-session';
-import { BACKEND_INTERNAL_URL } from '@/lib/server/api-url';
+} from "@/lib/server/admin-session";
+import { getBackendInternalUrl } from "@/lib/server/api-url";
 
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as { email?: string; password?: string };
-  const response = await fetch(`${BACKEND_INTERNAL_URL}/auth/admin/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+  const backendUrl = getBackendInternalUrl();
+  const response = await fetch(`${backendUrl}/auth/admin/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-    cache: 'no-store',
+    cache: "no-store",
   });
 
   const text = await response.text();
@@ -24,7 +25,8 @@ export async function POST(request: NextRequest) {
     return new NextResponse(text, {
       status: response.status,
       headers: {
-        'Content-Type': response.headers.get('content-type') ?? 'application/json',
+        "Content-Type":
+          response.headers.get("content-type") ?? "application/json",
       },
     });
   }
@@ -36,7 +38,7 @@ export async function POST(request: NextRequest) {
   const payload = verifyAdminAccessToken(data.access_token);
   if (!payload) {
     return NextResponse.json(
-      { message: '유효한 관리자 토큰을 발급하지 못했습니다.' },
+      { message: "유효한 관리자 토큰을 발급하지 못했습니다." },
       { status: 401 },
     );
   }
