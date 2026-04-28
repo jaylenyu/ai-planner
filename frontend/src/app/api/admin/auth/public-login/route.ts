@@ -10,6 +10,15 @@ import { getBackendInternalUrl } from "@/lib/server/api-url";
 
 export const runtime = "nodejs";
 
+function normalizeOrigin(value: string | undefined) {
+  if (!value) return null;
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   if (process.env.ADMIN_PUBLIC_LOGIN_ENABLED !== "true") {
     return NextResponse.json(
@@ -19,7 +28,15 @@ export async function POST(request: NextRequest) {
   }
 
   const origin = request.headers.get("origin");
-  if (origin && origin !== request.nextUrl.origin) {
+  const allowedOrigins = new Set(
+    [
+      request.nextUrl.origin,
+      normalizeOrigin(process.env.FRONTEND_URL),
+      normalizeOrigin(process.env.APP_URL),
+      normalizeOrigin(process.env.NEXT_PUBLIC_SITE_URL),
+    ].filter(Boolean),
+  );
+  if (origin && !allowedOrigins.has(origin)) {
     return NextResponse.json(
       { message: "허용되지 않은 요청입니다." },
       { status: 403 },
