@@ -110,6 +110,19 @@ jobs:
           $PR_URL"
           git push origin "$NEXT_TAG"
 
+      - name: Create GitHub release
+        if: steps.bump.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEXT_TAG: ${{ steps.bump.outputs.next_tag }}
+        run: |
+          set -euo pipefail
+
+          gh release create "$NEXT_TAG" \
+            --verify-tag \
+            --title "$NEXT_TAG" \
+            --generate-notes
+
       - name: Summarize tag result
         if: always()
         run: |
