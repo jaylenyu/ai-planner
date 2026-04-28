@@ -67,7 +67,9 @@ export default function AdminCostPage() {
         description="비용 비중이 높은 영역을 빠르게 확인합니다."
       >
         <div className="space-y-4">
-          {Object.entries(query.data?.byService ?? {}).map(([service, value]) => (
+          {Object.entries(query.data?.byService ?? {})
+            .filter(([, value]) => value > 0)
+            .map(([service, value]) => (
             <div key={service} className="space-y-1">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-medium text-stone-700">{service}</span>
@@ -76,20 +78,6 @@ export default function AdminCostPage() {
               <div className="h-3 rounded-full bg-stone-100">
                 <MoneyBar value={value} max={max} />
               </div>
-            </div>
-            ))}
-        </div>
-      </AdminSectionCard>
-
-      <AdminSectionCard
-        title="최근 30일 포인트"
-        description="일자별 비용 포인트를 최근 9개까지 노출합니다."
-      >
-        <div className="grid gap-2 md:grid-cols-3">
-          {(query.data?.points ?? []).slice(-9).map((point) => (
-            <div key={point.date} className="rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm">
-              <p className="text-xs text-stone-500">{point.date}</p>
-              <p className="font-semibold text-stone-900">${point.cost.toFixed(3)}</p>
             </div>
             ))}
         </div>

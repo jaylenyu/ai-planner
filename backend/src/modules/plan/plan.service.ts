@@ -15,6 +15,7 @@ import { DeletePlanItemDto } from './dto/delete-plan-item.dto';
 import { GeneratePlanDto } from './dto/generate-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { UpdatePlanItemDto } from './dto/update-plan-item.dto';
+import { ApiBudgetService } from '../../services/api-budget.service';
 
 const planInclude = {
   category: true,
@@ -54,6 +55,7 @@ export class PlanService {
     private readonly aiService: AiService,
     private readonly paymentService: PaymentService,
     private readonly notificationService: NotificationService,
+    private readonly apiBudgetService: ApiBudgetService,
   ) {}
 
   private buildAccessibleWhere(userId: string, planId?: string) {
@@ -279,6 +281,12 @@ export class PlanService {
     }
 
     const result = await this.aiService.runPipeline(dto.rawInput, dto.mode);
+    void this.apiBudgetService.trackRequest(
+      userId,
+      'unknown',
+      'unknown',
+      result.llmCost,
+    );
 
     const plan = await this.prisma.plan.create({
       data: {

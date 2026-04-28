@@ -36,6 +36,7 @@ describe('PlanService', () => {
       aiService,
       paymentService,
       notificationService,
+      { patchLastCost: jest.fn() } as any,
     );
   });
 
