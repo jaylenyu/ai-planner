@@ -25,6 +25,8 @@ interface ApiRequest {
   timestamp: Date;
 }
 
+const DAILY_LIMIT_ENDPOINT = 'daily-limit';
+
 @Injectable()
 export class ApiBudgetService implements OnModuleInit {
   private readonly logger = new Logger(ApiBudgetService.name);
@@ -92,6 +94,7 @@ export class ApiBudgetService implements OnModuleInit {
             { userId: userId !== 'anonymous' ? userId : undefined },
             { ipAddress: ipAddress },
           ],
+          endpoint: DAILY_LIMIT_ENDPOINT,
           timestamp: {
             gte: startOfDay,
           },
@@ -138,6 +141,29 @@ export class ApiBudgetService implements OnModuleInit {
     const cacheKey = userId !== 'anonymous' ? userId : ipAddress;
     const currentCount = this.dailyUsageCache.get(cacheKey) || 0;
     this.dailyUsageCache.set(cacheKey, currentCount + 1);
+  }
+
+  async recordDailyRequest(
+    userId: string,
+    ipAddress: string,
+    userAgent: string,
+  ): Promise<void> {
+    this.incrementDailyCount(userId, ipAddress);
+
+    try {
+      await this.storeUsageRecord({
+        userId,
+        ipAddress,
+        userAgent,
+        endpoint: DAILY_LIMIT_ENDPOINT,
+        cost: 0,
+        timestamp: new Date(),
+      });
+    } catch (error: unknown) {
+      this.logger.error(
+        `Error recording daily API request: ${this.getErrorMessage(error)}`,
+      );
+    }
   }
 
   /** Records the actual pipeline cost to DB and updates the monthly total. */
@@ -196,6 +222,7 @@ export class ApiBudgetService implements OnModuleInit {
       this.prisma.apiUsage.count({
         where: {
           ...whereClause,
+          endpoint: DAILY_LIMIT_ENDPOINT,
           timestamp: { gte: today },
         },
       }),
@@ -206,7 +233,10 @@ export class ApiBudgetService implements OnModuleInit {
         },
       }),
       this.prisma.apiUsage.count({
-        where: whereClause,
+        where: {
+          ...whereClause,
+          endpoint: DAILY_LIMIT_ENDPOINT,
+        },
       }),
     ]);
 

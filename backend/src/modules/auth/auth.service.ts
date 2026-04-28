@@ -187,10 +187,6 @@ export class AuthService {
       );
     }
 
-    if (!this.isAccountAccessible(user)) {
-      throw new ForbiddenException('정지되었거나 탈퇴한 계정입니다.');
-    }
-
     const valid = await bcrypt.compare(dto.password, user.password);
     if (!valid) {
       const fails = await this.redis.incr(failKey, LOGIN_FAIL_TTL);
@@ -203,6 +199,10 @@ export class AuthService {
       throw new UnauthorizedException(
         '이메일 또는 비밀번호가 올바르지 않습니다.',
       );
+    }
+
+    if (!this.isAccountAccessible(user)) {
+      throw new ForbiddenException('정지되었거나 탈퇴한 계정입니다.');
     }
 
     if (options.requireAdmin && user.role !== 'ADMIN') {
@@ -460,31 +460,30 @@ export class AuthService {
 
     const normalized = user.email.trim().toLowerCase();
 
-    if (this.redis.isEnabled()) {
-      const resendKey = `password_setup:resend:${normalized}`;
-      const onCooldown = await this.redis.get(resendKey);
-      if (onCooldown) {
-        const remaining = await this.redis.ttl(resendKey);
-        throw new HttpException(
-          `인증코드 재전송은 ${remaining}초 후에 가능합니다.`,
-          HttpStatus.TOO_MANY_REQUESTS,
-        );
-      }
-
-      const code = crypto.randomInt(100000, 1000000).toString();
-      const codeKey = `password_setup:code:${normalized}`;
-      const attemptsKey = `password_setup:attempts:${normalized}`;
-
-      await this.redis.set(codeKey, code, CODE_TTL);
-      await this.redis.del(attemptsKey);
-      await this.redis.set(resendKey, '1', RESEND_COOLDOWN);
-      await this.emailService.sendVerificationCode(user.email, code);
-    } else {
-      // Fallback (no Redis)
-      const code = crypto.randomInt(100000, 1000000).toString();
-      // Store in-memory for testing — not production-safe, but consistent with email-verification fallback
-      await this.emailService.sendVerificationCode(user.email, code);
+    if (!this.redis.isEnabled()) {
+      throw new BadRequestException(
+        '인증코드 저장소가 구성되지 않아 인증을 진행할 수 없습니다.',
+      );
     }
+
+    const resendKey = `password_setup:resend:${normalized}`;
+    const onCooldown = await this.redis.get(resendKey);
+    if (onCooldown) {
+      const remaining = await this.redis.ttl(resendKey);
+      throw new HttpException(
+        `인증코드 재전송은 ${remaining}초 후에 가능합니다.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    const code = crypto.randomInt(100000, 1000000).toString();
+    const codeKey = `password_setup:code:${normalized}`;
+    const attemptsKey = `password_setup:attempts:${normalized}`;
+
+    await this.redis.set(codeKey, code, CODE_TTL);
+    await this.redis.del(attemptsKey);
+    await this.redis.set(resendKey, '1', RESEND_COOLDOWN);
+    await this.emailService.sendVerificationCode(user.email, code);
 
     return { message: '인증코드를 전송했습니다.' };
   }
@@ -537,8 +536,9 @@ export class AuthService {
       await this.redis.del(codeKey);
       await this.redis.del(attemptsKey);
     } else {
-      // No Redis — cannot validate in fallback mode without in-memory store
-      // Accept any 6-digit code in test/dev (non-Redis) environment
+      throw new BadRequestException(
+        '인증코드 저장소가 구성되지 않아 인증을 진행할 수 없습니다.',
+      );
     }
 
     // Issue verifyToken JWT (5min)

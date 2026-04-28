@@ -10,7 +10,7 @@ services:
       driver: "awslogs"
       options:
         awslogs-region: "${AWS_REGION}"
-        awslogs-group: "/ai-planner/backend"
+        awslogs-group: "/ai-planner-test/backend"
         awslogs-stream: "test-backend"
         awslogs-create-group: "false"
     env_file: /srv/apps/ai-planner-test/.env
@@ -44,7 +44,7 @@ services:
       driver: "awslogs"
       options:
         awslogs-region: "${AWS_REGION}"
-        awslogs-group: "/ai-planner/frontend"
+        awslogs-group: "/ai-planner-test/frontend"
         awslogs-stream: "test-frontend"
         awslogs-create-group: "false"
     env_file: /srv/apps/ai-planner-test/.env

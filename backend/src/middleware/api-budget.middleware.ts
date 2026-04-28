@@ -65,8 +65,11 @@ export class ApiBudgetMiddleware implements NestMiddleware {
         );
       }
 
-      // Increment daily counter only; DB record written after pipeline with actual cost
-      this.apiBudgetService.incrementDailyCount(userId, ipAddress);
+      await this.apiBudgetService.recordDailyRequest(
+        userId,
+        ipAddress,
+        req.headers['user-agent'] ?? 'unknown',
+      );
 
       // Add budget headers to response
       res.setHeader('X-API-Daily-Limit', dailyLimit.limit);

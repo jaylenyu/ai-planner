@@ -202,6 +202,7 @@ jobs:
               docker run -d \
                 --name "$FRONTEND_CONTAINER" \
                 --restart unless-stopped \
+                --env-file "$ENV_FILE" \
                 -p "${FRONTEND_PORT}:3000" \
                 ${{ env.IMAGE_FRONTEND }}:canary
             fi
@@ -329,8 +330,8 @@ jobs:
             upsert_env AWS_REGION '${{ secrets.AWS_REGION }}'
             upsert_env AWS_ACCESS_KEY_ID '${{ secrets.AWS_ACCESS_KEY_ID }}'
             upsert_env AWS_SECRET_ACCESS_KEY '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
-            upsert_env CLOUDWATCH_LOG_GROUP_BACKEND '/ai-planner/backend'
-            upsert_env CLOUDWATCH_LOG_GROUP_FRONTEND '/ai-planner/frontend'
+            upsert_env CLOUDWATCH_LOG_GROUP_BACKEND '/ai-planner-test/backend'
+            upsert_env CLOUDWATCH_LOG_GROUP_FRONTEND '/ai-planner-test/frontend'
 
             docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" config >/dev/null
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin

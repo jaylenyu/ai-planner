@@ -32,7 +32,12 @@ export class OAuthAccountService {
     const existing = await this.prisma.user.findUnique({
       where: providerWhere as unknown as Prisma.UserWhereUniqueInput,
     });
-    if (existing) return existing;
+    if (existing) {
+      return this.prisma.user.update({
+        where: { id: existing.id },
+        data: { lastLoginAt: new Date() },
+      });
+    }
 
     // email 없을 경우 (Kakao 이메일 동의 미제공 등) — placeholder 이메일로 신규 생성
     if (!email) {

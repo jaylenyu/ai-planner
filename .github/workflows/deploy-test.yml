@@ -33,9 +33,12 @@ jobs:
               repo: context.repo.repo,
               run_id: run.id,
             });
-            const names = jobs.data.jobs.map(j => j.name);
-            const backendBuilt = names.some(n => n.includes('Backend'));
-            const frontendBuilt = names.some(n => n.includes('Frontend'));
+            const backendBuilt = jobs.data.jobs.some(
+              (j) => j.name === 'Build & Push Canary Backend Image' && j.conclusion === 'success'
+            );
+            const frontendBuilt = jobs.data.jobs.some(
+              (j) => j.name === 'Build & Push Canary Frontend Image' && j.conclusion === 'success'
+            );
             core.setOutput('backend_changed', backendBuilt ? 'true' : 'false');
             core.setOutput('frontend_changed', frontendBuilt ? 'true' : 'false');
 

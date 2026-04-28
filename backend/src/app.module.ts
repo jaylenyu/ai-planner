@@ -15,7 +15,6 @@ import { AdminModule } from './modules/admin/admin.module';
 import { UserModule } from './modules/user/user.module';
 import { ApiBudgetMiddleware } from './middleware/api-budget.middleware';
 import { AppController } from './app.controller';
-import { ApiBudgetService } from './services/api-budget.service';
 
 @Module({
   imports: [
@@ -35,7 +34,6 @@ import { ApiBudgetService } from './services/api-budget.service';
     UserModule,
   ],
   controllers: [AppController],
-  providers: [ApiBudgetService],
 })
 export class AppModule {
   configure(consumer: MiddlewareConsumer) {

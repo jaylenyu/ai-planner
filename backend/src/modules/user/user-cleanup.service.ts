@@ -10,6 +10,10 @@ export class UserCleanupService {
 
   @Cron('0 18 * * *') // 03:00 KST = 18:00 UTC
   async hardDeleteExpiredUsers() {
+    if (process.env.SCHEDULER_ENABLED === 'false') {
+      return;
+    }
+
     const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const users = await this.prisma.user.findMany({
       where: { deletedAt: { lt: cutoff } },

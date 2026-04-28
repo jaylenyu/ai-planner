@@ -1,9 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { headers } from 'next/headers';
 import Script from "next/script";
-import { GlobalNav } from "@/components/ui/GlobalNav";
-import { Footer } from "@/components/ui/Footer";
+import { AppChrome } from "@/components/providers/AppChrome";
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { RouteScrollManager } from "@/components/providers/RouteScrollManager";
 import "./globals.css";
@@ -16,11 +14,11 @@ export const metadata: Metadata = {
   description:
     "자연어 한마디로 완벽한 데이트 코스와 여행 일정을 만들어보세요. AI가 최적 동선을 생성합니다.",
   keywords: [
-    '데이트 코스',
-    '여행 일정',
-    'AI 플래너',
-    '동선 최적화',
-    '카페 맛집 추천',
+    "데이트 코스",
+    "여행 일정",
+    "AI 플래너",
+    "동선 최적화",
+    "카페 맛집 추천",
   ],
   alternates: {
     canonical: "/",
@@ -52,27 +50,24 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const naverMapClientId = process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID;
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://date-planner.us';
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://date-planner.us";
   const orgJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Organization',
-    name: 'DatePlanner',
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "DatePlanner",
     url: siteUrl,
   };
   const webSiteJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'WebSite',
-    name: 'DatePlanner',
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "DatePlanner",
     url: siteUrl,
     potentialAction: {
-      '@type': 'SearchAction',
+      "@type": "SearchAction",
       target: `${siteUrl}/?q={search_term_string}`,
-      'query-input': 'required name=search_term_string',
+      "query-input": "required name=search_term_string",
     },
   };
-  const headerStore = await headers();
-  const pathname = headerStore.get('x-pathname') ?? '';
-  const isAdminRoute = pathname.startsWith('/admin');
 
   return (
     <html lang="ko" className="h-full antialiased font-sans">
@@ -81,7 +76,10 @@ export default async function RootLayout({
         <link rel="dns-prefetch" href="//oapi.map.naver.com" />
       </head>
       <body className="min-h-full flex flex-col">
-        <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:shadow">
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:shadow"
+        >
           본문으로 건너뛰기
         </a>
         {naverMapClientId && (
@@ -104,9 +102,7 @@ export default async function RootLayout({
           <Suspense fallback={null}>
             <RouteScrollManager />
           </Suspense>
-          {!isAdminRoute ? <GlobalNav /> : null}
-          <div className="flex flex-1 flex-col">{children}</div>
-          {!isAdminRoute ? <Footer /> : null}
+          <AppChrome>{children}</AppChrome>
         </QueryProvider>
       </body>
     </html>

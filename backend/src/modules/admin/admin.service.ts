@@ -299,6 +299,13 @@ export class AdminService {
             invites: {
               orderBy: { createdAt: 'desc' },
               take: 50,
+              select: {
+                id: true,
+                email: true,
+                status: true,
+                expiresAt: true,
+                createdAt: true,
+              },
             },
             plans: {
               orderBy: { createdAt: 'desc' },
@@ -361,46 +368,49 @@ export class AdminService {
       throw new BadRequestException('자기 자신은 변경할 수 없습니다.');
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const target = await tx.user.findUnique({
-        where: { id: userId },
-        select: {
-          id: true,
-          role: true,
-          adminReadOnly: true,
-          isSuspended: true,
-        },
-      });
-
-      if (!target) {
-        throw new NotFoundException('사용자를 찾을 수 없습니다.');
-      }
-
-      if (target.role === 'ADMIN' && target.isSuspended) {
-        // 정지된 관리자 계정은 강등 대상이 아니므로 그대로 업데이트 가능
-      } else if (target.role === 'ADMIN' && role === 'USER') {
-        const activeAdminCount = await tx.user.count({
-          where: { role: 'ADMIN', isSuspended: false },
+    return this.prisma.$transaction(
+      async (tx) => {
+        const target = await tx.user.findUnique({
+          where: { id: userId },
+          select: {
+            id: true,
+            role: true,
+            adminReadOnly: true,
+            isSuspended: true,
+          },
         });
-        if (activeAdminCount <= 1) {
-          throw new BadRequestException(
-            '마지막 관리자 계정은 강등할 수 없습니다.',
-          );
-        }
-      }
 
-      return tx.user.update({
-        where: { id: userId },
-        data: { role },
-        select: {
-          id: true,
-          email: true,
-          role: true,
-          adminReadOnly: true,
-          isSuspended: true,
-        },
-      });
-    });
+        if (!target) {
+          throw new NotFoundException('사용자를 찾을 수 없습니다.');
+        }
+
+        if (target.role === 'ADMIN' && target.isSuspended) {
+          // 정지된 관리자 계정은 강등 대상이 아니므로 그대로 업데이트 가능
+        } else if (target.role === 'ADMIN' && role === 'USER') {
+          const activeAdminCount = await tx.user.count({
+            where: { role: 'ADMIN', isSuspended: false, deletedAt: null },
+          });
+          if (activeAdminCount <= 1) {
+            throw new BadRequestException(
+              '마지막 관리자 계정은 강등할 수 없습니다.',
+            );
+          }
+        }
+
+        return tx.user.update({
+          where: { id: userId },
+          data: { role },
+          select: {
+            id: true,
+            email: true,
+            role: true,
+            adminReadOnly: true,
+            isSuspended: true,
+          },
+        });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
   }
 
   async suspendUser(
@@ -418,44 +428,47 @@ export class AdminService {
       throw new BadRequestException('자기 자신은 변경할 수 없습니다.');
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const target = await tx.user.findUnique({
-        where: { id: userId },
-        select: {
-          id: true,
-          role: true,
-          adminReadOnly: true,
-          isSuspended: true,
-        },
-      });
-
-      if (!target) {
-        throw new NotFoundException('사용자를 찾을 수 없습니다.');
-      }
-
-      if (target.role === 'ADMIN' && !target.isSuspended && isSuspended) {
-        const activeAdminCount = await tx.user.count({
-          where: { role: 'ADMIN', isSuspended: false },
+    return this.prisma.$transaction(
+      async (tx) => {
+        const target = await tx.user.findUnique({
+          where: { id: userId },
+          select: {
+            id: true,
+            role: true,
+            adminReadOnly: true,
+            isSuspended: true,
+          },
         });
-        if (activeAdminCount <= 1) {
-          throw new BadRequestException(
-            '마지막 관리자 계정은 정지할 수 없습니다.',
-          );
-        }
-      }
 
-      return tx.user.update({
-        where: { id: userId },
-        data: { isSuspended },
-        select: {
-          id: true,
-          email: true,
-          role: true,
-          adminReadOnly: true,
-          isSuspended: true,
-        },
-      });
-    });
+        if (!target) {
+          throw new NotFoundException('사용자를 찾을 수 없습니다.');
+        }
+
+        if (target.role === 'ADMIN' && !target.isSuspended && isSuspended) {
+          const activeAdminCount = await tx.user.count({
+            where: { role: 'ADMIN', isSuspended: false, deletedAt: null },
+          });
+          if (activeAdminCount <= 1) {
+            throw new BadRequestException(
+              '마지막 관리자 계정은 정지할 수 없습니다.',
+            );
+          }
+        }
+
+        return tx.user.update({
+          where: { id: userId },
+          data: { isSuspended },
+          select: {
+            id: true,
+            email: true,
+            role: true,
+            adminReadOnly: true,
+            isSuspended: true,
+          },
+        });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
   }
 
   async getBillingOverview() {
@@ -957,21 +970,21 @@ export class AdminService {
           }),
         );
 
-        const points =
-          response.ResultsByTime?.map((bucket) => ({
-            date: bucket.TimePeriod?.Start ?? '',
-            cost: Number(bucket.Total?.UnblendedCost?.Amount ?? 0),
-          })) ?? [];
         const byService: Record<string, number> = {};
+        const pointsByDate: Record<string, number> = {};
         response.ResultsByTime?.forEach((bucket) => {
+          const date = bucket.TimePeriod?.Start ?? '';
           bucket.Groups?.forEach((group) => {
             const key = group.Keys?.[0] ?? 'Other';
-            byService[key] =
-              (byService[key] ?? 0) +
-              Number(group.Metrics?.UnblendedCost?.Amount ?? 0);
+            const cost = Number(group.Metrics?.UnblendedCost?.Amount ?? 0);
+            byService[key] = (byService[key] ?? 0) + cost;
+            pointsByDate[date] = (pointsByDate[date] ?? 0) + cost;
           });
         });
-        const total = points.reduce((sum, row) => sum + row.cost, 0);
+        const points = Object.entries(pointsByDate)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([date, cost]) => ({ date, cost }));
+        const total = Object.values(byService).reduce((s, v) => s + v, 0);
         const data = {
           configured: true,
           available: true,
@@ -1050,37 +1063,50 @@ export class AdminService {
       permalink: string;
     };
 
-    try {
-      const responses = await Promise.all(
-        projects.map((project) =>
-          fetch(
-            `https://sentry.io/api/0/projects/${org}/${project}/issues/?query=is:unresolved&per_page=100`,
-            {
-              headers: {
-                Authorization: `Bearer ${apiKey}`,
-                Accept: 'application/json',
-              },
-              signal: controller.signal,
-            },
-          ),
-        ),
-      );
+    const getNextSentryPageUrl = (linkHeader: string | null) => {
+      if (!linkHeader) return null;
 
-      const failedResponse = responses.find((r) => !r.ok);
-      if (failedResponse) {
-        return {
-          configured: true,
-          available: false,
-          error: `Sentry API 요청에 실패했습니다. (${failedResponse.status})`,
-          totalCount: 0,
-          issues: [],
-        };
+      const next = linkHeader
+        .split(',')
+        .map((part) => part.trim())
+        .find(
+          (part) =>
+            part.includes('rel="next"') && part.includes('results="true"'),
+        );
+      const match = next?.match(/<([^>]+)>/);
+      return match?.[1] ?? null;
+    };
+
+    const fetchProjectIssues = async (project: string) => {
+      const issues: SentryIssue[] = [];
+      let url: string | null =
+        `https://sentry.io/api/0/projects/${org}/${project}/issues/?query=is:unresolved&per_page=100`;
+
+      while (url) {
+        const response = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            Accept: 'application/json',
+          },
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error(
+            `Sentry API 요청에 실패했습니다. (${response.status})`,
+          );
+        }
+
+        issues.push(...((await response.json()) as SentryIssue[]));
+        url = getNextSentryPageUrl(response.headers.get('link'));
       }
 
+      return issues;
+    };
+
+    try {
       const allData = (
-        await Promise.all(
-          responses.map((r) => r.json() as Promise<SentryIssue[]>),
-        )
+        await Promise.all(projects.map(fetchProjectIssues))
       ).flat();
 
       allData.sort(

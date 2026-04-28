@@ -404,7 +404,6 @@ export class PaymentService {
       await this.prisma.subscription.update({
         where: { id: subscription.id },
         data: {
-          status: 'cancelled',
           cancelledAt: new Date(),
         },
       });

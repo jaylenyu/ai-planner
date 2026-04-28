@@ -14,7 +14,12 @@ sudo chown "$(whoami)":"$(whoami)" "$STACK_DIR"
 echo "=== [2] .env 복사 및 test 용 값 패치 ==="
 cp "$PROD_ENV" "$TEST_ENV"
 
-sed -i 's|DATABASE_URL=.*|DATABASE_URL=postgresql://jaylenyu:foerver4@postgres:5432/aiplanner_test|' "$TEST_ENV"
+if [ -z "${TEST_DATABASE_URL:-}" ]; then
+  echo "ERROR: TEST_DATABASE_URL 환경변수를 설정한 뒤 다시 실행하세요." >&2
+  exit 1
+fi
+
+sed -i "s|DATABASE_URL=.*|DATABASE_URL=${TEST_DATABASE_URL}|" "$TEST_ENV"
 sed -i 's|APP_URL=.*|APP_URL=https://test.date-planner.us|' "$TEST_ENV"
 sed -i 's|FRONTEND_URL=.*|FRONTEND_URL=https://test.date-planner.us|' "$TEST_ENV"
 sed -i 's|CORS_ORIGIN=.*|CORS_ORIGIN=https://test.date-planner.us|' "$TEST_ENV"
@@ -36,12 +41,19 @@ grep -q "^SCHEDULER_ENABLED=" "$TEST_ENV" \
 echo ".env 패치 완료: $TEST_ENV"
 
 echo "=== [3] aiplanner_test DB 생성 ==="
-docker exec ai-planner-postgres psql -U jaylenyu -d postgres \
-  -c "SELECT 1 FROM pg_database WHERE datname='aiplanner_test'" \
+TEST_DB_AUTHORITY=${TEST_DATABASE_URL#*://}
+TEST_DB_CREDENTIALS=${TEST_DB_AUTHORITY%%@*}
+TEST_DB_HOST_PATH=${TEST_DB_AUTHORITY#*@}
+TEST_DB_USER=${TEST_DB_CREDENTIALS%%:*}
+TEST_DB_NAME_WITH_QUERY=${TEST_DB_HOST_PATH#*/}
+TEST_DB_NAME=${TEST_DB_NAME_WITH_QUERY%%\?*}
+
+docker exec ai-planner-postgres psql -U "$TEST_DB_USER" -d postgres \
+  -c "SELECT 1 FROM pg_database WHERE datname='${TEST_DB_NAME}'" \
   | grep -q 1 \
-  && echo "aiplanner_test DB 이미 존재 — 건너뜀" \
-  || docker exec ai-planner-postgres psql -U jaylenyu -d postgres \
-       -c "CREATE DATABASE aiplanner_test OWNER jaylenyu;"
+  && echo "$TEST_DB_NAME DB 이미 존재 — 건너뜀" \
+  || docker exec ai-planner-postgres psql -U "$TEST_DB_USER" -d postgres \
+       -c "CREATE DATABASE \"$TEST_DB_NAME\" OWNER \"$TEST_DB_USER\";"
 
 echo "=== [4] compose.yml 심볼릭 링크 ==="
 COMPOSE_SRC=~/infra/docker-compose.ai-planner.test.yml
