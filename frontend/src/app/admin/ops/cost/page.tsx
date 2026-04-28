@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pie, PieChart, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Bar, BarChart, Cell, Tooltip, XAxis, YAxis, ResponsiveContainer } from 'recharts';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { adminApi } from '@/lib/api';
 import { AdminPageHeader } from '../../_components/AdminPageHeader';
@@ -11,6 +11,10 @@ const PALETTE = [
   '#e07b39', '#f5a623', '#4a90d9', '#7ed321', '#9b59b6',
   '#1abc9c', '#e74c3c', '#3498db', '#f39c12', '#2ecc71',
 ];
+
+function dollarTick(v: unknown) {
+  return `$${Number(v).toFixed(2)}`;
+}
 
 function CostTooltip({ active, payload }: { active?: boolean; payload?: Array<{ name: string; value: number }> }) {
   if (!active || !payload?.length) return null;
@@ -82,28 +86,16 @@ export default function AdminCostPage() {
           <p className="text-sm text-stone-400">표시할 비용 데이터가 없습니다.</p>
         ) : (
           <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={chartData}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                innerRadius={70}
-                outerRadius={110}
-                paddingAngle={2}
-              >
+            <BarChart data={chartData} margin={{ top: 4, right: 16, left: 8, bottom: 4 }}>
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#78716c' }} />
+              <YAxis tickFormatter={dollarTick} tick={{ fontSize: 11, fill: '#78716c' }} width={56} />
+              <Tooltip content={<CostTooltip />} cursor={{ fill: '#f5f5f4' }} />
+              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                 {chartData.map((entry) => (
                   <Cell key={entry.name} fill={entry.fill} />
                 ))}
-              </Pie>
-              <Tooltip content={<CostTooltip />} />
-              <Legend
-                iconType="circle"
-                iconSize={8}
-                formatter={(value) => <span className="text-xs text-stone-600">{value}</span>}
-              />
-            </PieChart>
+              </Bar>
+            </BarChart>
           </ResponsiveContainer>
         )}
       </AdminSectionCard>
