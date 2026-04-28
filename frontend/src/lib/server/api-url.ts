@@ -12,13 +12,11 @@ export function getBackendInternalUrl() {
     .trim()
     .replace(/\/+$/, "");
 
-  if (!rawBackendUrl) {
-    throw new Error(
-      "BACKEND_URL is required for server-side backend proxy requests.",
-    );
+  if (rawBackendUrl) {
+    return rawBackendUrl.endsWith("/api")
+      ? rawBackendUrl
+      : `${rawBackendUrl}/api`;
   }
 
-  return rawBackendUrl.endsWith("/api")
-    ? rawBackendUrl
-    : `${rawBackendUrl}/api`;
+  return SERVER_API_BASE_URL;
 }
