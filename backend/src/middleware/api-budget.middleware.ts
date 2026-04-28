@@ -66,16 +66,8 @@ export class ApiBudgetMiddleware implements NestMiddleware {
         );
       }
 
-      // Estimate API cost for this request
-      const estimatedCost = this.estimateRequestCost(req);
-
-      // Track the request
-      await this.apiBudgetService.trackRequest(
-        userId,
-        ipAddress,
-        userAgent,
-        estimatedCost,
-      );
+      // Track the request (cost=0; actual cost is recorded after pipeline completes)
+      await this.apiBudgetService.trackRequest(userId, ipAddress, userAgent, 0);
 
       // Add budget headers to response
       res.setHeader('X-API-Daily-Limit', dailyLimit.limit);
@@ -98,20 +90,5 @@ export class ApiBudgetMiddleware implements NestMiddleware {
       // Allow request to proceed if budget service fails (fail-open for availability)
       next();
     }
-  }
-
-  private estimateRequestCost(req: Request): number {
-    // Estimate cost based on request characteristics
-    // OpenRouter pricing: ~$0.0001 per 1K tokens for gemma-2b
-
-    if (req.path.includes('/api/plan') && req.method === 'POST') {
-      // Plan creation: more expensive
-      return 0.01; // ~$0.01 per plan creation
-    } else if (req.path.includes('/api/ai')) {
-      // Direct AI calls: less expensive
-      return 0.005; // ~$0.005 per AI call
-    }
-
-    return 0.001; // Default small cost
   }
 }

@@ -850,6 +850,16 @@ timeOfDay: 아침/오전→morning, 점심/낮→afternoon, 저녁/밤→evening
         max_tokens: 200,
       });
 
+      const usage = response.usage as
+        | { prompt_tokens: number; completion_tokens: number }
+        | null
+        | undefined;
+      if (usage) {
+        ctx.llmCost =
+          (usage.prompt_tokens * 0.15 + usage.completion_tokens * 0.6) /
+          1_000_000;
+      }
+
       const choice = response.choices[0];
       const content = choice?.message?.content;
 

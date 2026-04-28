@@ -192,6 +192,27 @@ export class ApiBudgetService implements OnModuleInit {
     return Promise.resolve();
   }
 
+  async patchLastCost(userId: string, cost: number): Promise<void> {
+    if (cost <= 0) return;
+    try {
+      const record = await this.prisma.apiUsage.findFirst({
+        where: { userId },
+        orderBy: { timestamp: 'desc' },
+      });
+      if (record) {
+        await this.prisma.apiUsage.update({
+          where: { id: record.id },
+          data: { cost },
+        });
+      }
+      this.currentMonthUsage += cost;
+    } catch (error: unknown) {
+      this.logger.error(
+        `Error patching last cost: ${this.getErrorMessage(error)}`,
+      );
+    }
+  }
+
   async getUsageStats(userId?: string): Promise<{
     daily: { used: number; limit: number };
     monthly: { used: number; budget: number; remaining: number };

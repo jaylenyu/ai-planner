@@ -4,9 +4,10 @@ import { PlanService } from './plan.service';
 import { AiModule } from '../ai/ai.module';
 import { NotificationModule } from '../notification/notification.module';
 import { PaymentModule } from '../payment/payment.module';
+import { ApiBudgetModule } from '../api-budget/api-budget.module';
 
 @Module({
-  imports: [AiModule, PaymentModule, NotificationModule],
+  imports: [AiModule, PaymentModule, NotificationModule, ApiBudgetModule],
   controllers: [PlanController],
   providers: [PlanService],
 })
