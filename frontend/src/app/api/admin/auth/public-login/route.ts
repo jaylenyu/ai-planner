@@ -19,6 +19,17 @@ function normalizeOrigin(value: string | undefined) {
   }
 }
 
+function getForwardedOrigin(request: NextRequest) {
+  const host =
+    request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  if (!host) return null;
+
+  const proto =
+    request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() ??
+    request.nextUrl.protocol.replace(":", "");
+  return normalizeOrigin(`${proto}://${host.split(",")[0]?.trim()}`);
+}
+
 export async function POST(request: NextRequest) {
   if (process.env.ADMIN_PUBLIC_LOGIN_ENABLED !== "true") {
     return NextResponse.json(
@@ -31,6 +42,7 @@ export async function POST(request: NextRequest) {
   const allowedOrigins = new Set(
     [
       request.nextUrl.origin,
+      getForwardedOrigin(request),
       normalizeOrigin(process.env.FRONTEND_URL),
       normalizeOrigin(process.env.APP_URL),
       normalizeOrigin(process.env.NEXT_PUBLIC_SITE_URL),
