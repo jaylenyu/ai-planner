@@ -17,8 +17,9 @@ const FALLBACK_QUERIES: Record<string, string> = {
   food: '맛집',
 };
 
-const MAX_RESULTS_PER_SOURCE = 5;
-const MAX_MERGED_RESULTS = 10;
+const MAX_RESULTS_PER_SOURCE = 10;
+const MAX_MERGED_RESULTS = 20;
+const MAX_QUERY_CONCURRENCY = 3;
 const GENERIC_FOOD_SLOT_QUERIES = new Set([
   '맛집',
   '한식',
@@ -67,26 +68,15 @@ export class SearchPlacesStep {
         : isMovieSlot(activity)
           ? 8
           : MAX_RESULTS_PER_SOURCE;
-      const naverMerged: PlaceResult[] = [];
-      const kakaoMerged: PlaceResult[] = [];
-
-      for (const query of queries) {
-        const [naverPlaces, kakaoPlaces] = await Promise.all([
-          this.searchNaverPlaces(query, activity.type, intent, display),
-          this.placesService.searchNearbyKakao(
-            query,
-            intent.lat,
-            intent.lng,
-            display,
-          ),
-        ]);
-        naverMerged.push(...naverPlaces);
-        kakaoMerged.push(...kakaoPlaces);
-      }
+      const { naverMerged, kakaoMerged } = await this.searchQueries(
+        queries,
+        activity,
+        intent,
+        display,
+      );
 
       const dedupedNaver = this.mergeSources(naverMerged, []);
       const dedupedKakao = this.mergeSources([], kakaoMerged);
-
       const merged = this.mergeSources(dedupedNaver, dedupedKakao);
 
       ctx.rawPlaces[activity.slotId] = merged;
@@ -109,6 +99,52 @@ export class SearchPlacesStep {
         '해당 지역에서 장소를 찾지 못했습니다. 다른 지역이나 활동을 입력해보세요.',
       );
     }
+  }
+
+  private async searchQueries(
+    queries: string[],
+    activity: ActivityIntent,
+    intent: NonNullable<PipelineContext['intent']>,
+    display: number,
+  ): Promise<{ naverMerged: PlaceResult[]; kakaoMerged: PlaceResult[] }> {
+    const queryResults: Array<
+      | {
+          naverPlaces: PlaceResult[];
+          kakaoPlaces: PlaceResult[];
+        }
+      | undefined
+    > = Array.from({ length: queries.length });
+
+    for (
+      let start = 0;
+      start < queries.length;
+      start += MAX_QUERY_CONCURRENCY
+    ) {
+      const batch = queries.slice(start, start + MAX_QUERY_CONCURRENCY);
+      await Promise.all(
+        batch.map(async (query, offset) => {
+          const [naverPlaces, kakaoPlaces] = await Promise.all([
+            this.searchNaverPlaces(query, activity.type, intent, display),
+            this.placesService.searchNearbyKakao(
+              query,
+              intent.lat,
+              intent.lng,
+              display,
+            ),
+          ]);
+          queryResults[start + offset] = { naverPlaces, kakaoPlaces };
+        }),
+      );
+    }
+
+    const naverMerged: PlaceResult[] = [];
+    const kakaoMerged: PlaceResult[] = [];
+    for (const result of queryResults) {
+      naverMerged.push(...(result?.naverPlaces ?? []));
+      kakaoMerged.push(...(result?.kakaoPlaces ?? []));
+    }
+
+    return { naverMerged, kakaoMerged };
   }
 
   private buildQueries(
@@ -204,8 +240,13 @@ export class SearchPlacesStep {
       merged.push(place);
     };
 
-    for (const place of naverPlaces) pushIfNew(place);
-    for (const place of aiPlaces) pushIfNew(place);
+    const maxLength = Math.max(naverPlaces.length, aiPlaces.length);
+    for (let i = 0; i < maxLength && merged.length < MAX_MERGED_RESULTS; i++) {
+      const naverPlace = naverPlaces[i];
+      const aiPlace = aiPlaces[i];
+      if (naverPlace) pushIfNew(naverPlace);
+      if (aiPlace) pushIfNew(aiPlace);
+    }
 
     return merged.slice(0, MAX_MERGED_RESULTS);
   }

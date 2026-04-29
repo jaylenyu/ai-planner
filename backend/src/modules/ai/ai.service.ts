@@ -14,6 +14,12 @@ import {
   PipelineContext,
   PipelineResult,
 } from './interfaces/pipeline-result.interface';
+import { DiversityHistory } from './utils/place-diversity.util';
+
+interface RunPipelineOptions {
+  diversityHistory?: DiversityHistory;
+  randomFn?: () => number;
+}
 
 @Injectable()
 export class AiService {
@@ -31,9 +37,15 @@ export class AiService {
   async runPipeline(
     rawInput: string,
     mode: 'date' | 'trip',
+    options: RunPipelineOptions = {},
   ): Promise<PipelineResult> {
     const startTime = Date.now();
-    const ctx: PipelineContext = { rawInput, mode };
+    const ctx: PipelineContext = {
+      rawInput,
+      mode,
+      diversityHistory: options.diversityHistory,
+      randomFn: options.randomFn,
+    };
 
     this.logger.log(`[Pipeline] 시작: "${rawInput}" (${mode})`);
 

@@ -183,4 +183,176 @@ describe('OptimizeRouteStep', () => {
     expect(randomFn).toHaveBeenCalled();
     expect((ctx.orderedPlaces ?? []).length).toBe(4);
   });
+
+  it('slot별 여러 후보 중 전체 동선이 좋은 조합을 선택한다', () => {
+    const step = new OptimizeRouteStep();
+    const ctx: PipelineContext = {
+      rawInput: '서울 일정',
+      mode: 'date',
+      randomFn: () => 0,
+      intent: {
+        location: '서울',
+        searchLocation: '서울',
+        lat: 37.5,
+        lng: 127,
+        mode: 'date',
+        activities: [
+          {
+            slotId: 'slot-0',
+            type: 'food',
+            slotQuery: '맛집',
+            naverQuery: '서울 맛집',
+            required: true,
+          },
+          {
+            slotId: 'slot-1',
+            type: 'cafe',
+            slotQuery: '카페',
+            naverQuery: '서울 카페',
+            required: true,
+          },
+        ],
+        startTime: '10:00',
+        endTime: '20:00',
+      },
+      candidates: {
+        'slot-0': [
+          {
+            name: '점수높지만먼식당',
+            lat: 38.1,
+            lng: 127.7,
+            category: 'food',
+            address: '강원',
+            source: 'naver',
+            score: 5,
+          },
+          {
+            name: '가까운식당',
+            lat: 37.5005,
+            lng: 127.0005,
+            category: 'food',
+            address: '서울',
+            source: 'kakao',
+            score: 1,
+          },
+        ],
+        'slot-1': [
+          {
+            name: '가까운카페',
+            lat: 37.501,
+            lng: 127.001,
+            category: 'cafe',
+            address: '서울',
+            source: 'naver',
+            score: 1,
+          },
+        ],
+      },
+    };
+
+    step.execute(ctx);
+
+    expect(ctx.orderedPlaces?.map((place) => place.name)).toContain(
+      '가까운식당',
+    );
+    expect(ctx.orderedPlaces?.map((place) => place.name)).not.toContain(
+      '점수높지만먼식당',
+    );
+  });
+
+  it('중복 후보만 있는 slot도 건너뛰지 않고 대체 조합을 우선한다', () => {
+    const step = new OptimizeRouteStep();
+    const ctx: PipelineContext = {
+      rawInput: '서울 흐름 일정',
+      mode: 'date',
+      randomFn: () => 0,
+      intent: {
+        location: '서울',
+        searchLocation: '서울',
+        lat: 37.5,
+        lng: 127,
+        mode: 'date',
+        activities: [
+          {
+            slotId: 'slot-0',
+            type: 'food',
+            slotQuery: '맛집',
+            naverQuery: '서울 맛집',
+            orderLocked: true,
+            required: true,
+          },
+          {
+            slotId: 'slot-1',
+            type: 'activity',
+            slotQuery: '전시',
+            naverQuery: '서울 전시',
+            orderLocked: true,
+            required: true,
+          },
+          {
+            slotId: 'slot-2',
+            type: 'cafe',
+            slotQuery: '카페',
+            naverQuery: '서울 카페',
+            orderLocked: true,
+            required: true,
+          },
+        ],
+        startTime: '10:00',
+        endTime: '20:00',
+      },
+      candidates: {
+        'slot-0': [
+          {
+            name: '공유장소',
+            lat: 37.5,
+            lng: 127,
+            category: 'food',
+            address: '서울',
+            source: 'naver',
+            score: 5,
+          },
+          {
+            name: '대체식당',
+            lat: 37.5001,
+            lng: 127.0001,
+            category: 'food',
+            address: '서울',
+            source: 'kakao',
+            score: 4,
+          },
+        ],
+        'slot-1': [
+          {
+            name: '공유장소',
+            lat: 37.5,
+            lng: 127,
+            category: 'activity',
+            address: '서울',
+            source: 'naver',
+            score: 1,
+          },
+        ],
+        'slot-2': [
+          {
+            name: '카페',
+            lat: 37.5002,
+            lng: 127.0002,
+            category: 'cafe',
+            address: '서울',
+            source: 'naver',
+            score: 1,
+          },
+        ],
+      },
+    };
+
+    step.execute(ctx);
+
+    expect(ctx.orderedPlaces?.map((place) => place.name)).toEqual([
+      '대체식당',
+      '공유장소',
+      '카페',
+    ]);
+  });
 });

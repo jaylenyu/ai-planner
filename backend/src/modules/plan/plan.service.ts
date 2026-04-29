@@ -16,6 +16,11 @@ import { GeneratePlanDto } from './dto/generate-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { UpdatePlanItemDto } from './dto/update-plan-item.dto';
 import { ApiBudgetService } from '../../services/api-budget.service';
+import {
+  createEmptyDiversityHistory,
+  getChainBrand,
+  normalizePlaceKey,
+} from '../ai/utils/place-diversity.util';
 
 const planInclude = {
   category: true,
@@ -117,6 +122,53 @@ export class PlanService {
       type,
       payload,
     );
+  }
+
+  private normalizeRawInput(rawInput: string): string {
+    return rawInput.replace(/\s+/g, ' ').trim().toLowerCase();
+  }
+
+  private async buildDiversityHistory(
+    userId: string,
+    rawInput: string,
+    mode: 'date' | 'trip',
+  ) {
+    const targetInput = this.normalizeRawInput(rawInput);
+    const recentPlans = await this.prisma.plan.findMany({
+      where: { userId, mode },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      select: {
+        rawInput: true,
+        items: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    const matchedPlans = recentPlans
+      .filter((plan) => this.normalizeRawInput(plan.rawInput) === targetInput)
+      .slice(0, 10);
+    const history = createEmptyDiversityHistory();
+
+    for (const plan of matchedPlans) {
+      for (const item of plan.items) {
+        const placeKey = normalizePlaceKey(item.name);
+        if (!placeKey) continue;
+        history.placeCounts[placeKey] =
+          (history.placeCounts[placeKey] ?? 0) + 1;
+
+        const chainBrand = getChainBrand(item.name);
+        if (chainBrand) {
+          history.chainCounts[chainBrand] =
+            (history.chainCounts[chainBrand] ?? 0) + 1;
+        }
+      }
+    }
+
+    return history;
   }
 
   private async touchPlan(
@@ -280,7 +332,14 @@ export class PlanService {
       workspaceId = membership.workspaceId;
     }
 
-    const result = await this.aiService.runPipeline(dto.rawInput, dto.mode);
+    const diversityHistory = await this.buildDiversityHistory(
+      userId,
+      dto.rawInput,
+      dto.mode,
+    );
+    const result = await this.aiService.runPipeline(dto.rawInput, dto.mode, {
+      diversityHistory,
+    });
     void this.apiBudgetService.trackRequest(
       userId,
       'unknown',
