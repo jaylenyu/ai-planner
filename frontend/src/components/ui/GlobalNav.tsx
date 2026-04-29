@@ -15,6 +15,7 @@ import {
   LogOut,
   Crown,
   User,
+  Settings,
 } from "lucide-react";
 
 interface NavLinkProps {
@@ -27,8 +28,18 @@ function NavLink({ href, children }: NavLinkProps) {
   const isLibraryRoute =
     href === "/library" &&
     (pathname === "/library" || pathname.startsWith("/library/plans/"));
+  const isWorkspaceRoute =
+    href === "/workspace" &&
+    (pathname === "/workspace" || pathname.startsWith("/workspace/plans/"));
+  const isWorkspaceSettingsRoute =
+    href === "/workspace/settings" && pathname.startsWith("/workspace/settings");
   const isActive =
-    isLibraryRoute || pathname === href || pathname.startsWith(href + "/");
+    isLibraryRoute ||
+    isWorkspaceRoute ||
+    isWorkspaceSettingsRoute ||
+    (href !== "/workspace" &&
+      href !== "/workspace/settings" &&
+      (pathname === href || pathname.startsWith(href + "/")));
 
   return (
     <Link
@@ -55,8 +66,18 @@ function MobileTab({ href, icon, label }: MobileTabProps) {
   const isLibraryRoute =
     href === "/library" &&
     (pathname === "/library" || pathname.startsWith("/library/plans/"));
+  const isWorkspaceRoute =
+    href === "/workspace" &&
+    (pathname === "/workspace" || pathname.startsWith("/workspace/plans/"));
+  const isWorkspaceSettingsRoute =
+    href === "/workspace/settings" && pathname.startsWith("/workspace/settings");
   const isActive =
-    isLibraryRoute || pathname === href || pathname.startsWith(href + "/");
+    isLibraryRoute ||
+    isWorkspaceRoute ||
+    isWorkspaceSettingsRoute ||
+    (href !== "/workspace" &&
+      href !== "/workspace/settings" &&
+      (pathname === href || pathname.startsWith(href + "/")));
 
   return (
     <Link
@@ -145,6 +166,7 @@ export function GlobalNav() {
                 <NavLink href="/plan">일정 만들기</NavLink>
                 <NavLink href="/library">보관함</NavLink>
                 <NavLink href="/workspace">커플 플랜</NavLink>
+                <NavLink href="/workspace/settings">공유설정</NavLink>
                 {isAdmin && <NavLink href="/admin">관리자</NavLink>}
                 <NavLink href="/subscribe">구독</NavLink>
               </>
@@ -207,6 +229,11 @@ export function GlobalNav() {
               href="/workspace"
               icon={<Users className="h-5 w-5" />}
               label="플랜"
+            />
+            <MobileTab
+              href="/workspace/settings"
+              icon={<Settings className="h-5 w-5" />}
+              label="공유설정"
             />
             <MobileTab
               href="/subscribe"

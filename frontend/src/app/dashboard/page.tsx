@@ -30,7 +30,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const { workspace, role, loading: workspaceLoading } = useWorkspace();
   const { status, loading: subscriptionLoading } = useSubscriptionStatus();
-  const { plans, loading: plansLoading } = usePlanList();
+  const { plans, loading: plansLoading } = usePlanList("personal");
   const {
     items: notifications,
     unreadCount,
@@ -39,10 +39,6 @@ export default function DashboardPage() {
   const [draft, setDraft] = useState("");
   const [mode, setMode] = useState<PlanMode>("date");
 
-  const sharedPlans = useMemo(
-    () => plans.filter((plan) => !!plan.workspace),
-    [plans],
-  );
   const recentPlans = useMemo(() => plans.slice(0, 3), [plans]);
   const latestNotifications = useMemo(
     () => notifications.slice(0, 3),
@@ -57,7 +53,7 @@ export default function DashboardPage() {
         body: status?.hasAccess
           ? "커플 플랜을 만들고 파트너를 초대하면 공유 일정과 메모를 함께 관리할 수 있습니다."
           : "구독을 활성화하면 커플 플랜 생성과 파트너 초대 기능을 사용할 수 있습니다.",
-        ctaHref: status?.hasAccess ? "/workspace" : "/subscribe",
+        ctaHref: status?.hasAccess ? "/workspace/settings" : "/subscribe",
         ctaLabel: status?.hasAccess ? "커플 플랜 만들기" : "구독하고 시작하기",
       };
     }
@@ -66,7 +62,7 @@ export default function DashboardPage() {
       return {
         title: `${workspace.name}에 파트너를 기다리는 중이에요`,
         body: "초대 링크를 보내면 상대가 바로 합류할 수 있습니다. 연결되면 공유 일정과 메모 기능이 열립니다.",
-        ctaHref: "/workspace",
+        ctaHref: "/workspace/settings",
         ctaLabel: "초대 상태 확인",
       };
     }
@@ -287,21 +283,13 @@ export default function DashboardPage() {
                   </p>
                 ) : (
                   <>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-2 gap-3">
                       <div className="rounded-2xl bg-stone-50 px-4 py-4 text-center">
                         <p className="text-xs font-semibold text-stone-500">
-                          전체
+                          개인
                         </p>
                         <p className="mt-1 text-2xl font-bold text-stone-900">
                           {plans.length}
-                        </p>
-                      </div>
-                      <div className="rounded-2xl bg-stone-50 px-4 py-4 text-center">
-                        <p className="text-xs font-semibold text-stone-500">
-                          공유
-                        </p>
-                        <p className="mt-1 text-2xl font-bold text-stone-900">
-                          {sharedPlans.length}
                         </p>
                       </div>
                       <div className="rounded-2xl bg-stone-50 px-4 py-4 text-center">

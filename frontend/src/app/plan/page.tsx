@@ -188,7 +188,9 @@ function PlanPageContent() {
               size="sm"
               className="w-full sm:w-auto"
             >
-              <Link href="/library">보관함으로 가기</Link>
+              <Link href={result.workspace ? "/workspace" : "/library"}>
+                {result.workspace ? "커플 플랜으로 가기" : "보관함으로 가기"}
+              </Link>
             </PrimaryButton>
           </div>
           {result.unsupportedHints.length > 0 && (

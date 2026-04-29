@@ -277,6 +277,8 @@ export const planApi = {
   get: (id: string) => api.get<PlanSummary>(`/plan/${id}`),
   update: (id: string, body: unknown) =>
     api.patch<PlanSummary>(`/plan/${id}`, body),
+  share: (id: string, body: unknown) =>
+    api.post<PlanSummary>(`/plan/${id}/share`, body),
   delete: (id: string) => api.delete<{ deleted: boolean }>(`/plan/${id}`),
   addItem: (id: string, body: unknown) =>
     api.post<PlanSummary>(`/plan/${id}/items`, body),

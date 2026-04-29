@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -13,6 +14,7 @@ import { CreatePlanMemoDto } from './dto/create-plan-memo.dto';
 import { CreatePlanItemDto } from './dto/create-plan-item.dto';
 import { DeletePlanItemDto } from './dto/delete-plan-item.dto';
 import { GeneratePlanDto } from './dto/generate-plan.dto';
+import { SharePlanDto } from './dto/share-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { UpdatePlanItemDto } from './dto/update-plan-item.dto';
 import { ApiBudgetService } from '../../services/api-budget.service';
@@ -88,6 +90,34 @@ export class PlanService {
 
   private async assertWorkspaceWritable(userId: string, workspaceId: string) {
     const membership = await this.getWorkspaceMembership(userId, workspaceId);
+    if (!membership) {
+      throw new NotFoundException('커플 플랜을 찾을 수 없습니다.');
+    }
+
+    const ownerStatus = await this.paymentService.getStatus(
+      membership.workspace.ownerId,
+    );
+    if (!ownerStatus.hasAccess) {
+      throw new ForbiddenException(
+        '커플 플랜 구독이 만료되어 읽기 전용입니다.',
+      );
+    }
+
+    return membership;
+  }
+
+  private async getCurrentWorkspaceMembership(userId: string) {
+    const membership = await this.prisma.workspaceMember.findFirst({
+      where: { userId },
+      include: {
+        workspace: {
+          include: {
+            members: true,
+          },
+        },
+      },
+    });
+
     if (!membership) {
       throw new NotFoundException('커플 플랜을 찾을 수 없습니다.');
     }
@@ -294,6 +324,58 @@ export class PlanService {
         planId: updated.id,
         summary: updated.summary,
         workspaceName: updated.workspace?.name ?? null,
+      },
+    );
+    return updated;
+  }
+
+  async share(userId: string, planId: string, dto: SharePlanDto) {
+    const current = await this.prisma.plan.findFirst({
+      where: {
+        id: planId,
+        userId,
+      },
+      include: planInclude,
+    });
+
+    if (!current) {
+      throw new NotFoundException('플랜을 찾을 수 없습니다.');
+    }
+
+    if (current.workspaceId) {
+      throw new BadRequestException('이미 커플 플랜에 공유된 일정입니다.');
+    }
+
+    const membership = await this.getCurrentWorkspaceMembership(userId);
+    const updateResult = await this.prisma.plan.updateMany({
+      where: {
+        id: planId,
+        userId,
+        workspaceId: null,
+        updatedAt: new Date(dto.updatedAt),
+      },
+      data: {
+        workspaceId: membership.workspaceId,
+        categoryId: null,
+      },
+    });
+
+    if (updateResult.count === 0) {
+      throw new ConflictException({
+        message: '다른 기기에서 플랜이 수정되었습니다. 다시 불러와주세요.',
+        currentPlan: current,
+      });
+    }
+
+    const updated = await this.get(userId, planId);
+    await this.notifyWorkspaceMembers(
+      membership.workspaceId,
+      userId,
+      'plan_shared',
+      {
+        planId: updated.id,
+        summary: updated.summary,
+        workspaceName: membership.workspace.name,
       },
     );
     return updated;
@@ -538,14 +620,18 @@ export class PlanService {
 
   async listMemos(userId: string, planId: string) {
     const plan = await this.get(userId, planId);
+    if (!plan.workspaceId) {
+      throw new BadRequestException('공유 일정의 메모만 확인할 수 있습니다.');
+    }
     return plan.memos;
   }
 
   async createMemo(userId: string, planId: string, dto: CreatePlanMemoDto) {
     const plan = await this.get(userId, planId);
-    if (plan.workspaceId) {
-      await this.assertWorkspaceWritable(userId, plan.workspaceId);
+    if (!plan.workspaceId) {
+      throw new BadRequestException('공유 일정에만 메모를 작성할 수 있습니다.');
     }
+    await this.assertWorkspaceWritable(userId, plan.workspaceId);
     const memo = await this.prisma.planMemo.create({
       data: {
         planId,
@@ -572,9 +658,10 @@ export class PlanService {
 
   async deleteMemo(userId: string, planId: string, memoId: string) {
     const plan = await this.get(userId, planId);
-    if (plan.workspaceId) {
-      await this.assertWorkspaceWritable(userId, plan.workspaceId);
+    if (!plan.workspaceId) {
+      throw new BadRequestException('공유 일정의 메모만 삭제할 수 있습니다.');
     }
+    await this.assertWorkspaceWritable(userId, plan.workspaceId);
     const deleted = await this.prisma.planMemo.deleteMany({
       where: {
         id: memoId,
