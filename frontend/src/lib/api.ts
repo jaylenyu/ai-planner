@@ -330,7 +330,7 @@ export const billingApi = {
     api.post<SubscriptionStatusResponse>("/payment/confirm", body),
   status: () => api.get<SubscriptionStatusResponse>("/subscription/status"),
   cancel: () => api.delete<void>("/subscription/cancel"),
-  resubscribe: () => api.post<void>("/payment/resubscribe", {}),
+  resubscribe: () => api.post<void>("/subscription/resubscribe", {}),
 };
 
 export const authApi = {
