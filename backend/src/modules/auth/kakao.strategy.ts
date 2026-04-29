@@ -55,6 +55,16 @@ export class KakaoStrategy extends PassportStrategy(Strategy, 'kakao') {
         kakaoId,
         email,
       );
+      if (!user) {
+        return done(null, {
+          id: 'signup-mode',
+          email,
+          role: 'USER',
+          providerRawId: kakaoId,
+          providerEmail: email,
+          needsSignup: true,
+        });
+      }
       done(null, { ...user, providerRawId: kakaoId });
     } catch (err) {
       done(err instanceof Error ? err : new Error(String(err)));

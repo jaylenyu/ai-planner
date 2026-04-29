@@ -25,6 +25,16 @@ export interface PlanResult {
   } | null;
 }
 
+export interface PlanPreviewResult {
+  draftId: string;
+  summary: string;
+  items: PlanItem[];
+  polyline: [number, number][];
+  totalDurationMin: number;
+  unsupportedHints: string[];
+  workspace?: null;
+}
+
 export interface AuthResponse {
   access_token: string;
   refresh_token: string;
@@ -65,7 +75,8 @@ export interface PaymentPrepareResponse extends SubscriptionStatusResponse {
 
 export interface UserSummary {
   id: string;
-  email: string;
+  email: string | null;
+  nickname: string;
   role?: 'USER' | 'ADMIN';
   adminReadOnly?: boolean;
 }
@@ -170,7 +181,8 @@ export interface AdminSummaryResponse {
   }>;
   recentUsers: Array<{
     id: string;
-    email: string;
+    email: string | null;
+    nickname: string;
     role: 'USER' | 'ADMIN';
     emailVerified: boolean;
     lastLoginAt: string | null;
@@ -181,7 +193,8 @@ export interface AdminSummaryResponse {
 export interface AdminUserListResponse {
   items: Array<{
     id: string;
-    email: string;
+    email: string | null;
+    nickname: string;
     role: 'USER' | 'ADMIN';
     emailVerified: boolean;
     isSuspended: boolean;
@@ -211,7 +224,8 @@ export interface AdminUserListResponse {
 
 export interface AdminUserDetail {
   id: string;
-  email: string;
+  email: string | null;
+  nickname: string;
   role: 'USER' | 'ADMIN';
   isSuspended: boolean;
   emailVerified: boolean;
@@ -433,7 +447,8 @@ export interface AdminLogsResponse {
 
 export interface AdminUserUpdateResponse {
   id: string;
-  email: string;
+  email: string | null;
+  nickname: string;
   role: 'USER' | 'ADMIN';
   isSuspended: boolean;
 }

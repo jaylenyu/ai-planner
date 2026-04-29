@@ -2,25 +2,49 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Clock3, X } from 'lucide-react';
+import { Clock3, HeartHandshake, X } from 'lucide-react';
 import { TYPE_ICONS } from '../../lib/types';
 import type { PlanSummary } from '../../lib/types';
 import { Spinner } from '../ui/Spinner';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
+import { PrimaryButton } from '../ui/primary-button';
+import type { ReactNode } from 'react';
 
 interface PlanHistoryProps {
   plans: PlanSummary[];
   loading: boolean;
   onDeletePlan?: (planId: string) => Promise<void> | void;
+  onSharePlan?: (plan: PlanSummary) => Promise<void> | void;
+  getPlanHref?: (plan: PlanSummary) => string;
+  title?: string;
+  emptyState?: ReactNode;
+  showCategory?: boolean;
+  showWorkspaceBadge?: boolean;
+  variant?: 'default' | 'couple';
+  shareButtonLabel?: string;
+  shareDisabled?: boolean;
+  shareDisabledLabel?: string;
 }
 
 export function PlanHistory({
   plans,
   loading,
   onDeletePlan,
+  onSharePlan,
+  getPlanHref = (plan) => `/library/plans/${plan.id}`,
+  title = '이전 일정',
+  emptyState,
+  showCategory = true,
+  showWorkspaceBadge = true,
+  variant = 'default',
+  shareButtonLabel = '커플 플랜으로 이동',
+  shareDisabled = false,
+  shareDisabledLabel = '공유설정 필요',
 }: PlanHistoryProps) {
   const router = useRouter();
   const [pendingDeletePlanId, setPendingDeletePlanId] = useState<string | null>(null);
+  const [pendingSharePlanId, setPendingSharePlanId] = useState<string | null>(null);
+  const [shareError, setShareError] = useState<string | null>(null);
 
   if (loading) {
     return (
@@ -30,16 +54,29 @@ export function PlanHistory({
     );
   }
 
-  if (plans.length === 0) return null;
+  if (plans.length === 0) return emptyState ? <>{emptyState}</> : null;
 
   return (
     <div className="animate-fade-in-up">
       <div className="flex items-center gap-2 mb-5">
-        <div className="flex items-center justify-center h-8 w-8 rounded-full bg-stone-100">
-          <Clock3 className="h-4 w-4 text-stone-500" />
+        <div
+          className={`flex h-8 w-8 items-center justify-center rounded-full ${
+            variant === 'couple' ? 'bg-violet-100' : 'bg-stone-100'
+          }`}
+        >
+          {variant === 'couple' ? (
+            <HeartHandshake className="h-4 w-4 text-violet-600" />
+          ) : (
+            <Clock3 className="h-4 w-4 text-stone-500" />
+          )}
         </div>
-        <h2 className="text-lg font-bold text-stone-800">이전 일정</h2>
+        <h2 className="text-lg font-bold text-stone-800">{title}</h2>
       </div>
+      {shareError && (
+        <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {shareError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 stagger-children">
         {plans.map((plan) => (
@@ -47,14 +84,18 @@ export function PlanHistory({
             key={plan.id}
             role="button"
             tabIndex={0}
-            onClick={() => router.push(`/library/plans/${plan.id}`)}
+            onClick={() => router.push(getPlanHref(plan))}
             onKeyDown={(event) => {
               if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault();
-                router.push(`/library/plans/${plan.id}`);
+                router.push(getPlanHref(plan));
               }
             }}
-            className="group cursor-pointer rounded-2xl border border-stone-200 bg-white p-5 transition-all duration-300 hover:border-stone-300 hover:shadow-xl hover:shadow-stone-200/70"
+            className={`group cursor-pointer rounded-2xl border p-5 transition-all duration-300 ${
+              variant === 'couple'
+                ? 'border-violet-100 bg-gradient-to-br from-white via-white to-violet-50/70 hover:border-violet-200 hover:shadow-xl hover:shadow-violet-100/80'
+                : 'border-stone-200 bg-white hover:border-stone-300 hover:shadow-xl hover:shadow-stone-200/70'
+            }`}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
@@ -69,7 +110,7 @@ export function PlanHistory({
                   }`}>
                     {plan.mode === 'date' ? '💑 데이트' : '🧳 여행'}
                   </span>
-                  {plan.category && (
+                  {showCategory && plan.category && (
                     <span
                       className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium"
                       style={{
@@ -81,7 +122,7 @@ export function PlanHistory({
                       {plan.category.name}
                     </span>
                   )}
-                  {plan.workspace && (
+                  {showWorkspaceBadge && plan.workspace && (
                     <span className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2.5 py-0.5 text-xs font-medium text-violet-600">
                       커플 플랜
                     </span>
@@ -94,13 +135,42 @@ export function PlanHistory({
                     })}
                   </span>
                 </div>
-                {plan.workspace && plan.user?.email && (
+                {plan.workspace && plan.user?.nickname && (
                   <p className="mt-1 text-xs text-stone-500">
-                    생성자 {plan.user.email}
+                    생성자 {plan.user.nickname}
                   </p>
                 )}
               </div>
               <div className="flex flex-col items-end gap-2">
+                {onSharePlan && !plan.workspace && (
+                  <PrimaryButton
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    loading={pendingSharePlanId === plan.id}
+                    disabled={shareDisabled}
+                    className="h-8 px-3 text-xs"
+                    onClick={async (event) => {
+                      event.stopPropagation();
+                      if (shareDisabled) return;
+                      setShareError(null);
+                      setPendingSharePlanId(plan.id);
+                      try {
+                        await onSharePlan(plan);
+                      } catch (error) {
+                        setShareError(
+                          error instanceof Error
+                            ? error.message
+                            : '커플 플랜으로 이동하지 못했습니다.',
+                        );
+                      } finally {
+                        setPendingSharePlanId(null);
+                      }
+                    }}
+                  >
+                    {shareDisabled ? shareDisabledLabel : shareButtonLabel}
+                  </PrimaryButton>
+                )}
                 {onDeletePlan && (
                   <button
                     type="button"

@@ -37,6 +37,14 @@ const codeSchema = z.object({
     .regex(/^\d{6}$/, "숫자 6자리를 입력해주세요."),
 });
 
+const nicknameSchema = z.object({
+  nickname: z
+    .string()
+    .trim()
+    .min(2, "닉네임은 2자 이상 입력해주세요.")
+    .max(20, "닉네임은 20자 이하로 입력해주세요."),
+});
+
 const passwordSchema = z
   .object({
     password: z
@@ -58,25 +66,26 @@ const passwordSchema = z
 
 type EmailForm = z.infer<typeof emailSchema>;
 type CodeForm = z.infer<typeof codeSchema>;
+type NicknameForm = z.infer<typeof nicknameSchema>;
 type PasswordForm = z.infer<typeof passwordSchema>;
-type RegisterStep = 1 | 2 | 3 | 4;
+type RegisterStep = 1 | 2 | 3 | 4 | 5;
 
 // ── 공통 입력 클래스 ───────────────────────────────────────────
 const inputCls =
   "w-full rounded-2xl border border-stone-200 bg-stone-50/50 px-4 py-3 text-sm text-stone-800 placeholder-stone-400 outline-none focus:bg-white focus:border-orange-300 focus:ring-4 focus:ring-orange-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed";
 
 // ── 단계 표시기 ────────────────────────────────────────────────
-function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
+function StepIndicator({ step }: { step: 1 | 2 | 3 | 4 }) {
   return (
     <div className="flex items-center gap-2 mb-6">
-      {[1, 2, 3].map((n) => (
+      {[1, 2, 3, 4].map((n) => (
         <div key={n} className="flex items-center gap-2">
           <div
             className={`h-2 w-2 rounded-full transition-colors ${
               n <= step ? "bg-orange-500" : "bg-stone-200"
             }`}
           />
-          {n < 3 && (
+          {n < 4 && (
             <div
               className={`h-px w-6 ${n < step ? "bg-orange-300" : "bg-stone-200"}`}
             />
@@ -126,10 +135,12 @@ function FieldHint({
 
 function SuccessScreen({
   email,
+  nickname,
   registeredAt,
   redirectPath,
 }: {
-  email: string;
+  email?: string | null;
+  nickname: string;
   registeredAt: string;
   redirectPath: string;
 }) {
@@ -152,10 +163,18 @@ function SuccessScreen({
         <div className="space-y-3 text-sm">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">
-              가입 이메일
+              닉네임
             </p>
-            <p className="mt-1 font-medium text-stone-900">{email}</p>
+            <p className="mt-1 font-medium text-stone-900">{nickname}</p>
           </div>
+          {email && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">
+                가입 이메일
+              </p>
+              <p className="mt-1 font-medium text-stone-900">{email}</p>
+            </div>
+          )}
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">
               가입 일시
@@ -180,6 +199,7 @@ function RegisterPageContent() {
   const searchParams = useSearchParams();
   const [step, setStep] = useState<RegisterStep>(1);
   const [email, setEmail] = useState("");
+  const [nickname, setNickname] = useState("");
   const [registeredAt, setRegisteredAt] = useState("");
   const [captchaToken, setCaptchaToken] = useState("");
   const [captchaInstanceKey, setCaptchaInstanceKey] = useState(0);
@@ -268,7 +288,7 @@ function RegisterPageContent() {
   }, []);
 
   useEffect(() => {
-    if (step !== 4 || confettiFiredRef.current) return;
+    if (step !== 5 || confettiFiredRef.current) return;
     confettiFiredRef.current = true;
     void confetti({
       particleCount: 130,
@@ -362,6 +382,7 @@ function RegisterPageContent() {
   // ── Step 2 폼 ──────────────────────────────────────────────
   const codeForm = useForm<CodeForm>({ resolver: zodResolver(codeSchema) });
   const autoSubmitRef = useRef(false);
+  const lastAutoSubmittedCodeRef = useRef("");
   const codeValue = codeForm.watch("code");
 
   const onStep2Submit = codeForm.handleSubmit(async (data) => {
@@ -395,14 +416,17 @@ function RegisterPageContent() {
     if (
       codeValue?.length === 6 &&
       codeSubmitState === "idle" &&
-      !autoSubmitRef.current
+      !autoSubmitRef.current &&
+      lastAutoSubmittedCodeRef.current !== codeValue
     ) {
+      lastAutoSubmittedCodeRef.current = codeValue;
       autoSubmitRef.current = true;
       void onStep2Submit().finally(() => {
         autoSubmitRef.current = false;
       });
     } else if ((codeValue?.length ?? 0) < 6) {
       autoSubmitRef.current = false;
+      lastAutoSubmittedCodeRef.current = "";
       if (codeSubmitState !== "loading" && codeSubmitState !== "success") {
         setCodeSubmitState("idle");
       }
@@ -426,6 +450,7 @@ function RegisterPageContent() {
       );
       startTimer();
       codeForm.reset();
+      lastAutoSubmittedCodeRef.current = "";
       setCodeSubmitState("idle");
       setCaptchaToken("");
       setCaptchaInstanceKey((key) => key + 1);
@@ -437,16 +462,28 @@ function RegisterPageContent() {
   };
 
   // ── Step 3 폼 ──────────────────────────────────────────────
+  const nicknameForm = useForm<NicknameForm>({
+    resolver: zodResolver(nicknameSchema),
+  });
+
+  const onStep3Submit = nicknameForm.handleSubmit((data) => {
+    setNickname(data.nickname.trim());
+    setError("");
+    setStep(4);
+  });
+
+  // ── Step 4 폼 ──────────────────────────────────────────────
   const pwForm = useForm<PasswordForm>({
     resolver: zodResolver(passwordSchema),
   });
 
-  const onStep3Submit = pwForm.handleSubmit(async (data) => {
+  const onStep4Submit = pwForm.handleSubmit(async (data) => {
     setFormLoading(true);
     setError("");
     try {
       const res = await authApi.register(
         email,
+        nickname,
         data.password,
         data.agreedTerms,
         data.agreedPrivacy,
@@ -463,7 +500,7 @@ function RegisterPageContent() {
           hour12: false,
         }),
       );
-      setStep(4);
+      setStep(5);
     } catch (err) {
       setError(err instanceof Error ? err.message : "회원가입 실패");
     } finally {
@@ -483,11 +520,12 @@ function RegisterPageContent() {
         </div>
 
         <div className="rounded-3xl bg-white p-8 shadow-xl shadow-stone-200/50 border border-stone-100">
-          {step !== 4 && <StepIndicator step={step} />}
+          {step !== 5 && <StepIndicator step={step} />}
 
-          {step === 4 && (
+          {step === 5 && (
               <SuccessScreen
                 email={email}
+                nickname={nickname}
                 registeredAt={registeredAt}
                 redirectPath={redirectPath}
               />
@@ -713,8 +751,46 @@ function RegisterPageContent() {
             </>
           )}
 
-          {/* ── STEP 3: 비밀번호 + 약관 ── */}
+          {/* ── STEP 3: 닉네임 입력 ── */}
           {step === 3 && (
+            <>
+              <h1 className="mb-1 text-xl font-bold text-stone-900">
+                닉네임 설정
+              </h1>
+              <p className="mb-5 text-sm text-stone-500">
+                일정과 메모에서 이메일 대신 보여줄 이름입니다.
+              </p>
+              <form onSubmit={onStep3Submit} className="flex flex-col gap-5">
+                <div className="relative pb-1">
+                  <label className="block pb-1 text-sm font-semibold text-stone-700">
+                    닉네임
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={20}
+                    placeholder="예: 데이트러버"
+                    {...nicknameForm.register("nickname")}
+                    className={inputCls}
+                  />
+                  <FieldError
+                    message={nicknameForm.formState.errors.nickname?.message}
+                  />
+                </div>
+
+                {error && <ErrorBox message={error} />}
+
+                <button
+                  type="submit"
+                  className="flex w-full items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-pink-500 px-4 py-3 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:from-orange-600 hover:to-pink-600 hover:shadow-lg active:opacity-95"
+                >
+                  다음
+                </button>
+              </form>
+            </>
+          )}
+
+          {/* ── STEP 4: 비밀번호 + 약관 ── */}
+          {step === 4 && (
             <>
               <h1 className="mb-1 text-xl font-bold text-stone-900">
                 비밀번호 설정
@@ -722,7 +798,7 @@ function RegisterPageContent() {
               <p className="mb-5 text-sm text-stone-500">
                 이메일 인증이 완료되었습니다.
               </p>
-              <form onSubmit={onStep3Submit} className="flex flex-col gap-5">
+              <form onSubmit={onStep4Submit} className="flex flex-col gap-5">
                 <div className="relative pb-1">
                   <label className="block pb-1 text-sm font-semibold text-stone-700">
                     비밀번호
@@ -822,7 +898,7 @@ function RegisterPageContent() {
           )}
         </div>
 
-        {step !== 4 && (
+        {step !== 5 && (
           <p className="mt-6 text-center text-sm text-stone-500">
             이미 계정이 있으신가요?{" "}
             <Link

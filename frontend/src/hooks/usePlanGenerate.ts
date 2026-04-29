@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { api, ApiError } from '../lib/api';
-import { PlanResult, PlanMode } from '../lib/types';
+import { ApiError, planApi } from '../lib/api';
+import { PlanPreviewResult, PlanResult, PlanMode } from '../lib/types';
 
 type Status = 'idle' | 'loading' | 'success' | 'error';
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 type DailyLimitError = {
   message: string;
@@ -15,25 +16,23 @@ type DailyLimitError = {
 
 export function usePlanGenerate() {
   const [status, setStatus] = useState<Status>('idle');
-  const [result, setResult] = useState<PlanResult | null>(null);
+  const [result, setResult] = useState<PlanPreviewResult | PlanResult | null>(null);
+  const [savedResult, setSavedResult] = useState<PlanResult | null>(null);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [dailyLimitError, setDailyLimitError] = useState<DailyLimitError | null>(null);
 
-  const generate = async (
-    rawInput: string,
-    mode: PlanMode,
-    workspaceId?: string,
-  ) => {
+  const generate = async (rawInput: string, mode: PlanMode) => {
     setStatus('loading');
     setError(null);
     setResult(null);
+    setSavedResult(null);
+    setSaveStatus('idle');
+    setSaveError(null);
     setDailyLimitError(null);
     try {
-      const data = await api.post<PlanResult>('/plan/generate', {
-        rawInput,
-        mode,
-        workspaceId,
-      });
+      const data = await planApi.preview({ rawInput, mode });
       setResult(data);
       setStatus('success');
     } catch (err) {
@@ -58,5 +57,35 @@ export function usePlanGenerate() {
     }
   };
 
-  return { generate, status, result, error, dailyLimitError };
+  const save = async (
+    draftId: string,
+    scope: 'personal' | 'shared',
+    workspaceId?: string,
+  ) => {
+    setSaveStatus('saving');
+    setSaveError(null);
+    try {
+      const data = await planApi.save({ draftId, scope, workspaceId });
+      setSavedResult(data);
+      setResult(data);
+      setSaveStatus('saved');
+      return data;
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : '일정 저장 실패');
+      setSaveStatus('error');
+      return null;
+    }
+  };
+
+  return {
+    generate,
+    save,
+    status,
+    result,
+    savedResult,
+    saveStatus,
+    error,
+    saveError,
+    dailyLimitError,
+  };
 }
