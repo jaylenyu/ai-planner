@@ -44,6 +44,17 @@ function MypageContent() {
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelSuccessOpen, setCancelSuccessOpen] = useState(false);
   const [cancelledUntil, setCancelledUntil] = useState<string | null>(null);
+  const [resubscribeLoading, setResubscribeLoading] = useState(false);
+
+  const handleResubscribe = async () => {
+    setResubscribeLoading(true);
+    try {
+      await billingApi.resubscribe();
+      await refetch();
+    } finally {
+      setResubscribeLoading(false);
+    }
+  };
 
   const handleCancelSubscription = async () => {
     setCancelLoading(true);
@@ -112,14 +123,31 @@ function MypageContent() {
                 <p>
                   상태:{' '}
                   <span className="font-medium text-stone-800">
-                    {subStatus?.hasAccess ? '활성' : '비활성'}
+                    {subStatus?.hasAccess && subStatus.subscription.cancelledAt
+                      ? '취소됨 (기간 만료 전)'
+                      : subStatus?.hasAccess
+                        ? '활성'
+                        : '비활성'}
                   </span>
                 </p>
                 {subStatus?.subscription.currentPeriodEnd && (
-                  <p>다음 결제일 {formatDate(subStatus.subscription.currentPeriodEnd)}</p>
+                  <p>
+                    {subStatus.subscription.cancelledAt ? '이용 가능 기간' : '다음 결제일'}{' '}
+                    {formatDate(subStatus.subscription.currentPeriodEnd)}
+                  </p>
                 )}
               </div>
-              {subStatus?.hasAccess ? (
+              {subStatus?.hasAccess && subStatus.subscription.cancelledAt ? (
+                <PrimaryButton
+                  type="button"
+                  variant="brand"
+                  size="sm"
+                  loading={resubscribeLoading}
+                  onClick={() => void handleResubscribe()}
+                >
+                  다시 구독하기
+                </PrimaryButton>
+              ) : subStatus?.hasAccess ? (
                 <PrimaryButton
                   type="button"
                   variant="outline"
