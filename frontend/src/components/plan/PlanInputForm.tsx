@@ -179,7 +179,7 @@ export function PlanInputForm({
         loading={loading}
       >
         {loading && <Spinner size="sm" />}
-        {loading ? 'AI가 최적 일정을 짜는 중...' : '커플 플랜 만들기'}
+        {loading ? 'AI가 최적 일정을 짜는 중...' : '일정 만들기'}
       </PrimaryButton>
     </form>
   );

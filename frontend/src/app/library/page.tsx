@@ -1,12 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppCard } from "@/components/ui/app-card";
 import { PrimaryButton } from "@/components/ui/primary-button";
 import { usePlanList } from "@/hooks/usePlanList";
 import { useCategories } from "@/hooks/useCategories";
+import { useWorkspace } from "@/hooks/useWorkspace";
 import { planApi } from "@/lib/api";
+import { queryKeys } from "@/lib/query";
 import { PlanHistory } from "@/components/plan/PlanHistory";
 import type { PlanSummary } from "@/lib/types";
 
@@ -17,9 +20,8 @@ export default function LibraryPage() {
     loading: plansLoading,
     categoryId,
     setCategoryId,
-    scope,
-    setScope,
-  } = usePlanList();
+  } = usePlanList("personal");
+  const { workspace, loading: workspaceLoading } = useWorkspace();
   const {
     categories,
     loading: categoriesLoading,
@@ -58,6 +60,25 @@ export default function LibraryPage() {
     }
   };
 
+  const handleSharePlan = async (plan: PlanSummary) => {
+    const previousLists = queryClient.getQueriesData<PlanSummary[]>({
+      queryKey: ['plans'],
+    });
+    queryClient.setQueriesData<PlanSummary[]>({ queryKey: ['plans'] }, (old) =>
+      (old ?? []).filter((item) => item.id !== plan.id),
+    );
+    try {
+      const shared = await planApi.share(plan.id, { updatedAt: plan.updatedAt });
+      queryClient.setQueryData(queryKeys.plan(shared.id), shared);
+      await queryClient.invalidateQueries({ queryKey: ['plans'] });
+    } catch (error) {
+      previousLists.forEach(([key, value]) => {
+        queryClient.setQueryData(key, value);
+      });
+      throw error;
+    }
+  };
+
   return (
     <div className="bg-[var(--background)]">
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
@@ -65,7 +86,7 @@ export default function LibraryPage() {
           <AppCard padding="md" className="h-fit lg:sticky lg:top-24">
             <h1 className="text-base font-bold text-stone-800">카테고리</h1>
             <p className="mt-1 text-sm text-stone-500">
-              {selectedCategory ? selectedCategory.name : "전체 일정"}
+              {selectedCategory ? selectedCategory.name : "전체 개인 일정"}
             </p>
             <div className="mt-4 flex flex-col gap-2">
               <input
@@ -125,47 +146,32 @@ export default function LibraryPage() {
             <div className="mb-4 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <h2 className="text-base font-bold text-stone-800">
-                  {scope === "shared"
-                    ? "공유 일정"
-                    : scope === "personal"
-                      ? "개인 일정"
-                      : "전체 일정"}
+                  개인 일정
                 </h2>
                 <p className="text-sm text-stone-500">
-                  삭제와 분류는 무료 플랜에서도 가능합니다.
+                  카테고리로 정리하고, 함께 볼 일정은 커플 플랜으로 이동하세요.
                 </p>
               </div>
-              <div className="w-full sm:w-auto">
-                <div className="grid w-full grid-cols-3 rounded-xl border border-stone-200 bg-white p-1 text-xs sm:w-auto">
-                  <button
-                    type="button"
-                    onClick={() => setScope(undefined)}
-                    className={`min-w-0 rounded-lg px-2 py-1.5 text-center text-[13px] whitespace-nowrap sm:px-3 ${scope === undefined ? "bg-orange-50 text-orange-700" : "text-stone-600"}`}
-                  >
-                    전체
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setScope("personal")}
-                    className={`min-w-0 rounded-lg px-2 py-1.5 text-center text-[13px] whitespace-nowrap sm:px-3 ${scope === "personal" ? "bg-orange-50 text-orange-700" : "text-stone-600"}`}
-                  >
-                    개인
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setScope("shared")}
-                    className={`min-w-0 rounded-lg px-2 py-1.5 text-center text-[13px] whitespace-nowrap sm:px-3 ${scope === "shared" ? "bg-orange-50 text-orange-700" : "text-stone-600"}`}
-                  >
-                    공유
-                  </button>
-                </div>
-              </div>
+              {!workspace && !workspaceLoading && (
+                <PrimaryButton asChild variant="outline" size="sm">
+                  <Link href="/workspace/settings">공유설정</Link>
+                </PrimaryButton>
+              )}
             </div>
 
             <PlanHistory
               plans={plans}
               loading={plansLoading}
               onDeletePlan={handleDeletePlan}
+              onSharePlan={handleSharePlan}
+              showWorkspaceBadge={false}
+              shareDisabled={!workspace}
+              shareDisabledLabel={workspaceLoading ? "확인 중" : "공유설정 필요"}
+              emptyState={
+                <div className="rounded-2xl border border-dashed border-stone-200 bg-white px-5 py-8 text-center text-sm text-stone-500">
+                  아직 보관된 개인 일정이 없습니다.
+                </div>
+              }
             />
           </AppCard>
         </div>

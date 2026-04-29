@@ -6,10 +6,12 @@ import { planApi } from '../lib/api';
 import type { PlanSummary } from '../lib/types';
 import { queryKeys } from '../lib/query';
 
-export function usePlanList() {
+type PlanListScope = 'personal' | 'shared';
+
+export function usePlanList(initialScope?: PlanListScope) {
   const [loading, setLoading] = useState(false);
   const [categoryId, setCategoryId] = useState<string | undefined>(undefined);
-  const [scope, setScope] = useState<'personal' | 'shared' | undefined>();
+  const [scope, setScope] = useState<PlanListScope | undefined>(initialScope);
 
   const query = useQuery<PlanSummary[]>({
     queryKey: queryKeys.plans(categoryId, scope),

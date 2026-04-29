@@ -36,7 +36,7 @@ function MypageContent() {
   const { status: subStatus, loading: subLoading, refetch } = useSubscriptionStatus();
   const { workspace, loading: wsLoading } = useWorkspace();
   const { items: notifications, loading: notiLoading } = useNotifications();
-  const { plans, loading: plansLoading } = usePlanList();
+  const { plans, loading: plansLoading } = usePlanList('personal');
 
   const recentPlans = plans?.slice(0, 3) ?? [];
 
@@ -158,9 +158,9 @@ function MypageContent() {
               ) : (
                 <p className="text-sm text-stone-500">파트너 없음</p>
               )}
-              <Link href="/workspace">
+              <Link href="/workspace/settings">
                 <PrimaryButton type="button" variant="outline" size="sm">
-                  커플 플랜
+                  공유설정
                 </PrimaryButton>
               </Link>
             </AppCard>

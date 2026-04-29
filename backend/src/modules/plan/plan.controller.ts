@@ -14,6 +14,7 @@ import { CreatePlanMemoDto } from './dto/create-plan-memo.dto';
 import { CreatePlanItemDto } from './dto/create-plan-item.dto';
 import { DeletePlanItemDto } from './dto/delete-plan-item.dto';
 import { GeneratePlanDto } from './dto/generate-plan.dto';
+import { SharePlanDto } from './dto/share-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { UpdatePlanItemDto } from './dto/update-plan-item.dto';
 import { JwtAuthGuard } from '../auth/auth.guard';
@@ -47,6 +48,16 @@ export class PlanController {
     @CurrentUser() user: { userId: string },
   ) {
     return this.planService.update(user.userId, id, dto);
+  }
+
+  @Post(':id/share')
+  @UseGuards(JwtAuthGuard)
+  share(
+    @Param('id') id: string,
+    @Body() dto: SharePlanDto,
+    @CurrentUser() user: { userId: string },
+  ) {
+    return this.planService.share(user.userId, id, dto);
   }
 
   @Delete(':id')
