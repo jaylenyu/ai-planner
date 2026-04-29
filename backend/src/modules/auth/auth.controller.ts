@@ -36,6 +36,7 @@ import { DeleteMeDto } from './dto/delete-me.dto';
 import { VerifyPasswordSetupDto } from './dto/verify-password-setup.dto';
 import { CompleteOAuthSignupDto } from './dto/complete-oauth-signup.dto';
 import { UpdateEmailDto } from './dto/update-email.dto';
+import { UpdateNicknameDto } from './dto/update-nickname.dto';
 import type { AuthenticatedUser, OAuthAuthenticatedUser } from './types';
 
 const VALID_PROVIDERS: OAuthProvider[] = ['google', 'kakao', 'naver'];
@@ -263,6 +264,16 @@ export class AuthController {
     @Body() dto: UpdateSettingsDto,
   ) {
     return this.authService.updateSettings(user.userId, dto);
+  }
+
+  @Patch('nickname')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  updateNickname(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UpdateNicknameDto,
+  ) {
+    return this.authService.updateNickname(user.userId, dto.nickname);
   }
 
   @Post('oauth/:provider/link-token')
