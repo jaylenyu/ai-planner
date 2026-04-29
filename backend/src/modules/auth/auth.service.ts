@@ -668,6 +668,13 @@ export class AuthService {
 
   async updateNickname(userId: string, rawNickname: string) {
     const nickname = this.assertNickname(rawNickname);
+    const current = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { nickname: true },
+    });
+    if (current?.nickname === nickname) {
+      throw new BadRequestException('현재 닉네임과 동일합니다.');
+    }
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: { nickname },
