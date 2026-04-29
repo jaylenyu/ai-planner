@@ -24,7 +24,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: {
     sub: string;
-    email: string;
+    email?: string;
+    nickname?: string;
     role?: string;
     adminReadOnly?: boolean;
   }) {
@@ -33,6 +34,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       select: {
         id: true,
         email: true,
+        nickname: true,
         role: true,
         adminReadOnly: true,
         isSuspended: true,
@@ -47,6 +49,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     return {
       userId: user.id,
       email: user.email,
+      nickname: user.nickname,
       role: user.role,
       adminReadOnly: user.adminReadOnly,
     };

@@ -25,6 +25,9 @@ import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { PaymentService } from '../payment/payment.service';
+import { CompleteOAuthSignupDto } from './dto/complete-oauth-signup.dto';
+import { UpdateEmailDto } from './dto/update-email.dto';
+import { OAuthAccountService } from './oauth-account.service';
 
 const LOGIN_FAIL_TTL = 600; // 10분
 const MAX_LOGIN_FAILS = 5;
@@ -40,6 +43,14 @@ type LoginOptions = {
 
 export type OAuthProvider = 'google' | 'kakao' | 'naver';
 
+type TokenUser = {
+  id: string;
+  email: string | null;
+  nickname: string;
+  role: 'USER' | 'ADMIN';
+  adminReadOnly: boolean;
+};
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -49,6 +60,7 @@ export class AuthService {
     private readonly emailService: EmailService,
     private readonly redis: RedisService,
     private readonly emailVerification: EmailVerificationService,
+    private readonly oauthAccountService: OAuthAccountService,
     @Inject(forwardRef(() => PaymentService))
     private readonly paymentService: PaymentService,
   ) {}
@@ -64,17 +76,23 @@ export class AuthService {
 
   private async generateTokenPair(
     userId: string,
-    email: string,
+    email: string | null,
+    nickname: string,
     role: 'USER' | 'ADMIN',
     adminReadOnly = false,
   ) {
-    const access_token = this.jwtService.sign(
-      { sub: userId, email, role, adminReadOnly },
-      {
-        expiresIn: (this.config.get<string>('JWT_EXPIRES_IN') ??
-          '15m') as SignOptions['expiresIn'],
-      },
-    );
+    const payload: Record<string, unknown> = {
+      sub: userId,
+      nickname,
+      role,
+      adminReadOnly,
+    };
+    if (email) payload.email = email;
+
+    const access_token = this.jwtService.sign(payload, {
+      expiresIn: (this.config.get<string>('JWT_EXPIRES_IN') ??
+        '15m') as SignOptions['expiresIn'],
+    });
 
     const rawRefresh = crypto.randomBytes(40).toString('hex');
     const hashedRefresh = await bcrypt.hash(rawRefresh, 10);
@@ -89,6 +107,30 @@ export class AuthService {
     return { access_token, refresh_token: rawRefresh };
   }
 
+  private normalizeNickname(raw: string): string {
+    return raw.replace(/\s+/g, ' ').trim();
+  }
+
+  private assertNickname(raw: string): string {
+    const nickname = this.normalizeNickname(raw);
+    if (nickname.length < 2 || nickname.length > 20) {
+      throw new BadRequestException(
+        '닉네임은 2자 이상 20자 이하로 입력해주세요.',
+      );
+    }
+    return nickname;
+  }
+
+  private tokensForUser(user: TokenUser) {
+    return this.generateTokenPair(
+      user.id,
+      user.email,
+      user.nickname,
+      user.role,
+      user.adminReadOnly,
+    );
+  }
+
   private getJwtSecret(): string {
     const secret = this.config.get<string>('JWT_SECRET')?.trim();
     if (!secret) throw new Error('JWT_SECRET is required');
@@ -98,17 +140,20 @@ export class AuthService {
   // ── Register / Login ──────────────────────────────────────────────
 
   async register(dto: RegisterDto) {
-    await this.emailVerification.assertVerified(dto.email);
+    const email = dto.email.trim().toLowerCase();
+    const nickname = this.assertNickname(dto.nickname);
+    await this.emailVerification.assertVerified(email);
 
     const existing = await this.prisma.user.findUnique({
-      where: { email: dto.email },
+      where: { email },
     });
     if (existing) throw new ConflictException('이미 사용 중인 이메일입니다.');
 
     const hashed = await bcrypt.hash(dto.password, 10);
     const user = await this.prisma.user.create({
       data: {
-        email: dto.email,
+        email,
+        nickname,
         password: hashed,
         emailVerified: true,
         lastLoginAt: new Date(),
@@ -119,12 +164,7 @@ export class AuthService {
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
     });
-    return this.generateTokenPair(
-      user.id,
-      user.email,
-      user.role,
-      user.adminReadOnly,
-    );
+    return this.tokensForUser(user);
   }
 
   async checkEmailAvailability(email: string) {
@@ -222,12 +262,7 @@ export class AuthService {
       data: { lastLoginAt: new Date() },
     });
 
-    return this.generateTokenPair(
-      user.id,
-      user.email,
-      user.role,
-      user.adminReadOnly,
-    );
+    return this.tokensForUser(user);
   }
 
   async login(dto: LoginDto, ip: string) {
@@ -243,7 +278,8 @@ export class AuthService {
 
   async oauthLogin(user: {
     id: string;
-    email: string;
+    email: string | null;
+    nickname?: string;
     role: 'USER' | 'ADMIN';
     isSuspended?: boolean;
     deletedAt?: Date | null;
@@ -257,12 +293,13 @@ export class AuthService {
     ) {
       throw new ForbiddenException('정지되었거나 탈퇴한 계정입니다.');
     }
-    return this.generateTokenPair(
-      user.id,
-      user.email,
-      user.role,
-      user.adminReadOnly,
-    );
+    return this.tokensForUser({
+      id: user.id,
+      email: user.email,
+      nickname: user.nickname ?? '사용자',
+      role: user.role,
+      adminReadOnly: user.adminReadOnly ?? false,
+    });
   }
 
   async refreshTokens(rawToken: string) {
@@ -278,12 +315,13 @@ export class AuthService {
           throw new ForbiddenException('정지되었거나 탈퇴한 계정입니다.');
         }
         await this.prisma.refreshToken.delete({ where: { id: stored.id } });
-        return this.generateTokenPair(
-          stored.user.id,
-          stored.user.email,
-          stored.user.role as 'USER' | 'ADMIN',
-          stored.user.adminReadOnly,
-        );
+        return this.tokensForUser({
+          id: stored.user.id,
+          email: stored.user.email,
+          nickname: stored.user.nickname,
+          role: stored.user.role as 'USER' | 'ADMIN',
+          adminReadOnly: stored.user.adminReadOnly,
+        });
       }
     }
 
@@ -307,6 +345,7 @@ export class AuthService {
       where: { email: dto.email },
     });
     if (!user) return;
+    if (!user.email) return;
 
     if (!user.password && (user.googleId || user.kakaoId || user.naverId)) {
       const providers: string[] = [];
@@ -367,6 +406,7 @@ export class AuthService {
       select: {
         id: true,
         email: true,
+        nickname: true,
         role: true,
         createdAt: true,
         lastLoginAt: true,
@@ -374,6 +414,7 @@ export class AuthService {
         googleId: true,
         kakaoId: true,
         naverId: true,
+        emailVerified: true,
         inAppNotificationsEnabled: true,
         emailNotificationsEnabled: true,
       },
@@ -384,10 +425,12 @@ export class AuthService {
     return {
       id: user.id,
       email: user.email,
+      nickname: user.nickname,
       role: user.role,
       createdAt: user.createdAt,
       lastLoginAt: user.lastLoginAt,
       hasPassword: user.password != null,
+      emailVerified: user.emailVerified,
       providers: {
         google: user.googleId != null,
         kakao: user.kakaoId != null,
@@ -438,12 +481,7 @@ export class AuthService {
     await this.prisma.refreshToken.deleteMany({ where: { userId } });
 
     // Issue new token pair
-    return this.generateTokenPair(
-      user.id,
-      user.email,
-      user.role,
-      user.adminReadOnly,
-    );
+    return this.tokensForUser(user);
   }
 
   // ── POST /auth/password/setup-request ────────────────────────────
@@ -457,10 +495,15 @@ export class AuthService {
     if (user.password) {
       throw new BadRequestException('이미 비밀번호가 설정된 계정입니다.');
     }
+    if (!user.email) {
+      throw new BadRequestException(
+        '비밀번호 설정을 위해 먼저 이메일을 등록해주세요.',
+      );
+    }
 
     const normalized = user.email.trim().toLowerCase();
 
-    if (!this.redis.isEnabled()) {
+    if (!(await this.redis.getNativeClient())) {
       throw new BadRequestException(
         '인증코드 저장소가 구성되지 않아 인증을 진행할 수 없습니다.',
       );
@@ -499,47 +542,52 @@ export class AuthService {
     if (user.password) {
       throw new BadRequestException('이미 비밀번호가 설정된 계정입니다.');
     }
+    if (!user.email) {
+      throw new BadRequestException(
+        '비밀번호 설정을 위해 먼저 이메일을 등록해주세요.',
+      );
+    }
 
     const normalized = user.email.trim().toLowerCase();
 
-    if (this.redis.isEnabled()) {
-      const codeKey = `password_setup:code:${normalized}`;
-      const attemptsKey = `password_setup:attempts:${normalized}`;
-
-      const attemptsStr = await this.redis.get(attemptsKey);
-      const attempts = attemptsStr ? parseInt(attemptsStr, 10) : 0;
-      if (attempts >= MAX_ATTEMPTS) {
-        throw new BadRequestException(
-          '인증 시도 횟수가 초과되었습니다. 인증코드를 다시 요청해주세요.',
-        );
-      }
-
-      const stored = await this.redis.get(codeKey);
-      if (!stored) {
-        throw new BadRequestException(
-          '인증코드가 만료되었습니다. 다시 요청해주세요.',
-        );
-      }
-
-      await this.redis.incr(attemptsKey, ATTEMPT_TTL);
-
-      if (stored !== code) {
-        const newAttempts = attempts + 1;
-        const remaining = MAX_ATTEMPTS - newAttempts;
-        throw new BadRequestException(
-          remaining > 0
-            ? `인증코드가 올바르지 않습니다. (${remaining}회 남음)`
-            : '인증 시도 횟수가 초과되었습니다. 인증코드를 다시 요청해주세요.',
-        );
-      }
-
-      await this.redis.del(codeKey);
-      await this.redis.del(attemptsKey);
-    } else {
+    if (!(await this.redis.getNativeClient())) {
       throw new BadRequestException(
         '인증코드 저장소가 구성되지 않아 인증을 진행할 수 없습니다.',
       );
     }
+
+    const codeKey = `password_setup:code:${normalized}`;
+    const attemptsKey = `password_setup:attempts:${normalized}`;
+
+    const attemptsStr = await this.redis.get(attemptsKey);
+    const attempts = attemptsStr ? parseInt(attemptsStr, 10) : 0;
+    if (attempts >= MAX_ATTEMPTS) {
+      throw new BadRequestException(
+        '인증 시도 횟수가 초과되었습니다. 인증코드를 다시 요청해주세요.',
+      );
+    }
+
+    const stored = await this.redis.get(codeKey);
+    if (!stored) {
+      throw new BadRequestException(
+        '인증코드가 만료되었습니다. 다시 요청해주세요.',
+      );
+    }
+
+    await this.redis.incr(attemptsKey, ATTEMPT_TTL);
+
+    if (stored !== code) {
+      const newAttempts = attempts + 1;
+      const remaining = MAX_ATTEMPTS - newAttempts;
+      throw new BadRequestException(
+        remaining > 0
+          ? `인증코드가 올바르지 않습니다. (${remaining}회 남음)`
+          : '인증 시도 횟수가 초과되었습니다. 인증코드를 다시 요청해주세요.',
+      );
+    }
+
+    await this.redis.del(codeKey);
+    await this.redis.del(attemptsKey);
 
     // Issue verifyToken JWT (5min)
     const secret = this.getJwtSecret();
@@ -655,6 +703,108 @@ export class AuthService {
     } catch {
       return null;
     }
+  }
+
+  createOAuthSignupToken(input: {
+    provider: OAuthProvider;
+    providerId: string;
+    providerEmail: string | null;
+  }): string {
+    const secret = this.getLinkTokenSecret();
+    const iat = Math.floor(Date.now() / 1000);
+    const exp = iat + 600;
+    const payload = JSON.stringify({
+      intent: 'oauth_signup',
+      provider: input.provider,
+      providerId: input.providerId,
+      providerEmail: input.providerEmail,
+      iat,
+      exp,
+    });
+    const sig = crypto
+      .createHmac('sha256', secret)
+      .update(payload)
+      .digest('hex');
+    return Buffer.from(JSON.stringify({ payload, sig })).toString('base64url');
+  }
+
+  private verifyOAuthSignupToken(token: string): {
+    provider: OAuthProvider;
+    providerId: string;
+    providerEmail: string | null;
+  } | null {
+    try {
+      const secret = this.getLinkTokenSecret();
+      const { payload, sig } = JSON.parse(
+        Buffer.from(token, 'base64url').toString('utf8'),
+      ) as { payload: string; sig: string };
+      const expected = crypto
+        .createHmac('sha256', secret)
+        .update(payload)
+        .digest('hex');
+      if (expected !== sig) return null;
+      const data = JSON.parse(payload) as {
+        intent: string;
+        provider: OAuthProvider;
+        providerId: string;
+        providerEmail?: string | null;
+        exp: number;
+      };
+      if (
+        data.intent !== 'oauth_signup' ||
+        !(['google', 'kakao', 'naver'] as const).includes(data.provider) ||
+        !data.providerId ||
+        data.exp < Math.floor(Date.now() / 1000)
+      ) {
+        return null;
+      }
+      return {
+        provider: data.provider,
+        providerId: data.providerId,
+        providerEmail: data.providerEmail ?? null,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  async completeOAuthSignup(dto: CompleteOAuthSignupDto) {
+    const payload = this.verifyOAuthSignupToken(dto.token);
+    if (!payload) {
+      throw new BadRequestException('OAuth 가입 세션이 만료되었습니다.');
+    }
+
+    const user = await this.oauthAccountService.completeSignup({
+      provider: payload.provider,
+      providerId: payload.providerId,
+      providerEmail: payload.providerEmail,
+      nickname: this.assertNickname(dto.nickname),
+    });
+
+    if (!this.isAccountAccessible(user)) {
+      throw new ForbiddenException('정지되었거나 탈퇴한 계정입니다.');
+    }
+
+    return this.tokensForUser(user);
+  }
+
+  async updateEmail(userId: string, dto: UpdateEmailDto) {
+    const email = dto.email.trim().toLowerCase();
+    await this.emailVerification.assertVerified(email);
+
+    const existing = await this.prisma.user.findFirst({
+      where: { email, id: { not: userId } },
+    });
+    if (existing) {
+      throw new ConflictException('이미 사용 중인 이메일입니다.');
+    }
+
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { email, emailVerified: true },
+    });
+
+    return this.tokensForUser(user);
   }
 
   private getLinkTokenSecret(): string {

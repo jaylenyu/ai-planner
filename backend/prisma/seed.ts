@@ -74,12 +74,14 @@ async function main() {
         where: { email: seedUser.email },
         update: {
           password: hashedPassword,
+          nickname: seedUser.email.split('@')[0],
           emailVerified: true,
           role: seedUser.role,
           adminReadOnly: seedUser.adminReadOnly,
         },
         create: {
           email: seedUser.email,
+          nickname: seedUser.email.split('@')[0],
           password: hashedPassword,
           emailVerified: true,
           role: seedUser.role,
@@ -88,7 +90,9 @@ async function main() {
       });
 
       await prisma.refreshToken.deleteMany({ where: { userId: user.id } });
-      await prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
+      await prisma.passwordResetToken.deleteMany({
+        where: { userId: user.id },
+      });
     }
 
     console.log('seed complete');

@@ -1,6 +1,7 @@
 export type JwtPayload = {
   sub?: string;
   email?: string;
+  nickname?: string;
   role?: 'USER' | 'ADMIN';
   adminReadOnly?: boolean;
   exp?: number;

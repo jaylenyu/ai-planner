@@ -42,7 +42,7 @@ export class WorkspaceService {
             members: {
               include: {
                 user: {
-                  select: { id: true, email: true },
+                  select: { id: true, email: true, nickname: true },
                 },
               },
             },
@@ -93,7 +93,7 @@ export class WorkspaceService {
         members: {
           include: {
             user: {
-              select: { id: true, email: true },
+              select: { id: true, email: true, nickname: true },
             },
           },
         },
@@ -113,7 +113,7 @@ export class WorkspaceService {
             members: {
               include: {
                 user: {
-                  select: { id: true, email: true },
+                  select: { id: true, email: true, nickname: true },
                 },
               },
             },
@@ -152,7 +152,7 @@ export class WorkspaceService {
     const email = dto.email.trim().toLowerCase();
     if (
       membership.workspace.members.some(
-        (member) => member.user.email.toLowerCase() === email,
+        (member) => member.user.email?.toLowerCase() === email,
       )
     ) {
       throw new BadRequestException('본인 이메일은 초대할 수 없습니다.');
@@ -214,7 +214,7 @@ export class WorkspaceService {
             members: {
               include: {
                 user: {
-                  select: { id: true, email: true },
+                  select: { id: true, email: true, nickname: true },
                 },
               },
             },
@@ -240,13 +240,16 @@ export class WorkspaceService {
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true },
+      select: { id: true, email: true, nickname: true },
     });
     if (!user) {
       throw new NotFoundException('사용자를 찾을 수 없습니다.');
     }
 
-    if (user.email.toLowerCase() !== invite.email.toLowerCase()) {
+    if (
+      !user.email ||
+      user.email.toLowerCase() !== invite.email.toLowerCase()
+    ) {
       throw new ForbiddenException('초대받은 이메일과 로그인 계정이 다릅니다.');
     }
 

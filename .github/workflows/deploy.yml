@@ -176,6 +176,11 @@ jobs:
             upsert_env BACKEND_URL 'http://ai-planner-backend:4000'
             upsert_env TOSS_SECRET_KEY '${{ secrets.TOSS_SECRET_KEY }}'
             upsert_env TOSS_WEBHOOK_SECRET '${{ secrets.TOSS_WEBHOOK_SECRET }}'
+            upsert_env EMAIL_HOST '${{ secrets.EMAIL_HOST }}'
+            upsert_env EMAIL_PORT '${{ secrets.EMAIL_PORT }}'
+            upsert_env EMAIL_USER '${{ secrets.EMAIL_USER }}'
+            upsert_env EMAIL_PASS '${{ secrets.EMAIL_PASS }}'
+            upsert_env EMAIL_FROM '${{ secrets.EMAIL_FROM }}'
 
             docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" config >/dev/null
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
@@ -318,10 +323,12 @@ jobs:
 
             async function upsertAdmin(email, password, adminReadOnly) {
               const hashedPassword = await bcrypt.hash(password, 10);
+              const nickname = email.split('@')[0] || 'admin';
               const user = await prisma.user.upsert({
                 where: { email },
                 update: {
                   password: hashedPassword,
+                  nickname,
                   emailVerified: true,
                   role: 'ADMIN',
                   adminReadOnly,
@@ -329,6 +336,7 @@ jobs:
                 },
                 create: {
                   email,
+                  nickname,
                   password: hashedPassword,
                   emailVerified: true,
                   role: 'ADMIN',

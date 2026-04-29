@@ -1,0 +1,376 @@
+'use client';
+
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { Settings, X } from 'lucide-react';
+import { AppCard } from '@/components/ui/app-card';
+import { PrimaryButton } from '@/components/ui/primary-button';
+import { PlaceMapDialog } from '@/components/plan/PlaceMapDialog';
+import { EditItemDialog } from '@/components/plan/EditItemDialog';
+import { PlanMemoThread } from '@/components/plan/PlanMemoThread';
+import { NotificationBell } from '@/components/notification/NotificationBell';
+import { useCategories } from '@/hooks/useCategories';
+import { planApi } from '@/lib/api';
+import { getAuthUser } from '@/lib/auth';
+import { queryKeys } from '@/lib/query';
+import type { PlanItem, PlanSummary } from '@/lib/types';
+
+const EMPTY_NEW_ITEM = {
+  name: '',
+  type: 'activity',
+  time: '',
+  address: '',
+  lat: 37.5665,
+  lng: 126.978,
+};
+
+interface PlanDetailViewProps {
+  planId: string;
+  source: 'library' | 'workspace';
+}
+
+export function PlanDetailView({ planId, source }: PlanDetailViewProps) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const { categories } = useCategories();
+  const [selectedPlace, setSelectedPlace] = useState<PlanItem | null>(null);
+  const [editingItem, setEditingItem] = useState<PlanItem | null>(null);
+  const [newItem, setNewItem] = useState(EMPTY_NEW_ITEM);
+  const currentUserId = getAuthUser()?.userId ?? null;
+
+  const planQuery = useQuery<PlanSummary>({
+    queryKey: queryKeys.plan(planId),
+    queryFn: () => planApi.get(planId),
+    enabled: !!planId,
+    staleTime: 10 * 1000,
+  });
+  const plan = planQuery.data ?? null;
+  const loading = planQuery.isLoading;
+  const error = planQuery.error instanceof Error ? planQuery.error.message : null;
+  const isWorkspaceSource = source === 'workspace';
+  const showCategory = source === 'library' && !plan?.workspace;
+  const showMemos = isWorkspaceSource && !!plan?.workspace;
+  const routeMismatch =
+    !!plan &&
+    ((isWorkspaceSource && !plan.workspace) ||
+      (!isWorkspaceSource && !!plan.workspace));
+  const fallbackHref = isWorkspaceSource ? '/workspace' : '/library';
+  const backLabel = isWorkspaceSource
+    ? '← 커플 플랜으로 돌아가기'
+    : '← 보관함으로 돌아가기';
+
+  const syncPlan = (next: PlanSummary) => {
+    queryClient.setQueryData(queryKeys.plan(next.id), next);
+    void queryClient.invalidateQueries({ queryKey: ['plans'] });
+  };
+
+  const handleBack = () => {
+    const referrer = document.referrer;
+    const isInternalReferrer =
+      !!referrer && referrer.startsWith(window.location.origin);
+
+    if (isInternalReferrer) {
+      router.back();
+      return;
+    }
+
+    router.push(fallbackHref, { scroll: true });
+  };
+
+  return (
+    <div className="bg-[var(--background)]">
+      <header className="sticky top-0 z-40 glass border-b border-stone-200">
+        <div className="mx-auto flex max-w-6xl flex-col items-start gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <button
+            type="button"
+            onClick={handleBack}
+            className="text-sm font-semibold text-stone-700"
+          >
+            {backLabel}
+          </button>
+          <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
+            <NotificationBell />
+            <PrimaryButton
+              asChild
+              variant="outline"
+              size="sm"
+              className="w-auto shrink-0"
+            >
+              <Link href={isWorkspaceSource ? '/workspace/settings' : '/workspace'}>
+                {isWorkspaceSource ? (
+                  <>
+                    <Settings className="h-4 w-4" />
+                    공유설정
+                  </>
+                ) : (
+                  '커플 플랜'
+                )}
+              </Link>
+            </PrimaryButton>
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+        {loading && <p className="text-sm text-stone-500">플랜을 불러오는 중...</p>}
+        {error && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+        {routeMismatch && (
+          <AppCard padding="lg" className="mx-auto max-w-xl text-center">
+            <p className="text-base font-bold text-stone-900">
+              {isWorkspaceSource
+                ? '개인 일정은 보관함에서 확인할 수 있습니다.'
+                : '공유 일정은 커플 플랜에서 확인할 수 있습니다.'}
+            </p>
+            <p className="mt-2 text-sm text-stone-500">
+              일정의 보관 위치에 맞는 화면으로 이동해주세요.
+            </p>
+            <PrimaryButton asChild variant="brand" size="sm" className="mt-5">
+              <Link
+                href={
+                  isWorkspaceSource
+                    ? `/library/plans/${plan.id}`
+                    : `/workspace/plans/${plan.id}`
+                }
+              >
+                이동하기
+              </Link>
+            </PrimaryButton>
+          </AppCard>
+        )}
+        {plan && !routeMismatch && (
+          <div
+            className={
+              showMemos
+                ? 'grid gap-6 lg:grid-cols-[1.1fr_0.9fr]'
+                : 'mx-auto max-w-4xl'
+            }
+          >
+            <div className="space-y-6">
+              <AppCard
+                padding="lg"
+                className={
+                  isWorkspaceSource
+                    ? 'space-y-4 border-violet-100 bg-gradient-to-br from-white via-white to-violet-50/70'
+                    : 'space-y-4'
+                }
+              >
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-stone-500">
+                      {plan.workspace ? '공유 일정' : '개인 일정'}
+                    </p>
+                    <h1 className="mt-1 break-keep text-2xl font-bold text-stone-900">
+                      {plan.summary ?? plan.rawInput}
+                    </h1>
+                    {plan.workspace && (
+                      <p className="mt-2 break-keep text-sm text-violet-700">
+                        {plan.workspace.name} 커플 플랜에서 공유 중
+                      </p>
+                    )}
+                  </div>
+                  {showCategory && (
+                    <div className="w-full sm:max-w-[220px]">
+                      <label className="mb-1 block text-xs font-medium text-stone-500">
+                        카테고리
+                      </label>
+                      <select
+                        value={plan.category?.id ?? ''}
+                        onChange={async (event) => {
+                          const updated = await planApi.update(plan.id, {
+                            updatedAt: plan.updatedAt,
+                            categoryId: event.target.value || null,
+                          });
+                          syncPlan(updated);
+                        }}
+                        className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-700 outline-none focus:border-orange-300"
+                      >
+                        <option value="">미분류</option>
+                        {categories.map((category) => (
+                          <option key={category.id} value={category.id}>
+                            {category.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  {plan.items.map((item) => (
+                    <div
+                      key={item.id ?? `${item.order}-${item.name}`}
+                      className="rounded-2xl border border-stone-200 bg-white px-4 py-4"
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p className="break-keep text-sm font-semibold text-stone-900">
+                            {item.order}. {item.name}
+                          </p>
+                          <p className="mt-1 text-sm text-stone-500">{item.time}</p>
+                          <p className="mt-1 break-keep text-sm text-stone-500">
+                            {item.address}
+                          </p>
+                        </div>
+                        <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:flex-nowrap">
+                          <PrimaryButton
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="min-w-[72px] flex-1 sm:flex-none"
+                            onClick={() => setSelectedPlace(item)}
+                          >
+                            지도
+                          </PrimaryButton>
+                          <PrimaryButton
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="min-w-[72px] flex-1 sm:flex-none"
+                            onClick={() => setEditingItem(item)}
+                          >
+                            수정
+                          </PrimaryButton>
+                          {item.id && (
+                            <button
+                              type="button"
+                              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-400 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500"
+                              aria-label="장소 삭제"
+                              onClick={async () => {
+                                const next = await planApi.deleteItem(plan.id, item.id!, {
+                                  updatedAt: plan.updatedAt,
+                                });
+                                syncPlan(next);
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </AppCard>
+
+              <AppCard padding="lg" className="space-y-4">
+                <div>
+                  <h2 className="text-lg font-bold text-stone-900">장소 추가</h2>
+                  <p className="mt-1 text-sm text-stone-500">
+                    수동으로 장소를 하나 더 넣을 수 있습니다.
+                  </p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <input
+                    value={newItem.name}
+                    onChange={(e) =>
+                      setNewItem((prev) => ({ ...prev, name: e.target.value }))
+                    }
+                    placeholder="장소 이름"
+                    className="rounded-xl border border-stone-200 px-3 py-2 text-sm"
+                  />
+                  <select
+                    value={newItem.type}
+                    onChange={(e) =>
+                      setNewItem((prev) => ({ ...prev, type: e.target.value }))
+                    }
+                    className="rounded-xl border border-stone-200 px-3 py-2 text-sm"
+                  >
+                    <option value="food">식사</option>
+                    <option value="cafe">카페</option>
+                    <option value="activity">액티비티</option>
+                    <option value="attraction">관광</option>
+                    <option value="rest">휴식</option>
+                  </select>
+                  <input
+                    value={newItem.time}
+                    onChange={(e) =>
+                      setNewItem((prev) => ({ ...prev, time: e.target.value }))
+                    }
+                    placeholder="19:00 - 20:30"
+                    className="rounded-xl border border-stone-200 px-3 py-2 text-sm"
+                  />
+                  <input
+                    value={newItem.address}
+                    onChange={(e) =>
+                      setNewItem((prev) => ({ ...prev, address: e.target.value }))
+                    }
+                    placeholder="주소"
+                    className="rounded-xl border border-stone-200 px-3 py-2 text-sm"
+                  />
+                </div>
+                <PrimaryButton
+                  type="button"
+                  variant="brand"
+                  size="sm"
+                  disabled={!newItem.name.trim() || !newItem.time.trim()}
+                  onClick={async () => {
+                    const next = await planApi.addItem(plan.id, {
+                      updatedAt: plan.updatedAt,
+                      ...newItem,
+                    });
+                    syncPlan(next);
+                    setNewItem(EMPTY_NEW_ITEM);
+                  }}
+                >
+                  장소 추가
+                </PrimaryButton>
+              </AppCard>
+            </div>
+
+            {showMemos && (
+              <AppCard padding="lg" className="h-fit space-y-4">
+                <div>
+                  <h2 className="text-lg font-bold text-stone-900">메모</h2>
+                  <p className="mt-1 text-sm text-stone-500">
+                    공유 일정에 메모를 남겨 함께 확인할 수 있습니다.
+                  </p>
+                </div>
+                <PlanMemoThread
+                  memos={plan.memos ?? []}
+                  currentUserId={currentUserId}
+                  onCreate={async (content) => {
+                    await planApi.createMemo(plan.id, { content });
+                    await planQuery.refetch();
+                  }}
+                  onDelete={async (memoId) => {
+                    await planApi.deleteMemo(plan.id, memoId);
+                    await planQuery.refetch();
+                  }}
+                />
+              </AppCard>
+            )}
+          </div>
+        )}
+      </main>
+
+      <PlaceMapDialog
+        open={!!selectedPlace}
+        item={selectedPlace}
+        onOpenChange={(open) => {
+          if (!open) setSelectedPlace(null);
+        }}
+      />
+      <EditItemDialog
+        open={!!editingItem}
+        item={editingItem}
+        onOpenChange={(open) => {
+          if (!open) setEditingItem(null);
+        }}
+        onSave={async (next) => {
+          if (!plan || !editingItem?.id) return;
+          const updated = await planApi.updateItem(plan.id, editingItem.id, {
+            updatedAt: plan.updatedAt,
+            ...next,
+          });
+          syncPlan(updated);
+        }}
+      />
+    </div>
+  );
+}

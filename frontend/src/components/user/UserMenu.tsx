@@ -12,7 +12,8 @@ export function UserMenu() {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const initial = authUser?.email ? authUser.email[0].toUpperCase() : '?';
+  const displayName = authUser?.nickname ?? authUser?.email ?? '?';
+  const initial = displayName[0]?.toUpperCase() ?? '?';
   const isAdmin = authUser?.role === 'ADMIN';
 
   useEffect(() => {

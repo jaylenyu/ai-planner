@@ -36,7 +36,7 @@ function MypageContent() {
   const { status: subStatus, loading: subLoading, refetch } = useSubscriptionStatus();
   const { workspace, loading: wsLoading } = useWorkspace();
   const { items: notifications, loading: notiLoading } = useNotifications();
-  const { plans, loading: plansLoading } = usePlanList();
+  const { plans, loading: plansLoading } = usePlanList('personal');
 
   const recentPlans = plans?.slice(0, 3) ?? [];
 
@@ -44,6 +44,17 @@ function MypageContent() {
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelSuccessOpen, setCancelSuccessOpen] = useState(false);
   const [cancelledUntil, setCancelledUntil] = useState<string | null>(null);
+  const [resubscribeLoading, setResubscribeLoading] = useState(false);
+
+  const handleResubscribe = async () => {
+    setResubscribeLoading(true);
+    try {
+      await billingApi.resubscribe();
+      await refetch();
+    } finally {
+      setResubscribeLoading(false);
+    }
+  };
 
   const handleCancelSubscription = async () => {
     setCancelLoading(true);
@@ -75,7 +86,10 @@ function MypageContent() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-orange-600">계정</p>
-                  <p className="mt-1 text-base font-bold text-stone-900 break-all">{me?.email ?? '-'}</p>
+                  <p className="mt-1 text-base font-bold text-stone-900 break-all">{me?.nickname ?? '-'}</p>
+                  <p className="mt-0.5 text-sm text-stone-500 break-all">
+                    {me?.email ?? '이메일 미등록'}
+                  </p>
                 </div>
                 <PrimaryButton
                   type="button"
@@ -109,14 +123,31 @@ function MypageContent() {
                 <p>
                   상태:{' '}
                   <span className="font-medium text-stone-800">
-                    {subStatus?.hasAccess ? '활성' : '비활성'}
+                    {subStatus?.hasAccess && subStatus.subscription.cancelledAt
+                      ? '취소됨 (기간 만료 전)'
+                      : subStatus?.hasAccess
+                        ? '활성'
+                        : '비활성'}
                   </span>
                 </p>
                 {subStatus?.subscription.currentPeriodEnd && (
-                  <p>다음 결제일 {formatDate(subStatus.subscription.currentPeriodEnd)}</p>
+                  <p>
+                    {subStatus.subscription.cancelledAt ? '이용 가능 기간' : '다음 결제일'}{' '}
+                    {formatDate(subStatus.subscription.currentPeriodEnd)}
+                  </p>
                 )}
               </div>
-              {subStatus?.hasAccess ? (
+              {subStatus?.hasAccess && subStatus.subscription.cancelledAt ? (
+                <PrimaryButton
+                  type="button"
+                  variant="brand"
+                  size="sm"
+                  loading={resubscribeLoading}
+                  onClick={() => void handleResubscribe()}
+                >
+                  다시 구독하기
+                </PrimaryButton>
+              ) : subStatus?.hasAccess ? (
                 <PrimaryButton
                   type="button"
                   variant="outline"
@@ -152,15 +183,15 @@ function MypageContent() {
                     .filter((m) => m.role !== 'owner')
                     .slice(0, 1)
                     .map((m) => (
-                      <p key={m.id} className="text-stone-500">파트너: {m.user.email}</p>
+                      <p key={m.id} className="text-stone-500">파트너: {m.user.nickname}</p>
                     ))}
                 </div>
               ) : (
                 <p className="text-sm text-stone-500">파트너 없음</p>
               )}
-              <Link href="/workspace">
+              <Link href="/workspace/settings">
                 <PrimaryButton type="button" variant="outline" size="sm">
-                  커플 플랜
+                  공유설정
                 </PrimaryButton>
               </Link>
             </AppCard>

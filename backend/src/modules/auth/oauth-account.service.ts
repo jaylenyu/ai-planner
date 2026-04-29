@@ -20,6 +20,69 @@ const providerField: Record<OAuthProvider, ProviderIdField> = {
 export class OAuthAccountService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async findByProviderId(provider: OAuthProvider, providerId: string) {
+    const field = providerField[provider];
+    const providerWhere = { [field]: providerId } as Record<string, string>;
+    const existing = await this.prisma.user.findUnique({
+      where: providerWhere as unknown as Prisma.UserWhereUniqueInput,
+    });
+
+    if (!existing) return null;
+
+    return this.prisma.user.update({
+      where: { id: existing.id },
+      data: { lastLoginAt: new Date() },
+    });
+  }
+
+  async completeSignup({
+    provider,
+    providerId,
+    providerEmail,
+    nickname,
+  }: {
+    provider: OAuthProvider;
+    providerId: string;
+    providerEmail: string | null;
+    nickname: string;
+  }) {
+    const field = providerField[provider];
+    const existing = await this.findByProviderId(provider, providerId);
+    if (existing) return existing;
+
+    const email = providerEmail?.trim().toLowerCase() || null;
+    if (email) {
+      const byEmail = await this.prisma.user.findUnique({ where: { email } });
+      if (byEmail) {
+        if (byEmail.password) {
+          const providerName = {
+            google: 'Google',
+            kakao: 'Kakao',
+            naver: 'Naver',
+          }[provider];
+          throw new UnauthorizedException(
+            `이 이메일은 이미 사이트 회원가입으로 사용 중입니다. 이메일/비밀번호로 로그인 후 [설정 → 소셜 연동]에서 ${providerName} 계정을 연결해주세요.`,
+          );
+        }
+
+        return this.prisma.user.update({
+          where: { id: byEmail.id },
+          data: { [field]: providerId, lastLoginAt: new Date() },
+        });
+      }
+    }
+
+    return this.prisma.user.create({
+      data: {
+        email,
+        nickname,
+        [field]: providerId,
+        emailVerified: email != null,
+        lastLoginAt: new Date(),
+      },
+    });
+  }
+
   async findOrLinkOrCreate(
     provider: OAuthProvider,
     providerId: string,
@@ -28,42 +91,21 @@ export class OAuthAccountService {
     const field = providerField[provider];
 
     // 1. providerId로 직접 매칭
-    const providerWhere = { [field]: providerId } as Record<string, string>;
-    const existing = await this.prisma.user.findUnique({
-      where: providerWhere as unknown as Prisma.UserWhereUniqueInput,
-    });
+    const existing = await this.findByProviderId(provider, providerId);
     if (existing) {
-      return this.prisma.user.update({
-        where: { id: existing.id },
-        data: { lastLoginAt: new Date() },
-      });
+      return existing;
     }
 
-    // email 없을 경우 (Kakao 이메일 동의 미제공 등) — placeholder 이메일로 신규 생성
+    // 신규 OAuth 가입은 별도 온보딩 화면에서 닉네임을 받은 뒤 완료한다.
     if (!email) {
-      return this.prisma.user.create({
-        data: {
-          email: `${provider}-${providerId}@oauth.local`,
-          [field]: providerId,
-          emailVerified: true,
-          lastLoginAt: new Date(),
-        },
-      });
+      return null;
     }
 
     // 2. 이메일로 기존 유저 검색
     const byEmail = await this.prisma.user.findUnique({ where: { email } });
 
     if (!byEmail) {
-      // 2a. 신규 생성
-      return this.prisma.user.create({
-        data: {
-          email,
-          [field]: providerId,
-          emailVerified: true,
-          lastLoginAt: new Date(),
-        },
-      });
+      return null;
     }
 
     if (byEmail.password) {

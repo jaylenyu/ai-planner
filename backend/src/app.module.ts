@@ -39,6 +39,9 @@ export class AppModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(ApiBudgetMiddleware)
-      .forRoutes({ path: 'plan/generate', method: RequestMethod.POST });
+      .forRoutes(
+        { path: 'plan/generate', method: RequestMethod.POST },
+        { path: 'plan/preview', method: RequestMethod.POST },
+      );
   }
 }
