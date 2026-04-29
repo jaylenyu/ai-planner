@@ -1,5 +1,6 @@
 import { PlaceResult, OrderedPlace } from './place.interface';
 import { IntentPayload, ParsedInput } from './intent.interface';
+import { DiversityHistory } from '../utils/place-diversity.util';
 
 export interface ScheduleItem {
   order: number;
@@ -19,6 +20,7 @@ export interface PipelineContext {
   mode: 'date' | 'trip';
   /** 요청 단위 랜덤 함수 (미지정 시 Math.random 사용) */
   randomFn?: () => number;
+  diversityHistory?: DiversityHistory;
   parsed?: ParsedInput;
   intent?: IntentPayload;
   locationCandidates?: LocationCandidateLog[];

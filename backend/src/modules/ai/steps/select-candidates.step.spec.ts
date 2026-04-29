@@ -69,6 +69,15 @@ describe('SelectCandidatesStep', () => {
     );
   });
 
+  it('slot별로 여러 후보를 보존한다', () => {
+    const step = new SelectCandidatesStep();
+    const ctx = makeCtx(() => 0);
+
+    step.execute(ctx);
+
+    expect(ctx.candidates?.['slot-0']).toHaveLength(3);
+  });
+
   it('점수 차이가 작으면 상위 후보군 안에서 가중 랜덤 선택한다', () => {
     const step = new SelectCandidatesStep();
     const base = {
@@ -503,5 +512,41 @@ describe('SelectCandidatesStep', () => {
     step.execute(ctx);
 
     expect(ctx.candidates?.['slot-0']?.[0].name).toBe('로컬카페 성수');
+  });
+
+  it('최근 같은 입력에서 추천된 장소를 감점한다', () => {
+    const step = new SelectCandidatesStep();
+    const ctx = makeCtx(() => 0);
+    ctx.diversityHistory = {
+      placeCounts: {
+        a식당: 1,
+      },
+      chainCounts: {},
+    };
+
+    step.execute(ctx);
+
+    expect(ctx.candidates?.['slot-0']?.[0].name).toBe('B식당');
+    expect(ctx.candidates?.['slot-0']?.map((place) => place.name)).toContain(
+      'A식당',
+    );
+  });
+
+  it('후보가 부족하면 최근 추천 장소라도 제외하지 않는다', () => {
+    const step = new SelectCandidatesStep();
+    const ctx = makeCtx(() => 0);
+    ctx.rawPlaces = {
+      'slot-0': [ctx.rawPlaces!['slot-0'][0]],
+    };
+    ctx.diversityHistory = {
+      placeCounts: {
+        a식당: 5,
+      },
+      chainCounts: {},
+    };
+
+    step.execute(ctx);
+
+    expect(ctx.candidates?.['slot-0']?.[0].name).toBe('A식당');
   });
 });

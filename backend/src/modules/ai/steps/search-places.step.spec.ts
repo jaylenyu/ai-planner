@@ -205,4 +205,68 @@ describe('SearchPlacesStep', () => {
       ),
     ).toBe(true);
   });
+
+  it('Naver와 Kakao 후보를 교차 병합하고 slot 후보를 20개로 제한한다', async () => {
+    const naverPlaces = Array.from({ length: 12 }, (_, index) => ({
+      name: `네이버${index + 1}`,
+      lat: 37.55 + index * 0.0001,
+      lng: 126.93,
+      category: '카페',
+      address: '서울',
+      source: 'naver' as const,
+    }));
+    const kakaoPlaces = Array.from({ length: 12 }, (_, index) => ({
+      name: `카카오${index + 1}`,
+      lat: 37.56 + index * 0.0001,
+      lng: 126.94,
+      category: '카페',
+      address: '서울',
+      source: 'kakao' as const,
+    }));
+    const placesService = {
+      searchNearby: jest.fn().mockResolvedValue(naverPlaces),
+      searchNearbyKakao: jest.fn().mockResolvedValue(kakaoPlaces),
+    };
+    const step = new SearchPlacesStep(placesService as never);
+    const ctx: PipelineContext = {
+      rawInput: '홍대 카페',
+      mode: 'date',
+      parsed: {
+        location: '홍대',
+        activities: ['카페'],
+        timeOfDay: 'full-day',
+        preferences: [],
+      },
+      intent: {
+        location: '홍대',
+        searchLocation: '홍대',
+        lat: 37.55,
+        lng: 126.93,
+        mode: 'date',
+        activities: [
+          {
+            slotId: 'slot-0',
+            type: 'cafe',
+            slotQuery: '카페',
+            naverQuery: '홍대 카페',
+            required: true,
+          },
+        ],
+        startTime: '10:00',
+        endTime: '20:00',
+      },
+    };
+
+    await step.execute(ctx);
+
+    expect(placesService.searchNearby).toHaveBeenCalledWith(
+      '홍대 카페',
+      'cafe',
+      10,
+    );
+    expect(ctx.rawPlaces?.['slot-0']).toHaveLength(20);
+    expect(
+      ctx.rawPlaces?.['slot-0'].slice(0, 4).map((place) => place.name),
+    ).toEqual(['네이버1', '카카오1', '네이버2', '카카오2']);
+  });
 });
