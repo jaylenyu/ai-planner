@@ -671,9 +671,21 @@ export class AuthService {
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: { nickname },
-      select: { id: true, email: true, nickname: true, role: true, adminReadOnly: true },
+      select: {
+        id: true,
+        email: true,
+        nickname: true,
+        role: true,
+        adminReadOnly: true,
+      },
     });
-    return this.generateTokenPair(user.id, user.email, user.nickname, user.role, user.adminReadOnly);
+    return this.generateTokenPair(
+      user.id,
+      user.email,
+      user.nickname,
+      user.role,
+      user.adminReadOnly,
+    );
   }
 
   // ── POST /auth/oauth/:provider/link-token ─────────────────────────
