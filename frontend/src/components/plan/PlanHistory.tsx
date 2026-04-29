@@ -143,6 +143,7 @@ export function PlanHistory({
               </div>
               <div className="flex flex-col items-end gap-2">
                 {onSharePlan && !plan.workspace && (
+                  <div onClick={(e) => e.stopPropagation()}>
                   <PrimaryButton
                     type="button"
                     variant="outline"
@@ -170,6 +171,7 @@ export function PlanHistory({
                   >
                     {shareDisabled ? shareDisabledLabel : shareButtonLabel}
                   </PrimaryButton>
+                  </div>
                 )}
                 {onDeletePlan && (
                   <button
