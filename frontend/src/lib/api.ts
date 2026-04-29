@@ -442,6 +442,10 @@ export async function updateSettings(data: {
   return api.patch<void>('/auth/settings', data);
 }
 
+export async function updateNickname(nickname: string): Promise<{ access_token: string; refresh_token: string }> {
+  return api.patch<{ access_token: string; refresh_token: string }>('/auth/nickname', { nickname });
+}
+
 export async function updateEmail(email: string): Promise<{ access_token: string; refresh_token: string }> {
   return api.patch<{ access_token: string; refresh_token: string }>('/auth/email', { email });
 }

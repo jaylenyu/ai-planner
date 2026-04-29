@@ -118,6 +118,19 @@ export class AuthService {
         '닉네임은 2자 이상 20자 이하로 입력해주세요.',
       );
     }
+    const ALLOWED =
+      /^[가-힣ㄱ-ㅎㅏ-ㅣa-zA-Z0-9]([가-힣ㄱ-ㅎㅏ-ㅣa-zA-Z0-9 _-]*[가-힣ㄱ-ㅎㅏ-ㅣa-zA-Z0-9])?$/;
+    if (!ALLOWED.test(nickname)) {
+      throw new BadRequestException(
+        '닉네임은 한글, 영문, 숫자, 공백, 밑줄(_), 하이픈(-)만 사용할 수 있으며, 첫 글자와 마지막 글자는 한글·영문·숫자여야 합니다.',
+      );
+    }
+    const HAS_LETTER = /[가-힣ㄱ-ㅎㅏ-ㅣa-zA-Z]/;
+    if (!HAS_LETTER.test(nickname)) {
+      throw new BadRequestException(
+        '닉네임에는 한글 또는 영문이 하나 이상 포함되어야 합니다.',
+      );
+    }
     return nickname;
   }
 
@@ -649,6 +662,37 @@ export class AuthService {
 
     await this.prisma.user.update({ where: { id: userId }, data });
     return { updated: true };
+  }
+
+  // ── PATCH /auth/nickname ──────────────────────────────────────────
+
+  async updateNickname(userId: string, rawNickname: string) {
+    const nickname = this.assertNickname(rawNickname);
+    const current = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { nickname: true },
+    });
+    if (current?.nickname === nickname) {
+      throw new BadRequestException('현재 닉네임과 동일합니다.');
+    }
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { nickname },
+      select: {
+        id: true,
+        email: true,
+        nickname: true,
+        role: true,
+        adminReadOnly: true,
+      },
+    });
+    return this.generateTokenPair(
+      user.id,
+      user.email,
+      user.nickname,
+      user.role,
+      user.adminReadOnly,
+    );
   }
 
   // ── POST /auth/oauth/:provider/link-token ─────────────────────────

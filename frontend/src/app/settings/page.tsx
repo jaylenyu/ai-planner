@@ -17,6 +17,7 @@ import {
   unlinkOAuth,
   updateSettings,
   updateEmail,
+  updateNickname,
   logoutAll,
   deleteMe,
   ApiError,
@@ -70,6 +71,12 @@ function SettingsContent() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
 
+  // Nickname edit state
+  const [nicknameEdit, setNicknameEdit] = useState(false);
+  const [nicknameInput, setNicknameInput] = useState('');
+  const [nicknameLoading, setNicknameLoading] = useState(false);
+  const [nicknameError, setNicknameError] = useState<string | null>(null);
+
   // Password change state
   const [pwStep, setPwStep] = useState<'idle' | 'code-sent' | 'code-verified'>('idle');
   const [currentPw, setCurrentPw] = useState('');
@@ -120,6 +127,40 @@ function SettingsContent() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const NICKNAME_ALLOWED =
+    /^[가-힣ㄱ-ㅎㅏ-ㅣa-zA-Z0-9]([가-힣ㄱ-ㅎㅏ-ㅣa-zA-Z0-9 _-]*[가-힣ㄱ-ㅎㅏ-ㅣa-zA-Z0-9])?$/;
+  const NICKNAME_HAS_LETTER = /[가-힣ㄱ-ㅎㅏ-ㅣa-zA-Z]/;
+
+  const handleNicknameChange = async () => {
+    const trimmed = nicknameInput.replace(/\s+/g, ' ').trim();
+    if (trimmed.length < 2 || trimmed.length > 20) {
+      setNicknameError('닉네임은 2자 이상 20자 이하로 입력해주세요.');
+      return;
+    }
+    if (!NICKNAME_ALLOWED.test(trimmed)) {
+      setNicknameError('한글·영문·숫자·공백·밑줄·하이픈만 사용 가능하며, 첫/끝 글자는 한글·영문·숫자여야 합니다.');
+      return;
+    }
+    if (!NICKNAME_HAS_LETTER.test(trimmed)) {
+      setNicknameError('한글 또는 영문이 하나 이상 포함되어야 합니다.');
+      return;
+    }
+    setNicknameLoading(true);
+    setNicknameError(null);
+    try {
+      const result = await updateNickname(trimmed);
+      useAuthStore.getState().setTokens(result.access_token, result.refresh_token);
+      void invalidateMe();
+      setNicknameEdit(false);
+      setNicknameInput('');
+      showToast('닉네임이 변경되었습니다.');
+    } catch (err) {
+      setNicknameError(err instanceof ApiError ? err.message : '닉네임 변경에 실패했습니다.');
+    } finally {
+      setNicknameLoading(false);
+    }
+  };
 
   const handlePasswordChange = async () => {
     if (newPw !== confirmPw) {
@@ -336,7 +377,50 @@ function SettingsContent() {
               <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">계정</p>
               <div>
                 <p className="text-sm text-stone-500">닉네임</p>
-                <p className="mt-0.5 font-semibold text-stone-900 break-all">{me?.nickname ?? '-'}</p>
+                {nicknameEdit ? (
+                  <div className="mt-1 space-y-2">
+                    <input
+                      type="text"
+                      value={nicknameInput}
+                      onChange={(e) => { setNicknameInput(e.target.value); setNicknameError(null); }}
+                      maxLength={20}
+                      placeholder="새 닉네임 입력"
+                      className="w-full rounded-2xl border border-stone-200 px-4 py-2.5 text-sm outline-none focus:border-orange-300"
+                    />
+                    {nicknameError && <p className="text-xs text-red-500">{nicknameError}</p>}
+                    <div className="flex gap-2">
+                      <PrimaryButton
+                        type="button"
+                        variant="brand"
+                        size="sm"
+                        loading={nicknameLoading}
+                        disabled={!nicknameInput.trim()}
+                        onClick={() => void handleNicknameChange()}
+                      >
+                        저장
+                      </PrimaryButton>
+                      <PrimaryButton
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => { setNicknameEdit(false); setNicknameInput(''); setNicknameError(null); }}
+                      >
+                        취소
+                      </PrimaryButton>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-0.5 flex items-center gap-2">
+                    <p className="font-semibold text-stone-900 break-all">{me?.nickname ?? '-'}</p>
+                    <button
+                      type="button"
+                      onClick={() => { setNicknameEdit(true); setNicknameInput(me?.nickname ?? ''); }}
+                      className="text-xs text-stone-400 hover:text-stone-600 underline"
+                    >
+                      변경
+                    </button>
+                  </div>
+                )}
               </div>
               <div>
                 <p className="text-sm text-stone-500">이메일</p>
