@@ -428,10 +428,12 @@ jobs:
 
             async function upsertAdmin(email, password, adminReadOnly) {
               const hashedPassword = await bcrypt.hash(password, 10);
+              const nickname = email.split('@')[0] || 'admin';
               const user = await prisma.user.upsert({
                 where: { email },
                 update: {
                   password: hashedPassword,
+                  nickname,
                   emailVerified: true,
                   role: 'ADMIN',
                   adminReadOnly,
@@ -439,6 +441,7 @@ jobs:
                 },
                 create: {
                   email,
+                  nickname,
                   password: hashedPassword,
                   emailVerified: true,
                   role: 'ADMIN',
