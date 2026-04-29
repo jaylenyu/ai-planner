@@ -27,6 +27,7 @@ type EvaluatedRoute = {
 };
 
 const BEAM_WIDTH = 64;
+const DUPLICATE_PLACE_PENALTY = 4;
 
 function roundUpToTen(minutes: number): number {
   return Math.ceil(minutes / 10) * 10;
@@ -89,7 +90,10 @@ export class OptimizeRouteStep {
         return {
           route,
           distance,
-          finalScore: candidateScore - distance / distancePenaltyDivisor,
+          finalScore:
+            candidateScore -
+            this.duplicatePlacePenalty(sequence) -
+            distance / distancePenaltyDivisor,
         };
       })
       .sort((a, b) => b.finalScore - a.finalScore || a.distance - b.distance);
@@ -115,10 +119,8 @@ export class OptimizeRouteStep {
       const next: BeamState[] = [];
       for (const beam of beams) {
         let addedUniqueCandidate = false;
-        for (const place of group.places) {
+        const pushCandidate = (place: RoutePlace, duplicatePenalty = 0) => {
           const key = normalizePlaceKey(place.name);
-          if (beam.keys.has(key)) continue;
-          addedUniqueCandidate = true;
           const prev = beam.places[beam.places.length - 1];
           const prevLat = prev?.lat ?? startLat;
           const prevLng = prev?.lng ?? startLng;
@@ -128,12 +130,25 @@ export class OptimizeRouteStep {
           next.push({
             places: [...beam.places, place],
             keys: new Set([...beam.keys, key]),
-            score: beam.score + (place.score ?? 0) - distancePenalty,
+            score:
+              beam.score +
+              (place.score ?? 0) -
+              distancePenalty -
+              duplicatePenalty,
           });
+        };
+
+        for (const place of group.places) {
+          const key = normalizePlaceKey(place.name);
+          if (beam.keys.has(key)) continue;
+          addedUniqueCandidate = true;
+          pushCandidate(place);
         }
 
         if (!addedUniqueCandidate && beam.places.length > 0) {
-          next.push(beam);
+          for (const place of group.places) {
+            pushCandidate(place, DUPLICATE_PLACE_PENALTY);
+          }
         }
       }
 
@@ -142,6 +157,22 @@ export class OptimizeRouteStep {
     }
 
     return beams.map((beam) => beam.places).filter((places) => places.length);
+  }
+
+  private duplicatePlacePenalty(places: RoutePlace[]): number {
+    const seen = new Set<string>();
+    let duplicateCount = 0;
+
+    for (const place of places) {
+      const key = normalizePlaceKey(place.name);
+      if (seen.has(key)) {
+        duplicateCount += 1;
+      } else {
+        seen.add(key);
+      }
+    }
+
+    return duplicateCount * DUPLICATE_PLACE_PENALTY;
   }
 
   private pickWeightedTopRoute(
