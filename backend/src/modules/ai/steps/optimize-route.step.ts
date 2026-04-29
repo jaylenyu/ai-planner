@@ -1,12 +1,32 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PipelineContext } from '../interfaces/pipeline-result.interface';
 import { OrderedPlace } from '../interfaces/place.interface';
+import { normalizePlaceKey } from '../utils/place-diversity.util';
 import { haversine } from '../../../shared/utils/haversine';
 
 type RoutePlace = Omit<
   OrderedPlace,
   'order' | 'distanceFromPrev' | 'travelMinutes'
 >;
+
+type CandidateGroup = {
+  slotId: string;
+  places: RoutePlace[];
+};
+
+type BeamState = {
+  places: RoutePlace[];
+  keys: Set<string>;
+  score: number;
+};
+
+type EvaluatedRoute = {
+  route: OrderedPlace[];
+  distance: number;
+  finalScore: number;
+};
+
+const BEAM_WIDTH = 64;
 
 function roundUpToTen(minutes: number): number {
   return Math.ceil(minutes / 10) * 10;
@@ -15,72 +35,152 @@ function roundUpToTen(minutes: number): number {
 @Injectable()
 export class OptimizeRouteStep {
   private readonly logger = new Logger(OptimizeRouteStep.name);
+  private distanceMemo = new Map<string, number>();
 
   private rand(ctx: PipelineContext): number {
     return ctx.randomFn ? ctx.randomFn() : Math.random();
   }
 
   execute(ctx: PipelineContext): void {
+    this.distanceMemo = new Map<string, number>();
     const intent = ctx.intent!;
     const candidates = ctx.candidates!;
 
-    const places = intent.activities
-      .map((activity) => {
-        const list = candidates[activity.slotId];
-        if (!list?.length) return null;
-        const place = list[0];
-        if (!place) return null;
+    const groups = intent.activities
+      .map((activity): CandidateGroup => {
+        const list = candidates[activity.slotId] ?? [];
         return {
-          ...place,
           slotId: activity.slotId,
-          type: activity.type,
-          anchorMinutes: activity.anchorMinutes,
-          required: activity.required,
+          places: list.map((place) => ({
+            ...place,
+            slotId: activity.slotId,
+            type: activity.type,
+            anchorMinutes: activity.anchorMinutes,
+            required: activity.required,
+          })),
         };
       })
-      .filter((p): p is NonNullable<typeof p> => p !== null);
+      .filter((group) => group.places.length > 0);
 
-    if (places.length === 0) {
+    const distancePenaltyDivisor = intent.mode === 'date' ? 2.5 : 4;
+    const combinations = this.buildCandidateCombinations(
+      groups,
+      intent.lat,
+      intent.lng,
+      distancePenaltyDivisor,
+    );
+    if (combinations.length === 0) {
       ctx.orderedPlaces = [];
       return;
     }
 
-    // 흐름 모드: 사용자 순서 보존, TSP 재정렬 금지
     const locked = intent.activities.some((a) => a.orderLocked === true);
-    if (locked) {
-      const ordered = this.makeOrdered(places, intent.lat, intent.lng);
-      ctx.orderedPlaces = ordered;
-      this.logger.log(
-        `경로 최적화 생략(흐름 모드): ${ordered.map((p) => p.name).join(' → ')}`,
-      );
-      return;
-    }
+    const selectionRoll = this.rand(ctx);
+    const ranked = combinations
+      .map((sequence) => {
+        const route = locked
+          ? this.makeOrdered(sequence, intent.lat, intent.lng)
+          : this.optimizeSequence(sequence, intent.lat, intent.lng);
+        const distance = this.totalDistance(route, intent.lat, intent.lng);
+        const candidateScore = sequence.reduce(
+          (sum, place) => sum + (place.score ?? 0),
+          0,
+        );
+        return {
+          route,
+          distance,
+          finalScore: candidateScore - distance / distancePenaltyDivisor,
+        };
+      })
+      .sort((a, b) => b.finalScore - a.finalScore || a.distance - b.distance);
 
-    const starts: OrderedPlace[][] = [];
-    // 1) 결정론적 NN 1회
-    starts.push(this.nearestNeighbor(places, intent.lat, intent.lng));
-    // 2) 랜덤 초기해 다중 생성
-    const randomTryCount = Math.min(12, Math.max(4, places.length * 3));
-    for (let i = 0; i < randomTryCount; i += 1) {
-      const shuffled = this.shuffle(places, () => this.rand(ctx));
-      starts.push(this.makeOrdered(shuffled, intent.lat, intent.lng));
-    }
+    const winner = this.pickWeightedTopRoute(ranked, selectionRoll);
+    ctx.orderedPlaces = winner.route;
 
-    const optimized = starts.map((start) =>
-      this.twoOpt(start, intent.lat, intent.lng),
-    );
-    const ranked = optimized
-      .map((route) => ({
-        route,
-        dist: this.totalDistance(route, intent.lat, intent.lng),
-      }))
-      .sort((a, b) => a.dist - b.dist);
-    const topCount = Math.min(3, ranked.length);
-    const winner = ranked[Math.floor(this.rand(ctx) * topCount)].route;
-
-    ctx.orderedPlaces = winner;
+    const routeNames = winner.route.map((p) => p.name).join(' → ');
     this.logger.log(
-      `경로 최적화 완료: ${winner.map((p) => p.name).join(' → ')}`,
+      `${locked ? '흐름 후보 조합' : '경로 후보 조합'} 최적화 완료: ${routeNames} (distance ${winner.distance.toFixed(2)}km, score ${winner.finalScore.toFixed(2)})`,
+    );
+  }
+
+  private buildCandidateCombinations(
+    groups: CandidateGroup[],
+    startLat: number,
+    startLng: number,
+    distancePenaltyDivisor: number,
+  ): RoutePlace[][] {
+    let beams: BeamState[] = [{ places: [], keys: new Set(), score: 0 }];
+
+    for (const group of groups) {
+      const next: BeamState[] = [];
+      for (const beam of beams) {
+        let addedUniqueCandidate = false;
+        for (const place of group.places) {
+          const key = normalizePlaceKey(place.name);
+          if (beam.keys.has(key)) continue;
+          addedUniqueCandidate = true;
+          const prev = beam.places[beam.places.length - 1];
+          const prevLat = prev?.lat ?? startLat;
+          const prevLng = prev?.lng ?? startLng;
+          const distancePenalty =
+            this.distance(prevLat, prevLng, place.lat, place.lng) /
+            distancePenaltyDivisor;
+          next.push({
+            places: [...beam.places, place],
+            keys: new Set([...beam.keys, key]),
+            score: beam.score + (place.score ?? 0) - distancePenalty,
+          });
+        }
+
+        if (!addedUniqueCandidate && beam.places.length > 0) {
+          next.push(beam);
+        }
+      }
+
+      beams = next.sort((a, b) => b.score - a.score).slice(0, BEAM_WIDTH);
+      if (beams.length === 0) break;
+    }
+
+    return beams.map((beam) => beam.places).filter((places) => places.length);
+  }
+
+  private pickWeightedTopRoute(
+    ranked: EvaluatedRoute[],
+    selectionRoll: number,
+  ): EvaluatedRoute {
+    if (ranked.length === 0) {
+      return { route: [], distance: 0, finalScore: 0 };
+    }
+    if (ranked.length === 1) return ranked[0];
+
+    const bestScore = ranked[0].finalScore;
+    const top = ranked.filter(
+      (entry, index) => index < 5 || bestScore - entry.finalScore <= 0.75,
+    );
+    const weighted = top.map((entry) => ({
+      entry,
+      weight: Math.max(0.05, 1 + entry.finalScore - (bestScore - 0.75)),
+    }));
+    const totalWeight = weighted.reduce((sum, item) => sum + item.weight, 0);
+    let cursor = selectionRoll * totalWeight;
+
+    for (const item of weighted) {
+      cursor -= item.weight;
+      if (cursor <= 0) return item.entry;
+    }
+
+    return weighted[weighted.length - 1].entry;
+  }
+
+  private optimizeSequence(
+    places: RoutePlace[],
+    startLat: number,
+    startLng: number,
+  ): OrderedPlace[] {
+    return this.twoOpt(
+      this.nearestNeighbor(places, startLat, startLng),
+      startLat,
+      startLng,
     );
   }
 
@@ -98,7 +198,7 @@ export class OptimizeRouteStep {
       let minDist = Infinity;
       let minIdx = 0;
       unvisited.forEach((p, i) => {
-        const d = haversine(currentLat, currentLng, p.lat, p.lng);
+        const d = this.distance(currentLat, currentLng, p.lat, p.lng);
         if (d < minDist) {
           minDist = d;
           minIdx = i;
@@ -125,7 +225,7 @@ export class OptimizeRouteStep {
     let prevLat = startLat;
     let prevLng = startLng;
     return sequence.map((place, idx) => {
-      const dist = haversine(prevLat, prevLng, place.lat, place.lng);
+      const dist = this.distance(prevLat, prevLng, place.lat, place.lng);
       prevLat = place.lat;
       prevLng = place.lng;
       return {
@@ -137,24 +237,20 @@ export class OptimizeRouteStep {
     });
   }
 
-  private shuffle<T>(arr: T[], rand: () => number): T[] {
-    const out = [...arr];
-    for (let i = out.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(rand() * (i + 1));
-      [out[i], out[j]] = [out[j], out[i]];
-    }
-    return out;
-  }
-
   private totalDistance(
     places: OrderedPlace[],
     startLat: number,
     startLng: number,
   ): number {
     if (places.length === 0) return 0;
-    let distance = haversine(startLat, startLng, places[0].lat, places[0].lng);
+    let distance = this.distance(
+      startLat,
+      startLng,
+      places[0].lat,
+      places[0].lng,
+    );
     for (let i = 0; i < places.length - 1; i += 1) {
-      distance += haversine(
+      distance += this.distance(
         places[i].lat,
         places[i].lng,
         places[i + 1].lat,
@@ -171,6 +267,7 @@ export class OptimizeRouteStep {
   ): OrderedPlace[] {
     if (places.length < 3) return places;
     let best = [...places];
+    let bestDistance = this.totalDistance(best, startLat, startLng);
     let improved = true;
 
     while (improved) {
@@ -178,31 +275,17 @@ export class OptimizeRouteStep {
       for (let i = 0; i < best.length - 1; i += 1) {
         for (let k = i + 1; k < best.length; k += 1) {
           const newRoute = this.twoOptSwap(best, i, k);
-          if (
-            this.totalDistance(newRoute, startLat, startLng) <
-            this.totalDistance(best, startLat, startLng)
-          ) {
+          const newDistance = this.totalDistance(newRoute, startLat, startLng);
+          if (newDistance < bestDistance) {
             best = newRoute;
+            bestDistance = newDistance;
             improved = true;
           }
         }
       }
     }
 
-    // order, distanceFromPrev, travelMinutes 재계산
-    let prevLat = startLat;
-    let prevLng = startLng;
-    return best.map((place, idx) => {
-      const dist = haversine(prevLat, prevLng, place.lat, place.lng);
-      prevLat = place.lat;
-      prevLng = place.lng;
-      return {
-        ...place,
-        order: idx + 1,
-        distanceFromPrev: dist,
-        travelMinutes: roundUpToTen(Math.ceil((dist / 5) * 60)),
-      };
-    });
+    return this.makeOrdered(best, startLat, startLng);
   }
 
   private twoOptSwap(
@@ -214,5 +297,21 @@ export class OptimizeRouteStep {
     const middle = route.slice(i, k + 1).reverse();
     const end = route.slice(k + 1);
     return [...start, ...middle, ...end];
+  }
+
+  private distance(
+    lat1: number,
+    lng1: number,
+    lat2: number,
+    lng2: number,
+  ): number {
+    const a = `${lat1.toFixed(6)},${lng1.toFixed(6)}`;
+    const b = `${lat2.toFixed(6)},${lng2.toFixed(6)}`;
+    const key = a < b ? `${a}|${b}` : `${b}|${a}`;
+    const cached = this.distanceMemo.get(key);
+    if (cached !== undefined) return cached;
+    const value = haversine(lat1, lng1, lat2, lng2);
+    this.distanceMemo.set(key, value);
+    return value;
   }
 }

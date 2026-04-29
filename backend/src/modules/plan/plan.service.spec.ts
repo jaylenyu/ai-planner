@@ -27,6 +27,10 @@ describe('PlanService', () => {
     createMany: jest.fn(),
   } as any;
 
+  const apiBudgetService = {
+    trackRequest: jest.fn(),
+  } as any;
+
   let service: PlanService;
 
   beforeEach(() => {
@@ -36,7 +40,7 @@ describe('PlanService', () => {
       aiService,
       paymentService,
       notificationService,
-      { patchLastCost: jest.fn() } as any,
+      apiBudgetService,
     );
   });
 
@@ -83,5 +87,48 @@ describe('PlanService', () => {
     await expect(service.delete('user-1', 'plan-404')).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+
+  it('generate는 같은 입력 최근 10개 장소 이력을 AI 파이프라인에 전달한다', async () => {
+    prisma.plan.findMany.mockResolvedValue([
+      {
+        rawInput: '홍대 맛집',
+        items: [{ name: 'A식당' }, { name: '스타벅스 홍대점' }],
+      },
+      {
+        rawInput: '다른 입력',
+        items: [{ name: 'B식당' }],
+      },
+    ]);
+    aiService.runPipeline.mockResolvedValue({
+      summary: '홍대 데이트',
+      items: [],
+      polyline: [],
+      totalDurationMin: 0,
+      unsupportedHints: [],
+      llmCost: 0,
+    });
+    prisma.plan.create.mockResolvedValue({
+      id: 'plan-1',
+      workspace: null,
+      items: [],
+    });
+
+    await service.generate('user-1', {
+      rawInput: '홍대   맛집',
+      mode: 'date',
+    });
+
+    expect(aiService.runPipeline).toHaveBeenCalledWith('홍대   맛집', 'date', {
+      diversityHistory: {
+        placeCounts: {
+          a식당: 1,
+          스타벅스홍대점: 1,
+        },
+        chainCounts: {
+          스타벅스: 1,
+        },
+      },
+    });
   });
 });

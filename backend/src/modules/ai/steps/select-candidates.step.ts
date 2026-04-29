@@ -7,17 +7,24 @@ import {
   isStrictActivitySubtype,
   matchesActivityPlace,
 } from '../utils/activity-registry';
+import {
+  getChainBrand,
+  normalizePlaceKey,
+} from '../utils/place-diversity.util';
 import { haversine } from '../../../shared/utils/haversine';
 
-const CHAIN_PATTERN =
-  /(스타벅스|이디야|투썸|빽다방|커피빈|메가커피|탐앤탐스|할리스)/;
+const MAX_CANDIDATES_PER_SLOT = 5;
 
 function scoreCandidate(
   place: PlaceResult,
   distanceKm: number,
   mode: 'date' | 'trip',
   preferences: string[],
-  options: { chainPenalty: boolean; compactRoute: boolean },
+  options: {
+    chainPenalty: boolean;
+    compactRoute: boolean;
+    diversityHistory?: PipelineContext['diversityHistory'];
+  },
 ): number {
   const base = place.source === 'naver' || place.source === 'kakao' ? 1 : 0.85;
   const divisor = options.compactRoute
@@ -42,9 +49,26 @@ function scoreCandidate(
     return bonus;
   }, 0);
   const chainPenalty =
-    options.chainPenalty && CHAIN_PATTERN.test(place.name) ? 0.5 : 0;
+    options.chainPenalty && getChainBrand(place.name) ? 0.5 : 0;
+  const placeKey = normalizePlaceKey(place.name);
+  const repeatCount = options.diversityHistory?.placeCounts[placeKey] ?? 0;
+  const repeatPenalty =
+    repeatCount > 0 ? Math.min(2.5, 1.5 + (repeatCount - 1) * 0.25) : 0;
+  const chainBrand = getChainBrand(place.name);
+  const chainRepeatPenalty =
+    chainBrand && (options.diversityHistory?.chainCounts[chainBrand] ?? 0) > 0
+      ? 0.6
+      : 0;
 
-  return base + linkBonus + preferenceBonus - distancePenalty - chainPenalty;
+  return (
+    base +
+    linkBonus +
+    preferenceBonus -
+    distancePenalty -
+    chainPenalty -
+    repeatPenalty -
+    chainRepeatPenalty
+  );
 }
 
 function normalizeText(value: string): string {
@@ -179,6 +203,34 @@ export class SelectCandidatesStep {
     return weighted[weighted.length - 1]?.entry;
   }
 
+  private buildCandidatePool(
+    scored: ScoredEntry[],
+    ctx: PipelineContext,
+  ): ScoredEntry[] {
+    const sorted = [...scored].sort(
+      (a, b) => b.score - a.score || a.distance - b.distance,
+    );
+    const picked: ScoredEntry[] = [];
+    const seen = new Set<string>();
+
+    const pushIfNew = (entry?: ScoredEntry) => {
+      if (!entry) return;
+      const key = normalizePlaceKey(entry.place.name);
+      if (seen.has(key)) return;
+      seen.add(key);
+      entry.place.score = entry.score;
+      picked.push(entry);
+    };
+
+    pushIfNew(this.pickFromTopBand(sorted, ctx) ?? sorted[0]);
+    for (const entry of sorted) {
+      if (picked.length >= MAX_CANDIDATES_PER_SLOT) break;
+      pushIfNew(entry);
+    }
+
+    return picked;
+  }
+
   execute(ctx: PipelineContext): void {
     const intent = ctx.intent!;
     const rawPlaces = ctx.rawPlaces!;
@@ -239,7 +291,6 @@ export class SelectCandidatesStep {
       );
     }
 
-    const usedNames = new Set<string>();
     let currentCenterLat = baseCenterLat;
     let currentCenterLng = baseCenterLng;
     const dynamicCenter = locked || compactRoute;
@@ -329,37 +380,24 @@ export class SelectCandidatesStep {
           scoreCandidate(place, distance, intent.mode, preferences, {
             chainPenalty,
             compactRoute,
+            diversityHistory: ctx.diversityHistory,
           }) +
           getActivitySubtypeMatchBonus(place, activity.subtype) +
           getActivityBrandBonus(place, activity.subtype);
         return { place, distance, score };
       });
 
-      const pool = [...scored].sort(
-        (a, b) => b.score - a.score || a.distance - b.distance,
-      );
-      let picked: PlaceResult | undefined;
-      while (pool.length > 0) {
-        const entry = this.pickFromTopBand(pool, ctx) ?? pool[0];
-        const removeIdx = pool.findIndex(
-          (candidate) => candidate.place.name === entry.place.name,
-        );
-        if (removeIdx >= 0) pool.splice(removeIdx, 1);
-        if (usedNames.has(entry.place.name)) continue;
-        entry.place.score = entry.score;
-        picked = entry.place;
-        break;
-      }
+      const pool = this.buildCandidatePool(scored, ctx);
+      const picked = pool[0]?.place;
 
       if (!picked) {
         this.logger.warn(
-          `[${activity.slotId}] 중복 제외 후 후보 없음 — 활동 제외`,
+          `[${activity.slotId}] 점수 계산 후 후보 없음 — 활동 제외`,
         );
         continue;
       }
 
-      ctx.candidates[activity.slotId] = [picked];
-      usedNames.add(picked.name);
+      ctx.candidates[activity.slotId] = pool.map((entry) => entry.place);
 
       const dist = haversine(centerLat, centerLng, picked.lat, picked.lng);
       const score =
@@ -368,9 +406,10 @@ export class SelectCandidatesStep {
           : scoreCandidate(picked, dist, intent.mode, preferences, {
               chainPenalty,
               compactRoute,
+              diversityHistory: ctx.diversityHistory,
             });
       this.logger.log(
-        `[${activity.slotId}] 선택: ${picked.name} (${dist.toFixed(
+        `[${activity.slotId}] 후보 ${pool.length}개, 대표: ${picked.name} (${dist.toFixed(
           2,
         )}km, score ${score.toFixed(2)}, source=${picked.source ?? 'mix'})`,
       );
