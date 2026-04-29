@@ -75,7 +75,10 @@ function MypageContent() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-orange-600">계정</p>
-                  <p className="mt-1 text-base font-bold text-stone-900 break-all">{me?.email ?? '-'}</p>
+                  <p className="mt-1 text-base font-bold text-stone-900 break-all">{me?.nickname ?? '-'}</p>
+                  <p className="mt-0.5 text-sm text-stone-500 break-all">
+                    {me?.email ?? '이메일 미등록'}
+                  </p>
                 </div>
                 <PrimaryButton
                   type="button"
@@ -152,7 +155,7 @@ function MypageContent() {
                     .filter((m) => m.role !== 'owner')
                     .slice(0, 1)
                     .map((m) => (
-                      <p key={m.id} className="text-stone-500">파트너: {m.user.email}</p>
+                      <p key={m.id} className="text-stone-500">파트너: {m.user.nickname}</p>
                     ))}
                 </div>
               ) : (

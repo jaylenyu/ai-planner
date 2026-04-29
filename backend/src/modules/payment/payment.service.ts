@@ -302,23 +302,25 @@ export class PaymentService {
       `결제 승인 완료: ${updatedPayment.orderId} (${updatedPayment.amount})`,
     );
 
-    void this.emailService
-      .sendPaymentReceipt({
-        to: payment.user.email,
-        orderId: updatedPayment.orderId,
-        paymentKey: updatedPayment.paymentKey,
-        amount: updatedPayment.amount,
-        method: updatedPayment.method,
-        paidAt: updatedPayment.confirmedAt ?? this.now(),
-        currentPeriodEnd: updatedSubscription.currentPeriodEnd,
-      })
-      .catch((error: unknown) => {
-        const message =
-          error instanceof Error ? error.message : 'unknown email error';
-        this.logger.warn(
-          `영수증 메일 발송 실패: ${updatedPayment.orderId} (${message})`,
-        );
-      });
+    if (payment.user.email) {
+      void this.emailService
+        .sendPaymentReceipt({
+          to: payment.user.email,
+          orderId: updatedPayment.orderId,
+          paymentKey: updatedPayment.paymentKey,
+          amount: updatedPayment.amount,
+          method: updatedPayment.method,
+          paidAt: updatedPayment.confirmedAt ?? this.now(),
+          currentPeriodEnd: updatedSubscription.currentPeriodEnd,
+        })
+        .catch((error: unknown) => {
+          const message =
+            error instanceof Error ? error.message : 'unknown email error';
+          this.logger.warn(
+            `영수증 메일 발송 실패: ${updatedPayment.orderId} (${message})`,
+          );
+        });
+    }
 
     return this.toStatusResponse(updatedSubscription);
   }

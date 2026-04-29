@@ -19,6 +19,7 @@ export function getAuthUser():
   | {
       userId?: string;
       email?: string;
+      nickname?: string;
       role?: 'USER' | 'ADMIN';
     }
   | null {
@@ -31,6 +32,8 @@ export function getAuthUser():
     return {
       userId: typeof decoded.sub === 'string' ? decoded.sub : undefined,
       email: typeof decoded.email === 'string' ? decoded.email : undefined,
+      nickname:
+        typeof decoded.nickname === 'string' ? decoded.nickname : undefined,
       role:
         decoded.role === 'ADMIN' || decoded.role === 'USER'
           ? decoded.role

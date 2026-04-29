@@ -14,6 +14,7 @@ import { CreatePlanMemoDto } from './dto/create-plan-memo.dto';
 import { CreatePlanItemDto } from './dto/create-plan-item.dto';
 import { DeletePlanItemDto } from './dto/delete-plan-item.dto';
 import { GeneratePlanDto } from './dto/generate-plan.dto';
+import { SavePlanDraftDto } from './dto/save-plan-draft.dto';
 import { SharePlanDto } from './dto/share-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { UpdatePlanItemDto } from './dto/update-plan-item.dto';
@@ -131,5 +132,23 @@ export class PlanController {
     @CurrentUser() user: { userId: string },
   ) {
     return this.planService.generate(user.userId, dto);
+  }
+
+  @Post('preview')
+  @UseGuards(JwtAuthGuard)
+  preview(
+    @Body() dto: GeneratePlanDto,
+    @CurrentUser() user: { userId: string },
+  ) {
+    return this.planService.preview(user.userId, dto);
+  }
+
+  @Post('save')
+  @UseGuards(JwtAuthGuard)
+  saveDraft(
+    @Body() dto: SavePlanDraftDto,
+    @CurrentUser() user: { userId: string },
+  ) {
+    return this.planService.saveDraft(user.userId, dto);
   }
 }

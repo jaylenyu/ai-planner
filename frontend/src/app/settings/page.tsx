@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Turnstile } from '@marsidev/react-turnstile';
 import { AppCard } from '@/components/ui/app-card';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -15,9 +16,11 @@ import {
   requestOAuthLinkToken,
   unlinkOAuth,
   updateSettings,
+  updateEmail,
   logoutAll,
   deleteMe,
   ApiError,
+  authApi,
 } from '@/lib/api';
 
 type Provider = 'google' | 'kakao' | 'naver';
@@ -27,6 +30,9 @@ const providerNames: Record<Provider, string> = {
   kakao: '카카오',
   naver: '네이버',
 };
+
+const TURNSTILE_SITE_KEY =
+  process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? '1x00000000000000000000AA';
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
   useEffect(() => {
@@ -73,6 +79,15 @@ function SettingsContent() {
   const [verifyToken, setVerifyToken] = useState('');
   const [pwLoading, setPwLoading] = useState(false);
   const [pwError, setPwError] = useState<string | null>(null);
+
+  // Email setup state
+  const [emailStep, setEmailStep] = useState<'idle' | 'code-sent'>('idle');
+  const [emailInput, setEmailInput] = useState('');
+  const [emailCode, setEmailCode] = useState('');
+  const [emailCaptchaToken, setEmailCaptchaToken] = useState('');
+  const [emailCaptchaKey, setEmailCaptchaKey] = useState(0);
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   // Unlink/delete confirm dialogs
   const [unlinkTarget, setUnlinkTarget] = useState<Provider | null>(null);
@@ -163,6 +178,53 @@ function SettingsContent() {
       setPwError(err instanceof ApiError ? err.message : '코드 인증에 실패했습니다.');
     } finally {
       setPwLoading(false);
+    }
+  };
+
+  const handleRequestEmailCode = async () => {
+    const nextEmail = emailInput.trim().toLowerCase();
+    if (!nextEmail) {
+      setEmailError('이메일을 입력해주세요.');
+      return;
+    }
+    if (!emailCaptchaToken) {
+      setEmailError('보안 인증을 완료해주세요.');
+      return;
+    }
+    setEmailLoading(true);
+    setEmailError(null);
+    try {
+      await authApi.requestEmailCode(nextEmail, emailCaptchaToken);
+      setEmailStep('code-sent');
+      setEmailInput(nextEmail);
+      setEmailCaptchaToken('');
+      setEmailCaptchaKey((key) => key + 1);
+      showToast('인증 코드를 전송했습니다.');
+    } catch (err) {
+      setEmailError(err instanceof ApiError ? err.message : '코드 전송에 실패했습니다.');
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
+  const handleVerifyAndSaveEmail = async () => {
+    const nextEmail = emailInput.trim().toLowerCase();
+    if (!nextEmail || emailCode.length !== 6) return;
+    setEmailLoading(true);
+    setEmailError(null);
+    try {
+      await authApi.verifyEmailCode(nextEmail, emailCode);
+      const tokens = await updateEmail(nextEmail);
+      useAuthStore.getState().setTokens(tokens.access_token, tokens.refresh_token);
+      setEmailStep('idle');
+      setEmailInput('');
+      setEmailCode('');
+      void invalidateMe();
+      showToast('이메일이 등록되었습니다.');
+    } catch (err) {
+      setEmailError(err instanceof ApiError ? err.message : '이메일 등록에 실패했습니다.');
+    } finally {
+      setEmailLoading(false);
     }
   };
 
@@ -273,9 +335,86 @@ function SettingsContent() {
             <AppCard padding="md" className="space-y-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">계정</p>
               <div>
-                <p className="text-sm text-stone-500">이메일</p>
-                <p className="mt-0.5 font-semibold text-stone-900 break-all">{me?.email ?? '-'}</p>
+                <p className="text-sm text-stone-500">닉네임</p>
+                <p className="mt-0.5 font-semibold text-stone-900 break-all">{me?.nickname ?? '-'}</p>
               </div>
+              <div>
+                <p className="text-sm text-stone-500">이메일</p>
+                <p className="mt-0.5 font-semibold text-stone-900 break-all">
+                  {me?.email ?? '등록된 이메일이 없습니다.'}
+                </p>
+              </div>
+              {!me?.email && (
+                <div className="space-y-3 rounded-2xl border border-orange-100 bg-orange-50/60 p-4">
+                  <div>
+                    <p className="text-sm font-semibold text-stone-900">이메일 등록</p>
+                    <p className="mt-0.5 text-xs text-stone-500">
+                      안내 메일과 비밀번호 설정을 사용하려면 이메일 인증이 필요합니다.
+                    </p>
+                  </div>
+                  <input
+                    type="email"
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    placeholder="example@email.com"
+                    disabled={emailStep === 'code-sent'}
+                    className="w-full rounded-2xl border border-stone-200 px-4 py-2.5 text-sm outline-none focus:border-orange-300 disabled:bg-stone-100"
+                  />
+                  {emailStep === 'idle' ? (
+                    <>
+                      <div className="min-h-[78px] overflow-hidden">
+                        <Turnstile
+                          key={`email-turnstile-${emailCaptchaKey}`}
+                          siteKey={TURNSTILE_SITE_KEY}
+                          onSuccess={(token) => setEmailCaptchaToken(token)}
+                          onError={() => setEmailCaptchaToken('')}
+                          onExpire={() => setEmailCaptchaToken('')}
+                          options={{
+                            theme: 'light',
+                            refreshExpired: 'auto',
+                            size: 'flexible',
+                          }}
+                        />
+                      </div>
+                      <PrimaryButton
+                        type="button"
+                        variant="brand"
+                        size="sm"
+                        loading={emailLoading}
+                        disabled={!emailInput.trim()}
+                        onClick={() => void handleRequestEmailCode()}
+                      >
+                        인증코드 전송
+                      </PrimaryButton>
+                    </>
+                  ) : (
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        value={emailCode}
+                        onChange={(e) =>
+                          setEmailCode(e.target.value.replace(/\D/g, '').slice(0, 6))
+                        }
+                        placeholder="6자리 코드"
+                        className="w-full rounded-2xl border border-stone-200 px-4 py-2.5 text-sm outline-none focus:border-orange-300"
+                      />
+                      <PrimaryButton
+                        type="button"
+                        variant="brand"
+                        size="sm"
+                        loading={emailLoading}
+                        disabled={emailCode.length !== 6}
+                        onClick={() => void handleVerifyAndSaveEmail()}
+                      >
+                        이메일 등록
+                      </PrimaryButton>
+                    </div>
+                  )}
+                  {emailError && <p className="text-sm text-red-600">{emailError}</p>}
+                </div>
+              )}
             </AppCard>
           )}
 

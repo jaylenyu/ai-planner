@@ -34,6 +34,8 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { DeleteMeDto } from './dto/delete-me.dto';
 import { VerifyPasswordSetupDto } from './dto/verify-password-setup.dto';
+import { CompleteOAuthSignupDto } from './dto/complete-oauth-signup.dto';
+import { UpdateEmailDto } from './dto/update-email.dto';
 import type { AuthenticatedUser, OAuthAuthenticatedUser } from './types';
 
 const VALID_PROVIDERS: OAuthProvider[] = ['google', 'kakao', 'naver'];
@@ -105,6 +107,17 @@ export class AuthController {
       }
     }
 
+    if (user.needsSignup) {
+      const signupToken = this.authService.createOAuthSignupToken({
+        provider,
+        providerId: user.providerRawId ?? user.id,
+        providerEmail: user.providerEmail ?? user.email ?? null,
+      });
+      return res.redirect(
+        `${this.getFrontendUrl()}/auth/oauth/complete?token=${encodeURIComponent(signupToken)}&provider=${provider}`,
+      );
+    }
+
     // Normal OAuth login flow
     const tokens = await this.authService.oauthLogin(user);
     res.redirect(
@@ -149,6 +162,12 @@ export class AuthController {
   @Post('register')
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
+  }
+
+  @Post('oauth/complete')
+  @HttpCode(HttpStatus.OK)
+  completeOAuthSignup(@Body() dto: CompleteOAuthSignupDto) {
+    return this.authService.completeOAuthSignup(dto);
   }
 
   @Post('login')
@@ -207,6 +226,16 @@ export class AuthController {
     @Body() dto: ChangePasswordDto,
   ) {
     return this.authService.changePassword(user.userId, dto);
+  }
+
+  @Patch('email')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  updateEmail(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UpdateEmailDto,
+  ) {
+    return this.authService.updateEmail(user.userId, dto);
   }
 
   @Post('password/setup-request')

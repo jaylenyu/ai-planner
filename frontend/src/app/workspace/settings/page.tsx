@@ -137,7 +137,7 @@ export default function WorkspaceSettingsPage() {
                       >
                         <div className="flex items-center justify-between gap-3">
                           <p className="font-semibold text-stone-900">
-                            {member.user.email}
+                            {member.user.nickname}
                           </p>
                           <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-stone-500">
                             {member.role === 'owner' ? '플랜 오너' : '파트너'}

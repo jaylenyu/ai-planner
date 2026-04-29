@@ -1,6 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
+import type Mail from 'nodemailer/lib/mailer';
 
 type PaymentReceiptInput = {
   to: string;
@@ -14,18 +19,40 @@ type PaymentReceiptInput = {
 
 @Injectable()
 export class EmailService {
-  private transporter: nodemailer.Transporter;
+  private readonly logger = new Logger(EmailService.name);
+  private transporter: nodemailer.Transporter | null;
 
   constructor(private config: ConfigService) {
-    this.transporter = nodemailer.createTransport({
-      host: config.get<string>('EMAIL_HOST'),
-      port: config.get<number>('EMAIL_PORT') ?? 587,
-      secure: false,
-      auth: {
-        user: config.get<string>('EMAIL_USER'),
-        pass: config.get<string>('EMAIL_PASS'),
-      },
-    });
+    const host = config.get<string>('EMAIL_HOST')?.trim();
+    const user = config.get<string>('EMAIL_USER')?.trim();
+    const pass = config.get<string>('EMAIL_PASS')?.trim();
+
+    this.transporter =
+      host && user && pass
+        ? nodemailer.createTransport({
+            host,
+            port: config.get<number>('EMAIL_PORT') ?? 587,
+            secure: config.get<string>('EMAIL_SECURE') === 'true',
+            auth: { user, pass },
+          })
+        : null;
+  }
+
+  private async sendMail(options: Mail.Options) {
+    if (!this.transporter) {
+      throw new ServiceUnavailableException(
+        '이메일 전송 설정이 완료되지 않았습니다.',
+      );
+    }
+
+    try {
+      await this.transporter.sendMail(options);
+    } catch (err) {
+      this.logger.error(`이메일 전송 실패: ${(err as Error).message}`);
+      throw new ServiceUnavailableException(
+        '이메일 전송에 실패했습니다. 잠시 후 다시 시도해주세요.',
+      );
+    }
   }
 
   private buildHtml(body: string): string {
@@ -70,7 +97,7 @@ export class EmailService {
   }
 
   async sendVerificationCode(to: string, code: string) {
-    await this.transporter.sendMail({
+    await this.sendMail({
       from:
         this.config.get<string>('EMAIL_FROM') ??
         'DatePlanner <no-reply@date-planner.us>',
@@ -97,7 +124,7 @@ export class EmailService {
   async sendOauthAccountReminder(to: string, providers: string[]) {
     const providerList = providers.join(', ');
     const loginUrl = `${this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:3000'}/login`;
-    await this.transporter.sendMail({
+    await this.sendMail({
       from:
         this.config.get<string>('EMAIL_FROM') ??
         'DatePlanner <no-reply@date-planner.us>',
@@ -128,7 +155,7 @@ export class EmailService {
       this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
     const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
 
-    await this.transporter.sendMail({
+    await this.sendMail({
       from:
         this.config.get<string>('EMAIL_FROM') ??
         'DatePlanner <no-reply@date-planner.us>',
@@ -159,7 +186,7 @@ export class EmailService {
     workspaceName: string,
     inviteUrl: string,
   ) {
-    await this.transporter.sendMail({
+    await this.sendMail({
       from:
         this.config.get<string>('EMAIL_FROM') ??
         'DatePlanner <no-reply@date-planner.us>',
@@ -225,7 +252,7 @@ export class EmailService {
       ? formatDate(input.currentPeriodEnd)
       : null;
 
-    await this.transporter.sendMail({
+    await this.sendMail({
       from:
         this.config.get<string>('EMAIL_FROM') ??
         'DatePlanner <no-reply@date-planner.us>',

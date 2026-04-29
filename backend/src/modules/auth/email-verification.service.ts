@@ -44,8 +44,9 @@ export class EmailVerificationService {
   ): Promise<void> {
     await this.turnstile.verify(captchaToken, ip);
     const normalized = this.normalizeEmail(emailAddr);
+    const redisClient = await this.redis.getNativeClient();
 
-    if (!this.redis.isEnabled()) {
+    if (!redisClient) {
       const now = Date.now();
       const entry = this.fallbackStore.get(normalized);
       if (entry?.resendAvailableAt && entry.resendAvailableAt > now) {
@@ -94,8 +95,9 @@ export class EmailVerificationService {
 
   async verifyCode(emailAddr: string, code: string): Promise<void> {
     const normalized = this.normalizeEmail(emailAddr);
+    const redisClient = await this.redis.getNativeClient();
 
-    if (!this.redis.isEnabled()) {
+    if (!redisClient) {
       const now = Date.now();
       const entry = this.fallbackStore.get(normalized);
       if (!entry || !entry.code || !entry.expiresAt || entry.expiresAt <= now) {
@@ -169,8 +171,9 @@ export class EmailVerificationService {
 
   async assertVerified(emailAddr: string): Promise<void> {
     const normalized = this.normalizeEmail(emailAddr);
+    const redisClient = await this.redis.getNativeClient();
 
-    if (!this.redis.isEnabled()) {
+    if (!redisClient) {
       const now = Date.now();
       const entry = this.fallbackStore.get(normalized);
       if (!entry || !entry.passedUntil || entry.passedUntil <= now) {

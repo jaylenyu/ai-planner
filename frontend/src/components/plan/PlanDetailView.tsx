@@ -38,7 +38,7 @@ export function PlanDetailView({ planId, source }: PlanDetailViewProps) {
   const [selectedPlace, setSelectedPlace] = useState<PlanItem | null>(null);
   const [editingItem, setEditingItem] = useState<PlanItem | null>(null);
   const [newItem, setNewItem] = useState(EMPTY_NEW_ITEM);
-  const currentUserEmail = getAuthUser()?.email ?? null;
+  const currentUserId = getAuthUser()?.userId ?? null;
 
   const planQuery = useQuery<PlanSummary>({
     queryKey: queryKeys.plan(planId),
@@ -333,7 +333,7 @@ export function PlanDetailView({ planId, source }: PlanDetailViewProps) {
                 </div>
                 <PlanMemoThread
                   memos={plan.memos ?? []}
-                  currentUserEmail={currentUserEmail}
+                  currentUserId={currentUserId}
                   onCreate={async (content) => {
                     await planApi.createMemo(plan.id, { content });
                     await planQuery.refetch();

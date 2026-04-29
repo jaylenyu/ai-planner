@@ -16,7 +16,7 @@ import { useWorkspace } from "@/hooks/useWorkspace";
 import { queryKeys } from "@/lib/query";
 import type { PlanItem } from "@/lib/types";
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { Check, Heart, Lock, Save } from "lucide-react";
 
 const MapView = dynamic(
   () => import("@/components/plan/MapView").then((m) => m.MapView),
@@ -42,13 +42,21 @@ const PlaceMapDialog = dynamic(
 function PlanPageContent() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const { generate, status, result, error, dailyLimitError } =
+  const {
+    generate,
+    save,
+    status,
+    result,
+    saveStatus,
+    saveError,
+    error,
+    dailyLimitError,
+  } =
     usePlanGenerate();
   const { isLoggedIn } = useAuth();
   const { workspace } = useWorkspace();
   const resultsRef = useRef<HTMLElement>(null); // 결과 섹션 참조
   const [selectedPlace, setSelectedPlace] = useState<PlanItem | null>(null);
-  const [saveToWorkspace, setSaveToWorkspace] = useState(false);
   const draft = searchParams.get("draft") ?? "";
   const initialMode = searchParams.get("mode") === "trip" ? "trip" : "date";
   const shouldAutoGenerate = searchParams.get("autoGenerate") === "1";
@@ -57,17 +65,26 @@ function PlanPageContent() {
   const handleSubmit = useCallback(
     async (rawInput: string, mode: "date" | "trip") => {
       if (!isLoggedIn) return;
-      await generate(
-        rawInput,
-        mode,
-        saveToWorkspace && workspace ? workspace.id : undefined,
+      await generate(rawInput, mode);
+    },
+    [generate, isLoggedIn],
+  );
+
+  const handleSave = useCallback(
+    async (scope: "personal" | "shared") => {
+      if (!result || !("draftId" in result)) return;
+      const saved = await save(
+        result.draftId,
+        scope,
+        scope === "shared" ? workspace?.id : undefined,
       );
+      if (!saved) return;
       await queryClient.invalidateQueries({ queryKey: ["plans"] });
       await queryClient.invalidateQueries({
         queryKey: queryKeys.workspaceMine,
       });
     },
-    [generate, isLoggedIn, queryClient, saveToWorkspace, workspace],
+    [queryClient, result, save, workspace?.id],
   );
 
   useEffect(() => {
@@ -182,16 +199,18 @@ function PlanPageContent() {
                 일정이 완성됐어요!
               </h2>
             </div>
-            <PrimaryButton
-              asChild
-              variant="outline"
-              size="sm"
-              className="w-full sm:w-auto"
-            >
-              <Link href={result.workspace ? "/workspace" : "/library"}>
-                {result.workspace ? "커플 플랜으로 가기" : "보관함으로 가기"}
-              </Link>
-            </PrimaryButton>
+            {"planId" in result && (
+              <PrimaryButton
+                asChild
+                variant="outline"
+                size="sm"
+                className="w-full sm:w-auto"
+              >
+                <Link href={result.workspace ? "/workspace" : "/library"}>
+                  {result.workspace ? "커플 플랜으로 가기" : "보관함으로 가기"}
+                </Link>
+              </PrimaryButton>
+            )}
           </div>
           {result.unsupportedHints.length > 0 && (
             <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
@@ -203,7 +222,61 @@ function PlanPageContent() {
               </ul>
             </div>
           )}
-          {result.workspace && (
+          {"draftId" in result && (
+            <div className="mb-5 rounded-2xl border border-stone-200 bg-stone-50 px-5 py-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-stone-900">
+                    이 일정을 어디에 저장할까요?
+                  </p>
+                  <p className="mt-1 text-xs text-stone-500">
+                    저장하기 전까지는 보관함이나 커플 플랜에 추가되지 않습니다.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <PrimaryButton
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full sm:w-auto"
+                    loading={saveStatus === "saving"}
+                    disabled={saveStatus === "saving"}
+                    onClick={() => void handleSave("personal")}
+                  >
+                    <Save className="h-4 w-4" aria-hidden="true" />
+                    개인 플랜에 저장
+                  </PrimaryButton>
+                  <PrimaryButton
+                    type="button"
+                    variant="brand"
+                    size="sm"
+                    className="w-full sm:w-auto"
+                    loading={saveStatus === "saving"}
+                    disabled={saveStatus === "saving" || !workspace}
+                    onClick={() => void handleSave("shared")}
+                  >
+                    {workspace ? (
+                      <Heart className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      <Lock className="h-4 w-4" aria-hidden="true" />
+                    )}
+                    커플 플랜에 저장
+                  </PrimaryButton>
+                </div>
+              </div>
+              {!workspace && (
+                <p className="mt-3 text-xs text-stone-500">
+                  커플 플랜 저장은 구독 후 사용할 수 있습니다.
+                </p>
+              )}
+              {saveError && (
+                <p className="mt-3 text-xs font-medium text-red-600">
+                  {saveError}
+                </p>
+              )}
+            </div>
+          )}
+          {"workspace" in result && result.workspace && (
             <div className="mb-5 rounded-2xl border border-violet-200 bg-violet-50 px-5 py-4 text-sm text-violet-800">
               이 일정은 <strong>{result.workspace.name}</strong> 커플 플랜에
               공유되었습니다.
@@ -293,10 +366,6 @@ function PlanPageContent() {
                 key={`${draft}:${initialMode}`}
                 onSubmit={handleSubmit}
                 loading={status === "loading"}
-                shareEnabled={!!workspace}
-                saveToWorkspace={saveToWorkspace}
-                workspaceName={workspace?.name}
-                onChangeSaveToWorkspace={setSaveToWorkspace}
                 initialRawInput={draft}
                 initialMode={initialMode}
               />

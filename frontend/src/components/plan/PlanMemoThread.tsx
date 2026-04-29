@@ -7,14 +7,14 @@ import type { PlanMemo } from '@/lib/types';
 
 interface PlanMemoThreadProps {
   memos: PlanMemo[];
-  currentUserEmail?: string | null;
+  currentUserId?: string | null;
   onCreate: (content: string) => Promise<void> | void;
   onDelete: (memoId: string) => Promise<void> | void;
 }
 
 export function PlanMemoThread({
   memos,
-  currentUserEmail,
+  currentUserId,
   onCreate,
   onDelete,
 }: PlanMemoThreadProps) {
@@ -37,13 +37,13 @@ export function PlanMemoThread({
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-stone-900">
-                    {memo.author.email}
+                    {memo.author.nickname}
                   </p>
                   <p className="mt-0.5 text-xs text-stone-400">
                     {new Date(memo.createdAt).toLocaleString('ko-KR')}
                   </p>
                 </div>
-                {memo.author.email === currentUserEmail && (
+                {memo.author.id === currentUserId && (
                   <button
                     type="button"
                     onClick={() => void onDelete(memo.id)}

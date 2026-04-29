@@ -42,6 +42,16 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
         profile.id,
         email,
       );
+      if (!user) {
+        return done(null, {
+          id: 'signup-mode',
+          email,
+          role: 'USER',
+          providerRawId: profile.id,
+          providerEmail: email,
+          needsSignup: true,
+        });
+      }
       done(null, { ...user, providerRawId: profile.id });
     } catch (err) {
       done(err as Error);

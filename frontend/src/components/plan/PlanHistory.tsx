@@ -135,9 +135,9 @@ export function PlanHistory({
                     })}
                   </span>
                 </div>
-                {plan.workspace && plan.user?.email && (
+                {plan.workspace && plan.user?.nickname && (
                   <p className="mt-1 text-xs text-stone-500">
-                    생성자 {plan.user.email}
+                    생성자 {plan.user.nickname}
                   </p>
                 )}
               </div>

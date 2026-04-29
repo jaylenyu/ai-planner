@@ -57,6 +57,16 @@ export class NaverStrategy extends PassportStrategy(Strategy, 'naver') {
         naverId,
         email,
       );
+      if (!user) {
+        return done(null, {
+          id: 'signup-mode',
+          email,
+          role: 'USER',
+          providerRawId: naverId,
+          providerEmail: email,
+          needsSignup: true,
+        });
+      }
       done(null, { ...user, providerRawId: naverId });
     } catch (err) {
       done(err);

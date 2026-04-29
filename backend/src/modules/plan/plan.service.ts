@@ -6,6 +6,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AiService } from '../ai/ai.service';
 import { NotificationService } from '../notification/notification.service';
@@ -14,6 +15,7 @@ import { CreatePlanMemoDto } from './dto/create-plan-memo.dto';
 import { CreatePlanItemDto } from './dto/create-plan-item.dto';
 import { DeletePlanItemDto } from './dto/delete-plan-item.dto';
 import { GeneratePlanDto } from './dto/generate-plan.dto';
+import { SavePlanDraftDto } from './dto/save-plan-draft.dto';
 import { SharePlanDto } from './dto/share-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { UpdatePlanItemDto } from './dto/update-plan-item.dto';
@@ -37,6 +39,7 @@ const planInclude = {
     select: {
       id: true,
       email: true,
+      nickname: true,
     },
   },
   items: { orderBy: { order: 'asc' as const } },
@@ -47,15 +50,27 @@ const planInclude = {
         select: {
           id: true,
           email: true,
+          nickname: true,
         },
       },
     },
   },
 };
 
+const PLAN_DRAFT_TTL_MS = 20 * 60 * 1000;
+
+type PlanDraft = {
+  userId: string;
+  rawInput: string;
+  mode: 'date' | 'trip';
+  expiresAt: number;
+  result: Awaited<ReturnType<AiService['runPipeline']>>;
+};
+
 @Injectable()
 export class PlanService {
   private readonly logger = new Logger(PlanService.name);
+  private readonly drafts = new Map<string, PlanDraft>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -260,6 +275,7 @@ export class PlanService {
           select: {
             id: true,
             email: true,
+            nickname: true,
           },
         },
         items: { orderBy: { order: 'asc' } },
@@ -402,6 +418,135 @@ export class PlanService {
     );
 
     return { deleted: true };
+  }
+
+  private pruneExpiredDrafts() {
+    const now = Date.now();
+    for (const [id, draft] of this.drafts) {
+      if (draft.expiresAt <= now) this.drafts.delete(id);
+    }
+  }
+
+  private async createPlanFromResult(
+    userId: string,
+    rawInput: string,
+    mode: 'date' | 'trip',
+    workspaceId: string | null,
+    result: Awaited<ReturnType<AiService['runPipeline']>>,
+  ) {
+    const plan = await this.prisma.plan.create({
+      data: {
+        userId,
+        workspaceId,
+        rawInput,
+        mode,
+        summary: result.summary,
+        items: {
+          create: result.items.map((item) => ({
+            order: item.order,
+            name: item.name,
+            lat: item.lat,
+            lng: item.lng,
+            type: item.type,
+            time: item.time,
+            address: item.address,
+            link: item.link,
+            source: item.source,
+            distanceFromPrev: item.distanceFromPrev,
+          })),
+        },
+      },
+      include: {
+        workspace: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        items: { orderBy: { order: 'asc' } },
+      },
+    });
+
+    this.logger.log(`플랜 저장 완료: ${plan.id}`);
+
+    await this.notifyWorkspaceMembers(workspaceId, userId, 'plan_created', {
+      planId: plan.id,
+      summary: result.summary,
+      workspaceName: plan.workspace?.name ?? null,
+    });
+
+    return {
+      planId: plan.id,
+      summary: result.summary,
+      items: result.items,
+      polyline: result.polyline,
+      totalDurationMin: result.totalDurationMin,
+      unsupportedHints: result.unsupportedHints,
+      workspace: plan.workspace,
+    };
+  }
+
+  async preview(userId: string, dto: GeneratePlanDto) {
+    const diversityHistory = await this.buildDiversityHistory(
+      userId,
+      dto.rawInput,
+      dto.mode,
+    );
+    const result = await this.aiService.runPipeline(dto.rawInput, dto.mode, {
+      diversityHistory,
+    });
+    void this.apiBudgetService.trackRequest(
+      userId,
+      'unknown',
+      'unknown',
+      result.llmCost,
+    );
+
+    this.pruneExpiredDrafts();
+    const draftId = crypto.randomUUID();
+    this.drafts.set(draftId, {
+      userId,
+      rawInput: dto.rawInput,
+      mode: dto.mode,
+      result,
+      expiresAt: Date.now() + PLAN_DRAFT_TTL_MS,
+    });
+
+    return {
+      draftId,
+      summary: result.summary,
+      items: result.items,
+      polyline: result.polyline,
+      totalDurationMin: result.totalDurationMin,
+      unsupportedHints: result.unsupportedHints,
+      workspace: null,
+    };
+  }
+
+  async saveDraft(userId: string, dto: SavePlanDraftDto) {
+    this.pruneExpiredDrafts();
+    const draft = this.drafts.get(dto.draftId);
+    if (!draft || draft.userId !== userId) {
+      throw new NotFoundException('저장할 일정을 찾을 수 없습니다.');
+    }
+
+    let workspaceId: string | null = null;
+    if (dto.scope === 'shared') {
+      const membership = dto.workspaceId
+        ? await this.assertWorkspaceWritable(userId, dto.workspaceId)
+        : await this.getCurrentWorkspaceMembership(userId);
+      workspaceId = membership.workspaceId;
+    }
+
+    const saved = await this.createPlanFromResult(
+      userId,
+      draft.rawInput,
+      draft.mode,
+      workspaceId,
+      draft.result,
+    );
+    this.drafts.delete(dto.draftId);
+    return saved;
   }
 
   async generate(userId: string, dto: GeneratePlanDto) {
@@ -643,6 +788,7 @@ export class PlanService {
           select: {
             id: true,
             email: true,
+            nickname: true,
           },
         },
       },

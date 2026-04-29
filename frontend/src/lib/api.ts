@@ -16,6 +16,8 @@ import type {
   NotificationItem,
   PaymentPrepareResponse,
   PlanMemo,
+  PlanPreviewResult,
+  PlanResult,
   PlanSummary,
   SubscriptionStatusResponse,
   WorkspaceMineResponse,
@@ -279,6 +281,13 @@ export const planApi = {
     api.patch<PlanSummary>(`/plan/${id}`, body),
   share: (id: string, body: unknown) =>
     api.post<PlanSummary>(`/plan/${id}/share`, body),
+  preview: (body: { rawInput: string; mode: 'date' | 'trip' }) =>
+    api.post<PlanPreviewResult>('/plan/preview', body),
+  save: (body: {
+    draftId: string;
+    scope: 'personal' | 'shared';
+    workspaceId?: string;
+  }) => api.post<PlanResult>('/plan/save', body),
   delete: (id: string) => api.delete<{ deleted: boolean }>(`/plan/${id}`),
   addItem: (id: string, body: unknown) =>
     api.post<PlanSummary>(`/plan/${id}/items`, body),
@@ -356,6 +365,7 @@ export const authApi = {
 
   register: (
     email: string,
+    nickname: string,
     password: string,
     agreedTerms: boolean,
     agreedPrivacy: boolean,
@@ -366,10 +376,20 @@ export const authApi = {
         method: 'POST',
         body: JSON.stringify({
           email,
+          nickname,
           password,
           agreedTerms,
           agreedPrivacy,
         }),
+      },
+    ),
+
+  completeOAuthSignup: (token: string, nickname: string) =>
+    requestRaw<{ access_token: string; refresh_token: string }>(
+      "/auth/oauth/complete",
+      {
+        method: 'POST',
+        body: JSON.stringify({ token, nickname }),
       },
     ),
 
@@ -399,11 +419,13 @@ export const authApi = {
 
 export interface MeResponse {
   id: string;
-  email: string;
+  email: string | null;
+  nickname: string;
   role: string;
   createdAt: string;
   lastLoginAt: string | null;
   hasPassword: boolean;
+  emailVerified: boolean;
   providers: { google: boolean; kakao: boolean; naver: boolean };
   inAppNotificationsEnabled: boolean;
   emailNotificationsEnabled: boolean;
@@ -418,6 +440,10 @@ export async function updateSettings(data: {
   emailNotificationsEnabled?: boolean;
 }): Promise<void> {
   return api.patch<void>('/auth/settings', data);
+}
+
+export async function updateEmail(email: string): Promise<{ access_token: string; refresh_token: string }> {
+  return api.patch<{ access_token: string; refresh_token: string }>('/auth/email', { email });
 }
 
 export async function changePassword(data: {

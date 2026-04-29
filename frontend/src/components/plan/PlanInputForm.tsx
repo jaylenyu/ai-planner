@@ -9,10 +9,6 @@ import { PlanMode } from '../../lib/types';
 interface PlanInputFormProps {
   onSubmit: (rawInput: string, mode: PlanMode) => void;
   loading: boolean;
-  shareEnabled?: boolean;
-  saveToWorkspace?: boolean;
-  workspaceName?: string;
-  onChangeSaveToWorkspace?: (next: boolean) => void;
   initialRawInput?: string;
   initialMode?: PlanMode;
 }
@@ -33,10 +29,6 @@ const EXAMPLES = [
 export function PlanInputForm({
   onSubmit,
   loading,
-  shareEnabled,
-  saveToWorkspace,
-  workspaceName,
-  onChangeSaveToWorkspace,
   initialRawInput,
   initialMode,
 }: PlanInputFormProps) {
@@ -101,31 +93,6 @@ export function PlanInputForm({
 
       {/* Textarea */}
       <div className="flex flex-col gap-2">
-        {shareEnabled && onChangeSaveToWorkspace && (
-          <button
-            type="button"
-            onClick={() => onChangeSaveToWorkspace(!saveToWorkspace)}
-            className={`flex items-start justify-between gap-3 rounded-[var(--radius-md)] border px-4 py-3 text-sm transition-colors ${
-              saveToWorkspace
-                ? 'border-orange-200 bg-orange-50 text-orange-700'
-                : 'border-[var(--border-default)] bg-white text-stone-600'
-            }`}
-          >
-            <div className="min-w-0 flex-1 text-left">
-              <p className="font-semibold">
-                {saveToWorkspace ? '커플 플랜으로 저장' : '개인 일정으로 저장'}
-              </p>
-              <p className="mt-0.5 text-xs opacity-80">
-                {saveToWorkspace
-                  ? `${workspaceName ?? '커플 플랜'}에 함께 보입니다.`
-                  : '내 보관함에만 저장됩니다.'}
-              </p>
-            </div>
-            <span className="shrink-0 self-center text-xs font-semibold">
-              {saveToWorkspace ? 'ON' : 'OFF'}
-            </span>
-          </button>
-        )}
         <textarea
           ref={textareaRef}
           value={rawInput}
