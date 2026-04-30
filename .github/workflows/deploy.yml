@@ -158,6 +158,16 @@ jobs:
               fi
             }
 
+            upsert_env_if_present() {
+              local key="$1"
+              local value="$2"
+              if [ -n "$value" ]; then
+                upsert_env "$key" "$value"
+              else
+                echo "[env] $key secret is empty; preserving existing env file value"
+              fi
+            }
+
             upsert_env NEXT_PUBLIC_TOSS_CLIENT_KEY '${{ secrets.NEXT_PUBLIC_TOSS_CLIENT_KEY }}'
             upsert_env NEXT_PUBLIC_SENTRY_DSN '${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}'
             upsert_env SENTRY_DSN '${{ secrets.SENTRY_DSN }}'
@@ -176,11 +186,11 @@ jobs:
             upsert_env BACKEND_URL 'http://ai-planner-backend:4000'
             upsert_env TOSS_SECRET_KEY '${{ secrets.TOSS_SECRET_KEY }}'
             upsert_env TOSS_WEBHOOK_SECRET '${{ secrets.TOSS_WEBHOOK_SECRET }}'
-            upsert_env EMAIL_HOST '${{ secrets.EMAIL_HOST }}'
-            upsert_env EMAIL_PORT '${{ secrets.EMAIL_PORT }}'
-            upsert_env EMAIL_USER '${{ secrets.EMAIL_USER }}'
-            upsert_env EMAIL_PASS '${{ secrets.EMAIL_PASS }}'
-            upsert_env EMAIL_FROM '${{ secrets.EMAIL_FROM }}'
+            upsert_env_if_present EMAIL_HOST '${{ secrets.EMAIL_HOST }}'
+            upsert_env_if_present EMAIL_PORT '${{ secrets.EMAIL_PORT }}'
+            upsert_env_if_present EMAIL_USER '${{ secrets.EMAIL_USER }}'
+            upsert_env_if_present EMAIL_PASS '${{ secrets.EMAIL_PASS }}'
+            upsert_env_if_present EMAIL_FROM '${{ secrets.EMAIL_FROM }}'
 
             docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" config >/dev/null
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
