@@ -76,6 +76,11 @@ jobs:
             upsert_env SENTRY_PROJECT '${{ secrets.SENTRY_PROJECT }}'
             upsert_env TOSS_SECRET_KEY '${{ secrets.TOSS_SECRET_KEY }}'
             upsert_env TOSS_WEBHOOK_SECRET '${{ secrets.TOSS_WEBHOOK_SECRET }}'
+            upsert_env EMAIL_HOST '${{ secrets.EMAIL_HOST }}'
+            upsert_env EMAIL_PORT '${{ secrets.EMAIL_PORT }}'
+            upsert_env EMAIL_USER '${{ secrets.EMAIL_USER }}'
+            upsert_env EMAIL_PASS '${{ secrets.EMAIL_PASS }}'
+            upsert_env EMAIL_FROM '${{ secrets.EMAIL_FROM }}'
             upsert_env AWS_REGION '${{ secrets.AWS_REGION }}'
             upsert_env AWS_ACCESS_KEY_ID '${{ secrets.AWS_ACCESS_KEY_ID }}'
             upsert_env AWS_SECRET_ACCESS_KEY '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
@@ -145,6 +150,16 @@ jobs:
 
             echo "Test deploy complete!"
             docker compose -f /srv/apps/ai-planner-test/compose.yml --env-file /srv/apps/ai-planner-test/.env ps
+            if [ "$BACKEND_CHANGED" = "true" ]; then
+              for KEY in EMAIL_HOST EMAIL_PORT EMAIL_USER EMAIL_PASS EMAIL_FROM; do
+                if docker exec ai-planner-backend-test printenv "$KEY" 2>/dev/null | grep -q .; then
+                  echo "[verify] $KEY: OK in backend-test container"
+                else
+                  echo "[verify] $KEY: MISSING in backend-test container"
+                  exit 1
+                fi
+              done
+            fi
 
       - name: Smoke test
         if: ${{ steps.changed.outputs.backend_changed == 'true' }}

@@ -247,6 +247,14 @@ jobs:
 
             if [ "$BACKEND_CHANGED" = "true" ]; then
               wait_for_http "http://localhost:${BACKEND_PORT}/health" "canary backend"
+              for KEY in EMAIL_HOST EMAIL_PORT EMAIL_USER EMAIL_PASS EMAIL_FROM; do
+                if docker exec ai-planner-canary-backend printenv "$KEY" 2>/dev/null | grep -q .; then
+                  echo "[verify] $KEY: OK in canary backend container"
+                else
+                  echo "[verify] $KEY: MISSING in canary backend container"
+                  exit 1
+                fi
+              done
             fi
 
             if [ "$FRONTEND_CHANGED" = "true" ]; then
@@ -403,6 +411,14 @@ jobs:
 
             if [ "$BACKEND_CHANGED" = "true" ]; then
               wait_for_health ai-planner-backend-test backend-test
+              for KEY in EMAIL_HOST EMAIL_PORT EMAIL_USER EMAIL_PASS EMAIL_FROM; do
+                if docker exec ai-planner-backend-test printenv "$KEY" 2>/dev/null | grep -q .; then
+                  echo "[verify] $KEY: OK in backend-test container"
+                else
+                  echo "[verify] $KEY: MISSING in backend-test container"
+                  exit 1
+                fi
+              done
             fi
             if [ "$FRONTEND_CHANGED" = "true" ]; then
               wait_for_health ai-planner-frontend-test frontend-test
