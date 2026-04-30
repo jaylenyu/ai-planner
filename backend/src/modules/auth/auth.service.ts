@@ -375,11 +375,18 @@ export class AuthService {
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 1);
 
-    await this.prisma.passwordResetToken.create({
+    const resetToken = await this.prisma.passwordResetToken.create({
       data: { token: hashedToken, userId: user.id, expiresAt },
     });
 
-    await this.emailService.sendPasswordReset(user.email, rawToken);
+    try {
+      await this.emailService.sendPasswordReset(user.email, rawToken);
+    } catch (error) {
+      await this.prisma.passwordResetToken.delete({
+        where: { id: resetToken.id },
+      });
+      throw error;
+    }
   }
 
   async resetPassword(dto: ResetPasswordDto) {
@@ -539,7 +546,14 @@ export class AuthService {
     await this.redis.set(codeKey, code, CODE_TTL);
     await this.redis.del(attemptsKey);
     await this.redis.set(resendKey, '1', RESEND_COOLDOWN);
-    await this.emailService.sendVerificationCode(user.email, code);
+    try {
+      await this.emailService.sendVerificationCode(user.email, code);
+    } catch (error) {
+      await this.redis.del(codeKey);
+      await this.redis.del(attemptsKey);
+      await this.redis.del(resendKey);
+      throw error;
+    }
 
     return { message: '인증코드를 전송했습니다.' };
   }

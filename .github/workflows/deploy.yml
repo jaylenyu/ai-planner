@@ -251,6 +251,15 @@ jobs:
                 grep -A 40 "backend:" /srv/apps/ai-planner/compose.yml | head -50
                 exit 1
               fi
+              for KEY in EMAIL_HOST EMAIL_PORT EMAIL_USER EMAIL_PASS EMAIL_FROM; do
+                if docker exec ai-planner-backend printenv "$KEY" 2>/dev/null | grep -q .; then
+                  echo "[verify] $KEY: OK in container"
+                else
+                  echo "[verify] $KEY: MISSING — compose/.env 확인 필요:"
+                  grep -A 50 "backend:" /srv/apps/ai-planner/compose.yml | head -60
+                  exit 1
+                fi
+              done
               if docker exec ai-planner-backend printenv GOOGLE_CLIENT_ID 2>/dev/null | grep -q . \
                 && docker exec ai-planner-backend printenv GOOGLE_CLIENT_SECRET 2>/dev/null | grep -q . \
                 && docker exec ai-planner-backend printenv GOOGLE_CALLBACK_URL 2>/dev/null | grep -q .; then
