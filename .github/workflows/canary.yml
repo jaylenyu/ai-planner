@@ -145,6 +145,7 @@ jobs:
             set -euo pipefail
             STACK_DIR=/srv/apps/ai-planner-canary
             ENV_FILE=$STACK_DIR/.env
+            PROD_ENV_FILE=/srv/apps/ai-planner/.env
             BACKEND_CHANGED=${{ needs.changes.outputs.backend_changed }}
             FRONTEND_CHANGED=${{ needs.changes.outputs.frontend_changed }}
             BACKEND_CONTAINER=ai-planner-canary-backend
@@ -167,14 +168,34 @@ jobs:
               fi
             }
 
+            upsert_env_from_secret_or_file() {
+              local key="$1"
+              local value="$2"
+              local fallback_file="$3"
+              if [ -n "$value" ]; then
+                upsert_env "$key" "$value"
+                return
+              fi
+              if [ -f "$fallback_file" ]; then
+                local fallback
+                fallback=$(grep -m1 "^${key}=" "$fallback_file" | cut -d= -f2- || true)
+                if [ -n "$fallback" ]; then
+                  upsert_env "$key" "$fallback"
+                  echo "[env] $key restored from fallback env file"
+                  return
+                fi
+              fi
+              echo "[env] $key secret is empty; preserving existing env file value"
+            }
+
             upsert_env NEXT_PUBLIC_TOSS_CLIENT_KEY '${{ secrets.NEXT_PUBLIC_TOSS_CLIENT_KEY }}'
             upsert_env TOSS_SECRET_KEY '${{ secrets.TOSS_SECRET_KEY }}'
             upsert_env TOSS_WEBHOOK_SECRET '${{ secrets.TOSS_WEBHOOK_SECRET }}'
-            upsert_env EMAIL_HOST '${{ secrets.EMAIL_HOST }}'
-            upsert_env EMAIL_PORT '${{ secrets.EMAIL_PORT }}'
-            upsert_env EMAIL_USER '${{ secrets.EMAIL_USER }}'
-            upsert_env EMAIL_PASS '${{ secrets.EMAIL_PASS }}'
-            upsert_env EMAIL_FROM '${{ secrets.EMAIL_FROM }}'
+            upsert_env_from_secret_or_file EMAIL_HOST '${{ secrets.EMAIL_HOST }}' "$PROD_ENV_FILE"
+            upsert_env_from_secret_or_file EMAIL_PORT '${{ secrets.EMAIL_PORT }}' "$PROD_ENV_FILE"
+            upsert_env_from_secret_or_file EMAIL_USER '${{ secrets.EMAIL_USER }}' "$PROD_ENV_FILE"
+            upsert_env_from_secret_or_file EMAIL_PASS '${{ secrets.EMAIL_PASS }}' "$PROD_ENV_FILE"
+            upsert_env_from_secret_or_file EMAIL_FROM '${{ secrets.EMAIL_FROM }}' "$PROD_ENV_FILE"
             upsert_env APP_URL "http://localhost:${BACKEND_PORT}"
             upsert_env FRONTEND_URL "http://localhost:${FRONTEND_PORT}"
             upsert_env CORS_ORIGIN "http://localhost:${FRONTEND_PORT}"
@@ -247,6 +268,14 @@ jobs:
 
             if [ "$BACKEND_CHANGED" = "true" ]; then
               wait_for_http "http://localhost:${BACKEND_PORT}/health" "canary backend"
+              for KEY in EMAIL_HOST EMAIL_PORT EMAIL_USER EMAIL_PASS EMAIL_FROM; do
+                if docker exec ai-planner-canary-backend printenv "$KEY" 2>/dev/null | grep -q .; then
+                  echo "[verify] $KEY: OK in canary backend container"
+                else
+                  echo "[verify] $KEY: MISSING in canary backend container"
+                  exit 1
+                fi
+              done
             fi
 
             if [ "$FRONTEND_CHANGED" = "true" ]; then
@@ -304,6 +333,7 @@ jobs:
             STACK_DIR=/srv/apps/ai-planner-test
             COMPOSE_FILE=$STACK_DIR/compose.yml
             ENV_FILE=$STACK_DIR/.env
+            PROD_ENV_FILE=/srv/apps/ai-planner/.env
             BACKEND_CHANGED=${{ needs.changes.outputs.backend_changed }}
             FRONTEND_CHANGED=${{ needs.changes.outputs.frontend_changed }}
 
@@ -315,6 +345,26 @@ jobs:
               else
                 printf '%s=%s\n' "$key" "$value" >> "$ENV_FILE"
               fi
+            }
+
+            upsert_env_from_secret_or_file() {
+              local key="$1"
+              local value="$2"
+              local fallback_file="$3"
+              if [ -n "$value" ]; then
+                upsert_env "$key" "$value"
+                return
+              fi
+              if [ -f "$fallback_file" ]; then
+                local fallback
+                fallback=$(grep -m1 "^${key}=" "$fallback_file" | cut -d= -f2- || true)
+                if [ -n "$fallback" ]; then
+                  upsert_env "$key" "$fallback"
+                  echo "[env] $key restored from fallback env file"
+                  return
+                fi
+              fi
+              echo "[env] $key secret is empty; preserving existing env file value"
             }
 
             upsert_env APP_URL 'https://test.date-planner.us'
@@ -334,11 +384,11 @@ jobs:
             upsert_env SENTRY_PROJECT '${{ secrets.SENTRY_PROJECT }}'
             upsert_env TOSS_SECRET_KEY '${{ secrets.TOSS_SECRET_KEY }}'
             upsert_env TOSS_WEBHOOK_SECRET '${{ secrets.TOSS_WEBHOOK_SECRET }}'
-            upsert_env EMAIL_HOST '${{ secrets.EMAIL_HOST }}'
-            upsert_env EMAIL_PORT '${{ secrets.EMAIL_PORT }}'
-            upsert_env EMAIL_USER '${{ secrets.EMAIL_USER }}'
-            upsert_env EMAIL_PASS '${{ secrets.EMAIL_PASS }}'
-            upsert_env EMAIL_FROM '${{ secrets.EMAIL_FROM }}'
+            upsert_env_from_secret_or_file EMAIL_HOST '${{ secrets.EMAIL_HOST }}' "$PROD_ENV_FILE"
+            upsert_env_from_secret_or_file EMAIL_PORT '${{ secrets.EMAIL_PORT }}' "$PROD_ENV_FILE"
+            upsert_env_from_secret_or_file EMAIL_USER '${{ secrets.EMAIL_USER }}' "$PROD_ENV_FILE"
+            upsert_env_from_secret_or_file EMAIL_PASS '${{ secrets.EMAIL_PASS }}' "$PROD_ENV_FILE"
+            upsert_env_from_secret_or_file EMAIL_FROM '${{ secrets.EMAIL_FROM }}' "$PROD_ENV_FILE"
             upsert_env AWS_REGION '${{ secrets.AWS_REGION }}'
             upsert_env AWS_ACCESS_KEY_ID '${{ secrets.AWS_ACCESS_KEY_ID }}'
             upsert_env AWS_SECRET_ACCESS_KEY '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
@@ -403,6 +453,14 @@ jobs:
 
             if [ "$BACKEND_CHANGED" = "true" ]; then
               wait_for_health ai-planner-backend-test backend-test
+              for KEY in EMAIL_HOST EMAIL_PORT EMAIL_USER EMAIL_PASS EMAIL_FROM; do
+                if docker exec ai-planner-backend-test printenv "$KEY" 2>/dev/null | grep -q .; then
+                  echo "[verify] $KEY: OK in backend-test container"
+                else
+                  echo "[verify] $KEY: MISSING in backend-test container"
+                  exit 1
+                fi
+              done
             fi
             if [ "$FRONTEND_CHANGED" = "true" ]; then
               wait_for_health ai-planner-frontend-test frontend-test

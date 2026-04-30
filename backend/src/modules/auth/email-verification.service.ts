@@ -64,7 +64,12 @@ export class EmailVerificationService {
         attempts: 0,
         resendAvailableAt: now + RESEND_COOLDOWN * 1000,
       });
-      await this.email.sendVerificationCode(emailAddr, code);
+      try {
+        await this.email.sendVerificationCode(emailAddr, code);
+      } catch (error) {
+        this.fallbackStore.delete(normalized);
+        throw error;
+      }
       return;
     }
 
@@ -90,7 +95,14 @@ export class EmailVerificationService {
     await this.redis.del(attemptsKey); // 재전송 시 시도 횟수 초기화
     await this.redis.set(resendKey, '1', RESEND_COOLDOWN);
 
-    await this.email.sendVerificationCode(emailAddr, code);
+    try {
+      await this.email.sendVerificationCode(emailAddr, code);
+    } catch (error) {
+      await this.redis.del(codeKey);
+      await this.redis.del(attemptsKey);
+      await this.redis.del(resendKey);
+      throw error;
+    }
   }
 
   async verifyCode(emailAddr: string, code: string): Promise<void> {
