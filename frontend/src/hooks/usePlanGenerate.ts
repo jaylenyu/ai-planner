@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ApiError, planApi } from '../lib/api';
+import { event } from '../lib/ga4';
 import { PlanPreviewResult, PlanResult, PlanMode } from '../lib/types';
 
 type Status = 'idle' | 'loading' | 'success' | 'error';
@@ -35,6 +36,7 @@ export function usePlanGenerate() {
       const data = await planApi.preview({ rawInput, mode });
       setResult(data);
       setStatus('success');
+      event('plan_generate', { mode });
     } catch (err) {
       if (err instanceof ApiError && err.status === 429 && err.payload && typeof err.payload === 'object') {
         const payload = err.payload as Partial<DailyLimitError>;
@@ -69,6 +71,7 @@ export function usePlanGenerate() {
       setSavedResult(data);
       setResult(data);
       setSaveStatus('saved');
+      event('plan_save', { scope });
       return data;
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : '일정 저장 실패');

@@ -9,6 +9,7 @@ import { usePlanList } from "@/hooks/usePlanList";
 import { useCategories } from "@/hooks/useCategories";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { planApi } from "@/lib/api";
+import { event } from "@/lib/ga4";
 import { queryKeys } from "@/lib/query";
 import { PlanHistory } from "@/components/plan/PlanHistory";
 import type { PlanSummary } from "@/lib/types";
@@ -69,6 +70,7 @@ export default function LibraryPage() {
     );
     try {
       const shared = await planApi.share(plan.id, { updatedAt: plan.updatedAt });
+      event('plan_share', { scope: 'shared' });
       queryClient.setQueryData(queryKeys.plan(shared.id), shared);
       await queryClient.invalidateQueries({ queryKey: ['plans'] });
     } catch (error) {

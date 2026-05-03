@@ -2,6 +2,7 @@
 
 import { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { event } from '@/lib/ga4';
 import { useAuthStore } from '../../../stores/authStore';
 
 function CallbackHandler() {
@@ -14,6 +15,7 @@ function CallbackHandler() {
 
     if (accessToken && refreshToken) {
       useAuthStore.getState().setTokens(accessToken, refreshToken);
+      event('login', { method: 'oauth' });
       router.replace('/plan');
     } else {
       router.replace('/login?error=oauth_failed');

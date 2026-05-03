@@ -14,6 +14,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { OAuthButtonList } from "../../../components/auth/OAuthButtonList";
 import { AppLogo } from "@/components/ui/AppLogo";
 import { authApi } from "../../../lib/api";
+import { event } from "../../../lib/ga4";
 import { useAuthStore } from "../../../stores/authStore";
 
 const TURNSTILE_SITE_KEY =
@@ -494,6 +495,7 @@ function RegisterPageContent() {
         data.agreedPrivacy,
       );
       useAuthStore.getState().setTokens(res.access_token, res.refresh_token);
+      event("sign_up", { method: "email" });
       setRegisteredAt(
         new Date().toLocaleString("ko-KR", {
           year: "numeric",

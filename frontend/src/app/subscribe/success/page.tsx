@@ -7,6 +7,7 @@ import confetti from "canvas-confetti";
 import { AppCard } from "@/components/ui/app-card";
 import { PrimaryButton } from "@/components/ui/primary-button";
 import { billingApi } from "@/lib/api";
+import { event } from "@/lib/ga4";
 import type { SubscriptionStatusResponse } from "@/lib/types";
 
 function SuccessContent() {
@@ -38,6 +39,11 @@ function SuccessContent() {
 
         if (!mounted) return;
         setStatus(response);
+        event("purchase", {
+          currency: "KRW",
+          transaction_id: orderId,
+          value: Number(amount),
+        });
       } catch (err) {
         if (!mounted) return;
         setError(
