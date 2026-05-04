@@ -33,7 +33,7 @@
 | 지도/검색 | NAVER Maps JS SDK, NAVER Local Search API, Kakao 장소 검색 |
 | 인증 | 이메일/비밀번호, Google OAuth, Kakao OAuth, Naver OAuth |
 | 결제 | Toss Payments 구독 결제 |
-| 분석/보안 | PostHog, Cloudflare Turnstile, Sentry |
+| 분석/보안 | GA4, Cloudflare Turnstile, Sentry |
 | Infra | Docker, Docker Compose, GHCR, Nginx, AWS EC2/CloudWatch |
 | CI/CD | GitHub Actions |
 
@@ -204,7 +204,6 @@ ai-planner/
 | `KAKAO_REST_API_KEY` | Kakao 장소 검색 API |
 | `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`, `REDIS_TLS` | Redis 캐시/제한 설정 |
 | `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile secret |
-| `POSTHOG_API_KEY` | 서버 측 PostHog key |
 | `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN`, `SENTRY_ENVIRONMENT` | Sentry 수집/관리자 조회 설정 |
 | `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | 관리자 운영 조회용 AWS 인증 |
 | `CLOUDWATCH_LOG_GROUP_BACKEND`, `CLOUDWATCH_LOG_GROUP_FRONTEND` | CloudWatch 로그 그룹 |
@@ -223,7 +222,7 @@ ai-planner/
 | `BACKEND_URL` | 서버 사이드 API route가 직접 호출할 백엔드 URL |
 | `NEXT_PUBLIC_SITE_URL` | canonical/sitemap/robots 기준 사이트 URL |
 | `NEXT_PUBLIC_NAVER_MAP_CLIENT_ID` | Naver Maps JS SDK 키 |
-| `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST` | PostHog 브라우저 설정 |
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | GA4 Measurement ID |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Turnstile 사이트 키 |
 | `NEXT_PUBLIC_SENTRY_DSN` | 프론트엔드 Sentry DSN |
 | `NEXT_PUBLIC_TOSS_CLIENT_KEY` | Toss Payments client key |
