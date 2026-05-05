@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
+import { PageLayout } from "@/components/ui/PageLayout";
 import { CalendarPlus, HeartHandshake, Settings, Sparkles, Users } from "lucide-react";
 import { AppCard } from "@/components/ui/app-card";
 import { PrimaryButton } from "@/components/ui/primary-button";
@@ -39,9 +40,8 @@ export default function WorkspacePage() {
     role === "owner" ? "플랜 오너" : role === "member" ? "파트너" : "미정";
 
   return (
-    <div className="bg-[var(--background)]">
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-        <div className="space-y-6">
+    <PageLayout>
+      <div className="space-y-6">
           <AppCard
             padding="lg"
             className="overflow-hidden border-violet-100 bg-gradient-to-br from-white via-white to-violet-50/80"
@@ -136,7 +136,6 @@ export default function WorkspacePage() {
             />
           </AppCard>
         </div>
-      </main>
-    </div>
+    </PageLayout>
   );
 }

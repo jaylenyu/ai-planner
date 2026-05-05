@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppCard } from "@/components/ui/app-card";
 import { PrimaryButton } from "@/components/ui/primary-button";
+import { PageLayout } from "@/components/ui/PageLayout";
 import { usePlanList } from "@/hooks/usePlanList";
 import { useCategories } from "@/hooks/useCategories";
 import { useWorkspace } from "@/hooks/useWorkspace";
@@ -80,10 +81,61 @@ export default function LibraryPage() {
   };
 
   return (
-    <div className="bg-[var(--background)]">
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+    <PageLayout>
+        {/* 모바일 전용: 가로 스크롤 카테고리 pills + 추가 폼 */}
+        <div className="mb-4 space-y-3 lg:hidden">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 pill-scroll">
+            <button
+              type="button"
+              onClick={() => setCategoryId(undefined)}
+              className={`shrink-0 rounded-full border px-4 text-sm font-semibold transition-colors min-h-[44px] ${
+                !categoryId
+                  ? "border-orange-300 bg-orange-50 text-orange-700"
+                  : "border-stone-200 bg-white text-stone-600"
+              }`}
+            >
+              전체
+            </button>
+            {categoriesLoading ? null : (
+              categories.map((category) => (
+                <button
+                  key={category.id}
+                  type="button"
+                  onClick={() => setCategoryId(category.id)}
+                  className={`shrink-0 rounded-full border px-4 text-sm font-semibold transition-colors min-h-[44px] ${
+                    categoryId === category.id
+                      ? "border-orange-300 bg-orange-50 text-orange-700"
+                      : "border-stone-200 bg-white text-stone-600"
+                  }`}
+                >
+                  {category.name}
+                </button>
+              ))
+            )}
+          </div>
+          <div className="flex gap-2">
+            <input
+              value={categoryName}
+              onChange={(e) => setCategoryName(e.target.value)}
+              placeholder="새 카테고리 이름"
+              className="min-h-[44px] flex-1 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none focus:border-orange-300"
+            />
+            <PrimaryButton
+              type="button"
+              variant="brand"
+              size="sm"
+              loading={categorySaving}
+              onClick={handleCreateCategory}
+              className="shrink-0"
+            >
+              추가
+            </PrimaryButton>
+          </div>
+        </div>
+
         <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
-          <AppCard padding="md" className="h-fit lg:sticky lg:top-24">
+          {/* 데스크탑 전용 사이드바 */}
+          <AppCard padding="md" className="hidden h-fit lg:block lg:sticky lg:top-24">
             <h1 className="text-base font-bold text-stone-800">카테고리</h1>
             <p className="mt-1 text-sm text-stone-500">
               {selectedCategory ? selectedCategory.name : "전체 개인 일정"}
@@ -93,7 +145,7 @@ export default function LibraryPage() {
                 value={categoryName}
                 onChange={(e) => setCategoryName(e.target.value)}
                 placeholder="새 카테고리 이름"
-                className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm outline-none focus:border-orange-300"
+                className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-orange-300"
               />
               <PrimaryButton
                 type="button"
@@ -111,7 +163,7 @@ export default function LibraryPage() {
               <button
                 type="button"
                 onClick={() => setCategoryId(undefined)}
-                className={`rounded-xl border px-3 py-2 text-left text-sm transition-colors ${
+                className={`min-h-[44px] rounded-xl border px-3 py-2 text-left text-sm transition-colors ${
                   categoryId
                     ? "border-stone-200 bg-white text-stone-600"
                     : "border-orange-200 bg-orange-50 text-orange-700"
@@ -129,7 +181,7 @@ export default function LibraryPage() {
                     key={category.id}
                     type="button"
                     onClick={() => setCategoryId(category.id)}
-                    className={`rounded-xl border px-3 py-2 text-left text-sm transition-colors ${
+                    className={`min-h-[44px] rounded-xl border px-3 py-2 text-left text-sm transition-colors ${
                       categoryId === category.id
                         ? "border-orange-200 bg-orange-50 text-orange-700"
                         : "border-stone-200 bg-white text-stone-600"
@@ -175,7 +227,6 @@ export default function LibraryPage() {
             />
           </AppCard>
         </div>
-      </main>
-    </div>
+    </PageLayout>
   );
 }

@@ -187,12 +187,20 @@ jobs:
 
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
+            # 컨테이너를 먼저 제거해야 이전 이미지가 unused 상태가 되어 prune 가능
+            # (컨테이너가 살아있으면 old 이미지를 prune 못 해 디스크 부족 발생)
+            if [ "$BACKEND_CHANGED" = "true" ]; then
+              docker rm -f "$BACKEND_CONTAINER" >/dev/null 2>&1 || true
+            fi
+            if [ "$FRONTEND_CHANGED" = "true" ]; then
+              docker rm -f "$FRONTEND_CONTAINER" >/dev/null 2>&1 || true
+            fi
+
             docker image prune -af >/dev/null 2>&1 || true
             docker builder prune -af >/dev/null 2>&1 || true
 
             if [ "$BACKEND_CHANGED" = "true" ]; then
               docker pull ${{ env.IMAGE_BACKEND }}:canary
-              docker rm -f "$BACKEND_CONTAINER" >/dev/null 2>&1 || true
               docker run -d \
                 --name "$BACKEND_CONTAINER" \
                 --restart unless-stopped \
@@ -204,7 +212,6 @@ jobs:
 
             if [ "$FRONTEND_CHANGED" = "true" ]; then
               docker pull ${{ env.IMAGE_FRONTEND }}:canary
-              docker rm -f "$FRONTEND_CONTAINER" >/dev/null 2>&1 || true
               docker run -d \
                 --name "$FRONTEND_CONTAINER" \
                 --restart unless-stopped \
