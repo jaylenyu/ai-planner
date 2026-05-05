@@ -3,8 +3,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
-import { AppCard } from "@/components/ui/app-card";
-import { PrimaryButton } from "@/components/ui/primary-button";
+import { AppCard } from "@/components/custom/app-card";
+import { PrimaryButton } from "@/components/custom/primary-button";
 import { usePlanList } from "@/hooks/usePlanList";
 import { useCategories } from "@/hooks/useCategories";
 import { useWorkspace } from "@/hooks/useWorkspace";

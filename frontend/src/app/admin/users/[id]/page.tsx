@@ -3,8 +3,8 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
-import { AppCard } from '@/components/ui/app-card';
-import { PrimaryButton } from '@/components/ui/primary-button';
+import { AppCard } from '@/components/custom/app-card';
+import { PrimaryButton } from '@/components/custom/primary-button';
 import { adminApi } from '@/lib/api';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useAdminSession } from '../../_components/AdminSessionContext';

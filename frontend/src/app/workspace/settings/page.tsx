@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from 'react';
 import { CalendarRange, CheckCircle2, Link2, Sparkles, UserPlus, Users } from 'lucide-react';
-import { AppCard } from '@/components/ui/app-card';
-import { PrimaryButton } from '@/components/ui/primary-button';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { AppCard } from '@/components/custom/app-card';
+import { PrimaryButton } from '@/components/custom/primary-button';
+import { ConfirmDialog } from '@/components/custom/ConfirmDialog';
 import { workspaceApi } from '@/lib/api';
 import { useWorkspace } from '@/hooks/useWorkspace';
 

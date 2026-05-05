@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { getAuthUser } from "@/lib/auth";
-import { AppLogo } from "@/components/ui/AppLogo";
+import { AppLogo } from "@/components/custom/AppLogo";
 import { NotificationBell } from "@/components/notification/NotificationBell";
 import { UserMenu } from "@/components/user/UserMenu";
 import {

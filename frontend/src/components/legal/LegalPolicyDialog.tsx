@@ -1,6 +1,6 @@
 'use client';
 
-import { Dialog } from '@/components/ui/dialog';
+import { Dialog } from '@/components/custom/dialog';
 import { PrivacyContent } from './PrivacyContent';
 import { TermsContent } from './TermsContent';
 

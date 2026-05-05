@@ -3,8 +3,8 @@
 import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Spinner } from "@/components/ui/Spinner";
-import { AppLogo } from "@/components/ui/AppLogo";
+import { Spinner } from "@/components/custom/Spinner";
+import { AppLogo } from "@/components/custom/AppLogo";
 import { authApi } from "@/lib/api";
 
 function AdminLoginContent() {

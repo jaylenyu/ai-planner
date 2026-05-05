@@ -3,8 +3,8 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { AppCard } from "@/components/ui/app-card";
-import { PrimaryButton } from "@/components/ui/primary-button";
+import { AppCard } from "@/components/custom/app-card";
+import { PrimaryButton } from "@/components/custom/primary-button";
 
 function SubscribeFailContent() {
   const searchParams = useSearchParams();

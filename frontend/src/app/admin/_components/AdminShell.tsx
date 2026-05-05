@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Dialog } from '@/components/ui/dialog';
+import { Dialog } from '@/components/custom/dialog';
 import { AdminSidebar } from './AdminSidebar';
 import { AdminSessionProvider } from './AdminSessionContext';
 import { AdminTopBar } from './AdminTopBar';

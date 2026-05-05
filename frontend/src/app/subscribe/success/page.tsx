@@ -4,8 +4,8 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import confetti from "canvas-confetti";
-import { AppCard } from "@/components/ui/app-card";
-import { PrimaryButton } from "@/components/ui/primary-button";
+import { AppCard } from "@/components/custom/app-card";
+import { PrimaryButton } from "@/components/custom/primary-button";
 import { billingApi } from "@/lib/api";
 import type { SubscriptionStatusResponse } from "@/lib/types";
 
