@@ -14,6 +14,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import type { AuthenticatedUser } from '../auth/types';
 import { AdminService } from './admin.service';
+import { GA4Service } from './ga4.service';
 
 class UpdateRoleDto {
   @IsEnum(Role)
@@ -28,7 +29,10 @@ class SuspendUserDto {
 @Controller('admin')
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly ga4Service: GA4Service,
+  ) {}
 
   @Get('summary')
   summary() {
@@ -137,5 +141,10 @@ export class AdminController {
   @Get('ops/api-usage')
   apiUsage() {
     return this.adminService.getApiUsageOverview();
+  }
+
+  @Get('ops/ga4')
+  ga4() {
+    return this.ga4Service.getOverview();
   }
 }

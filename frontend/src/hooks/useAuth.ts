@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { api, ApiError } from '../lib/api';
+import { event } from '../lib/ga4';
 import {
   useAuthStore,
   selectIsLoggedIn,
@@ -23,6 +24,7 @@ export function useAuth() {
     try {
       const res = await api.post<AuthResponse>('/auth/login', { email, password });
       useAuthStore.getState().setTokens(res.access_token, res.refresh_token);
+      event('login', { method: 'email' });
       return true;
     } catch (err) {
       if (err instanceof ApiError) {

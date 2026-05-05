@@ -101,7 +101,7 @@ export function PrivacyContent({ embedded = false }: PrivacyContentProps) {
           <ul className="ml-6 list-disc space-y-1 text-stone-600">
             <li>클라우드 인프라 및 데이터베이스 운영: AWS, Vercel 등</li>
             <li>이메일 및 알림 전송: AWS SES, 기타 전문 발송 대행사</li>
-            <li>로그, 모니터링, 분석 도구: PostHog, Sentry 등</li>
+            <li>로그, 모니터링, 분석 도구: GA4, Sentry 등</li>
           </ul>
           <p>
             위탁 계약 시 개인정보 보호법 제26조에 따라 수탁자의 책임과 안전성 확보

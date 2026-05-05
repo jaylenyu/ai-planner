@@ -10,6 +10,7 @@ import { CheckCircle2 } from "lucide-react";
 import { AppLogo } from "@/components/custom/AppLogo";
 import { Spinner } from "@/components/custom/Spinner";
 import { authApi } from "@/lib/api";
+import { event } from "@/lib/ga4";
 import { useAuthStore } from "@/stores/authStore";
 
 const nicknameSchema = z.object({
@@ -67,6 +68,7 @@ function OAuthCompleteContent() {
       const trimmedNickname = data.nickname.trim();
       const res = await authApi.completeOAuthSignup(token, trimmedNickname);
       useAuthStore.getState().setTokens(res.access_token, res.refresh_token);
+      event("sign_up", { method: provider });
       setNickname(trimmedNickname);
       setCompleted(true);
     } catch (err) {
