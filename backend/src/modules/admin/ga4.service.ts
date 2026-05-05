@@ -79,7 +79,9 @@ export class GA4Service {
   private acquisitionCache: CachedGa4Entry<Ga4Acquisition[]> | null = null;
 
   private get propertyId() {
-    return process.env.GA4_PROPERTY_ID?.trim();
+    const id = process.env.GA4_PROPERTY_ID?.trim();
+    if (!id) return undefined;
+    return id.startsWith('properties/') ? id : `properties/${id}`;
   }
 
   private getCredentials() {
