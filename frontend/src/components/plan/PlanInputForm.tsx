@@ -2,8 +2,8 @@
 
 import { useRef, useState } from 'react';
 import { Check } from 'lucide-react';
-import { Spinner } from '../ui/Spinner';
-import { PrimaryButton } from '../ui/primary-button';
+import { Spinner } from '../custom/Spinner';
+import { PrimaryButton } from '../custom/primary-button';
 import { PlanMode } from '../../lib/types';
 
 interface PlanInputFormProps {

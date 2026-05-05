@@ -13,8 +13,8 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
-import { AppCard } from "@/components/ui/app-card";
-import { PrimaryButton } from "@/components/ui/primary-button";
+import { AppCard } from "@/components/custom/app-card";
+import { PrimaryButton } from "@/components/custom/primary-button";
 import { useNotifications } from "@/hooks/useNotifications";
 import { usePlanList } from "@/hooks/usePlanList";
 import { useSubscriptionStatus } from "@/hooks/useSubscriptionStatus";

@@ -10,9 +10,9 @@ import type {
 import { useMutation, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { ArrowRight, Loader2 } from 'lucide-react';
-import { AppCard } from '@/components/ui/app-card';
-import { DataTable } from '@/components/ui/data-table';
-import { PrimaryButton } from '@/components/ui/primary-button';
+import { AppCard } from '@/components/custom/app-card';
+import { DataTable } from '@/components/custom/data-table';
+import { PrimaryButton } from '@/components/custom/primary-button';
 import { adminApi } from '@/lib/api';
 import type { AdminUserListResponse } from '@/lib/types';
 import { useIsMobile } from '@/hooks/useIsMobile';

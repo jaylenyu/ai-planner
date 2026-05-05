@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { AppCard } from '@/components/ui/app-card';
+import { AppCard } from '@/components/custom/app-card';
 import { cn } from '@/lib/utils';
 
 export function AdminSectionCard({

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { X } from 'lucide-react';
-import { PrimaryButton } from '@/components/ui/primary-button';
+import { PrimaryButton } from '@/components/custom/primary-button';
 import type { PlanMemo } from '@/lib/types';
 
 interface PlanMemoThreadProps {

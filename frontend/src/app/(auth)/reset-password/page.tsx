@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Check } from 'lucide-react';
 import { api } from '../../../lib/api';
-import { AppLogo } from '@/components/ui/AppLogo';
+import { AppLogo } from '@/components/custom/AppLogo';
 
 function ResetPasswordForm() {
   const [password, setPassword] = useState('');

@@ -1,4 +1,4 @@
-import { AppCard } from '@/components/ui/app-card';
+import { AppCard } from '@/components/custom/app-card';
 
 export function KpiCard({
   label,

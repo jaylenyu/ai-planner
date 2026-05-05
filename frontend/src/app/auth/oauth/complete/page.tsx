@@ -7,8 +7,8 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2 } from "lucide-react";
-import { AppLogo } from "@/components/ui/AppLogo";
-import { Spinner } from "@/components/ui/Spinner";
+import { AppLogo } from "@/components/custom/AppLogo";
+import { Spinner } from "@/components/custom/Spinner";
 import { authApi } from "@/lib/api";
 import { useAuthStore } from "@/stores/authStore";
 

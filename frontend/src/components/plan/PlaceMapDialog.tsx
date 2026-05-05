@@ -2,9 +2,9 @@
 
 import { useMemo } from 'react';
 import { ExternalLink, MapPin } from 'lucide-react';
-import { Dialog } from '@/components/ui/dialog';
+import { Dialog } from '@/components/custom/dialog';
 import { PlanItem, TYPE_ICONS } from '@/lib/types';
-import { PrimaryButton } from '@/components/ui/primary-button';
+import { PrimaryButton } from '@/components/custom/primary-button';
 
 interface PlaceMapDialogProps {
   open: boolean;

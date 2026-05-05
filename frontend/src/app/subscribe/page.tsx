@@ -2,10 +2,10 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AppCard } from "@/components/ui/app-card";
-import { PrimaryButton } from "@/components/ui/primary-button";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { Dialog } from "@/components/ui/dialog";
+import { AppCard } from "@/components/custom/app-card";
+import { PrimaryButton } from "@/components/custom/primary-button";
+import { ConfirmDialog } from "@/components/custom/ConfirmDialog";
+import { Dialog } from "@/components/custom/dialog";
 import { TossPaymentWidget } from "@/components/payment/TossPaymentWidget";
 import { billingApi } from "@/lib/api";
 import { useSubscriptionStatus } from "@/hooks/useSubscriptionStatus";

@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import { CalendarPlus, HeartHandshake, Settings, Sparkles, Users } from "lucide-react";
-import { AppCard } from "@/components/ui/app-card";
-import { PrimaryButton } from "@/components/ui/primary-button";
+import { AppCard } from "@/components/custom/app-card";
+import { PrimaryButton } from "@/components/custom/primary-button";
 import { PlanHistory } from "@/components/plan/PlanHistory";
 import { usePlanList } from "@/hooks/usePlanList";
 import { useWorkspace } from "@/hooks/useWorkspace";

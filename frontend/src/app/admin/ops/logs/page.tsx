@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { PrimaryButton } from '@/components/ui/primary-button';
+import { PrimaryButton } from '@/components/custom/primary-button';
 import { adminApi } from '@/lib/api';
 import { AdminPageHeader } from '../../_components/AdminPageHeader';
 import { AdminSectionCard } from '../../_components/AdminSectionCard';

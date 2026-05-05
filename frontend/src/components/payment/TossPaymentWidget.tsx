@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { PrimaryButton } from "../ui/primary-button";
+import { PrimaryButton } from "../custom/primary-button";
 
 interface TossPaymentInstance {
   requestPayment: (options: {
