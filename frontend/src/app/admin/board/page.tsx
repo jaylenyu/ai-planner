@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import Link from 'next/link';
 import { adminApi } from '@/lib/api';
 import { AdminPageHeader } from '../_components/AdminPageHeader';
 import { KpiCard } from '../_components/KpiCard';
@@ -14,13 +15,22 @@ function formatWon(value: number) {
   return new Intl.NumberFormat('ko-KR').format(Math.round(value));
 }
 
+function formatPercent(value: number) {
+  return `${(value * 100).toFixed(1)}%`;
+}
+
 export default function AdminBoardPage() {
   const summaryQuery = useQuery({
     queryKey: ['admin', 'summary'],
     queryFn: () => adminApi.summary(),
   });
+  const ga4Query = useQuery({
+    queryKey: ['admin', 'ga4'],
+    queryFn: () => adminApi.ga4(),
+  });
 
   const data = summaryQuery.data;
+  const ga4 = ga4Query.data;
 
   return (
     <div className="space-y-6">
@@ -42,6 +52,39 @@ export default function AdminBoardPage() {
         <KpiCard label="금월 AWS 비용" value={`$${(data?.kpis.monthlyAwsCost ?? 0).toFixed(2)}`} />
         <KpiCard label="Sentry unresolved" value={formatNumber(data?.kpis.unresolvedSentryCount ?? 0)} />
       </div>
+
+      <AdminSectionCard
+        title="GA4 Analytics"
+        description="마케팅 유입과 사용자 활동 지표를 확인합니다."
+        action={
+          <Link
+            href="/admin/ops/ga4"
+            className="text-sm font-semibold text-orange-600 hover:text-orange-700"
+          >
+            상세 보기
+          </Link>
+        }
+      >
+        {!ga4?.available ? (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {ga4?.error ?? 'GA4 데이터를 불러오는 중입니다.'}
+          </div>
+        ) : null}
+        <div className="grid gap-4 md:grid-cols-3">
+          <KpiCard
+            label="오늘 활성유저"
+            value={formatNumber(ga4?.summary.todayActiveUsers ?? 0)}
+          />
+          <KpiCard
+            label="7일 세션"
+            value={formatNumber(ga4?.summary.sevenDaySessions ?? 0)}
+          />
+          <KpiCard
+            label="30일 이탈률"
+            value={formatPercent(ga4?.summary.thirtyDayBounceRate ?? 0)}
+          />
+        </div>
+      </AdminSectionCard>
 
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <AdminSectionCard

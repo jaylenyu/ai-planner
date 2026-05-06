@@ -10,7 +10,7 @@ import {
   YAxis,
   ResponsiveContainer,
 } from 'recharts';
-import { PrimaryButton } from '@/components/ui/primary-button';
+import { PrimaryButton } from '@/components/custom/primary-button';
 import { adminApi } from '@/lib/api';
 import { AdminPageHeader } from '../../_components/AdminPageHeader';
 import { AdminSectionCard } from '../../_components/AdminSectionCard';

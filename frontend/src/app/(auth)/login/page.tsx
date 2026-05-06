@@ -4,9 +4,9 @@ import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../hooks/useAuth';
-import { Spinner } from '@/components/ui/Spinner';
+import { Spinner } from '@/components/custom/Spinner';
 import { OAuthButtonList } from '../../../components/auth/OAuthButtonList';
-import { AppLogo } from '@/components/ui/AppLogo';
+import { AppLogo } from '@/components/custom/AppLogo';
 
 function LoginPageContent() {
   const router = useRouter();

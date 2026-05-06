@@ -121,7 +121,8 @@ body {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* Smooth transitions globally */
+/* Smooth transitions globally — timing function only, not property declaration.
+   Layout-affecting properties (width, height, padding) are excluded to prevent CLS. */
 *,
 *::before,
 *::after {

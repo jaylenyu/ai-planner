@@ -11,9 +11,9 @@ import {
   Sparkles,
   Timer,
 } from "lucide-react";
-import { PrimaryButton } from "@/components/ui/primary-button";
-import { AppCard } from "@/components/ui/app-card";
-import { SectionLayout } from "@/components/ui/section-layout";
+import { PrimaryButton } from "@/components/custom/primary-button";
+import { AppCard } from "@/components/custom/app-card";
+import { SectionLayout } from "@/components/custom/section-layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // ── Static data ────────────────────────────────────────────────────────────────

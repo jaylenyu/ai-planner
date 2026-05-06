@@ -113,9 +113,8 @@ jobs:
             NEXT_PUBLIC_API_URL=https://test.date-planner.us/api
             NEXT_PUBLIC_NAVER_MAP_CLIENT_ID=${{ secrets.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID }}
             NEXT_PUBLIC_TOSS_CLIENT_KEY=${{ secrets.NEXT_PUBLIC_TOSS_CLIENT_KEY }}
-            NEXT_PUBLIC_POSTHOG_KEY=${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}
-            NEXT_PUBLIC_POSTHOG_HOST=${{ secrets.NEXT_PUBLIC_POSTHOG_HOST }}
             NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+            NEXT_PUBLIC_GA_MEASUREMENT_ID=${{ secrets.NEXT_PUBLIC_GA_MEASUREMENT_ID }}
             NEXT_PUBLIC_ADMIN_PUBLIC_LOGIN_ENABLED=true
             SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
             SENTRY_ORG=${{ secrets.SENTRY_ORG }}
@@ -208,6 +207,7 @@ jobs:
 
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
+            sudo journalctl --vacuum-size=100M 2>/dev/null || true
             docker image prune -af >/dev/null 2>&1 || true
             docker builder prune -af >/dev/null 2>&1 || true
 
@@ -396,17 +396,14 @@ jobs:
             upsert_env CLOUDWATCH_LOG_GROUP_FRONTEND '/ai-planner-test/frontend'
 
             docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" config >/dev/null
-            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            docker image prune -af >/dev/null 2>&1 || true
-
+            # 이미지 pull/prune은 앞선 deploy 잡에서 이미 수행됨 (같은 EC2).
+            # 여기서는 캐시된 이미지로 test 스택만 기동.
             SERVICES=""
             if [ "$BACKEND_CHANGED" = "true" ]; then
-              docker pull ${{ env.IMAGE_BACKEND }}:canary
               SERVICES="$SERVICES backend"
             fi
             if [ "$FRONTEND_CHANGED" = "true" ]; then
-              docker pull ${{ env.IMAGE_FRONTEND }}:canary
               SERVICES="$SERVICES frontend"
             fi
 
@@ -418,7 +415,7 @@ jobs:
             docker compose \
               -f "$COMPOSE_FILE" \
               --env-file "$ENV_FILE" \
-              up -d --no-build $SERVICES
+              up -d --no-build --pull never $SERVICES
 
       - name: Test health check
         uses: appleboy/ssh-action@v1

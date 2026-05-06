@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { AppCard } from "../ui/app-card";
+import { AppCard } from "../custom/app-card";
 import { PlanItem, TYPE_ICONS, TYPE_LABELS } from "../../lib/types";
 import { ArrowRight, Clock3 } from "lucide-react";
 

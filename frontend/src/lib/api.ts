@@ -4,6 +4,7 @@ import type {
   AdminApiUsageResponse,
   AdminBillingResponse,
   AdminCostResponse,
+  AdminGa4Response,
   AdminLogsResponse,
   AdminPlanListResponse,
   AdminPlansResponse,
@@ -531,4 +532,6 @@ export const adminApi = {
     requestAppRaw<AdminSentryResponse>('/api/admin/ops/sentry'),
   apiUsage: () =>
     requestAppRaw<AdminApiUsageResponse>('/api/admin/ops/api-usage'),
+  ga4: () =>
+    requestAppRaw<AdminGa4Response>('/api/admin/ops/ga4'),
 };

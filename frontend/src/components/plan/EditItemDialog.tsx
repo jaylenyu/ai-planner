@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Dialog } from '@/components/ui/dialog';
-import { PrimaryButton } from '@/components/ui/primary-button';
+import { Dialog } from '@/components/custom/dialog';
+import { PrimaryButton } from '@/components/custom/primary-button';
 import type { PlanItem } from '@/lib/types';
 
 interface EditItemDialogProps {

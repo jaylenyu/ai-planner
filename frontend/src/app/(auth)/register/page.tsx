@@ -10,10 +10,11 @@ import { Turnstile } from "@marsidev/react-turnstile";
 import { CheckCircle2 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { LegalPolicyDialog } from "@/components/legal/LegalPolicyDialog";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "@/components/custom/Spinner";
 import { OAuthButtonList } from "../../../components/auth/OAuthButtonList";
-import { AppLogo } from "@/components/ui/AppLogo";
+import { AppLogo } from "@/components/custom/AppLogo";
 import { authApi } from "../../../lib/api";
+import { event } from "../../../lib/ga4";
 import { useAuthStore } from "../../../stores/authStore";
 
 const TURNSTILE_SITE_KEY =
@@ -494,6 +495,7 @@ function RegisterPageContent() {
         data.agreedPrivacy,
       );
       useAuthStore.getState().setTokens(res.access_token, res.refresh_token);
+      event("sign_up", { method: "email" });
       setRegisteredAt(
         new Date().toLocaleString("ko-KR", {
           year: "numeric",

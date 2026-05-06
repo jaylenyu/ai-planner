@@ -5,9 +5,9 @@ import { useRouter } from 'next/navigation';
 import { Clock3, HeartHandshake, X } from 'lucide-react';
 import { TYPE_ICONS } from '../../lib/types';
 import type { PlanSummary } from '../../lib/types';
-import { Spinner } from '../ui/Spinner';
-import { ConfirmDialog } from '../ui/ConfirmDialog';
-import { PrimaryButton } from '../ui/primary-button';
+import { Spinner } from '../custom/Spinner';
+import { ConfirmDialog } from '../custom/ConfirmDialog';
+import { PrimaryButton } from '../custom/primary-button';
 import type { ReactNode } from 'react';
 
 interface PlanHistoryProps {

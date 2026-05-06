@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Bell } from 'lucide-react';
 import { useNotifications } from '@/hooks/useNotifications';
-import { Dialog } from '@/components/ui/dialog';
+import { Dialog } from '@/components/custom/dialog';
 
 function formatPayload(payload: Record<string, unknown>) {
   if (typeof payload.summary === 'string' && payload.summary) return payload.summary;

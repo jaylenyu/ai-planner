@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   BarChart3,
+  ChartNoAxesColumnIncreasing,
   CreditCard,
   LayoutDashboard,
   Logs,
@@ -45,6 +46,11 @@ const sections: NavSection[] = [
       { href: '/admin/ops/cost', label: '비용', icon: WalletCards },
       { href: '/admin/ops/sentry', label: 'Sentry', icon: Shield },
       { href: '/admin/ops/api-usage', label: 'API 사용량', icon: WandSparkles },
+      {
+        href: '/admin/ops/ga4',
+        label: 'GA4 Analytics',
+        icon: ChartNoAxesColumnIncreasing,
+      },
     ],
   },
 ];

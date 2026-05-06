@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Check } from 'lucide-react';
 import { api } from '../../../lib/api';
-import { AppLogo } from '@/components/ui/AppLogo';
+import { AppLogo } from '@/components/custom/AppLogo';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');

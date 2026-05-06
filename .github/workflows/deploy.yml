@@ -113,9 +113,9 @@ jobs:
             NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
             NEXT_PUBLIC_NAVER_MAP_CLIENT_ID=${{ secrets.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID }}
             NEXT_PUBLIC_TOSS_CLIENT_KEY=${{ secrets.NEXT_PUBLIC_TOSS_CLIENT_KEY }}
-            NEXT_PUBLIC_POSTHOG_KEY=${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}
-            NEXT_PUBLIC_POSTHOG_HOST=${{ secrets.NEXT_PUBLIC_POSTHOG_HOST }}
             NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+            NEXT_PUBLIC_ADMIN_PUBLIC_LOGIN_ENABLED=true
+            NEXT_PUBLIC_GA_MEASUREMENT_ID=${{ secrets.NEXT_PUBLIC_GA_MEASUREMENT_ID }}
             SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
             SENTRY_ORG=${{ secrets.SENTRY_ORG }}
             SENTRY_PROJECT=${{ secrets.SENTRY_PROJECT }}
@@ -178,6 +178,7 @@ jobs:
             upsert_env SEED_ADMIN_PASSWORD '${{ secrets.SEED_ADMIN_PASSWORD }}'
             upsert_env SEED_PUBLIC_ADMIN_EMAIL '${{ secrets.SEED_PUBLIC_ADMIN_EMAIL }}'
             upsert_env SEED_PUBLIC_ADMIN_PASSWORD '${{ secrets.SEED_PUBLIC_ADMIN_PASSWORD }}'
+            upsert_env ADMIN_PUBLIC_LOGIN_ENABLED 'true'
             upsert_env AWS_REGION '${{ secrets.AWS_REGION }}'
             upsert_env AWS_ACCESS_KEY_ID '${{ secrets.AWS_ACCESS_KEY_ID }}'
             upsert_env AWS_SECRET_ACCESS_KEY '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
@@ -191,10 +192,14 @@ jobs:
             upsert_env_if_present EMAIL_USER '${{ secrets.EMAIL_USER }}'
             upsert_env_if_present EMAIL_PASS '${{ secrets.EMAIL_PASS }}'
             upsert_env_if_present EMAIL_FROM '${{ secrets.EMAIL_FROM }}'
+            upsert_env_if_present GA4_PROPERTY_ID '${{ secrets.GA4_PROPERTY_ID }}'
+            upsert_env_if_present GA4_CLIENT_EMAIL '${{ secrets.GA4_CLIENT_EMAIL }}'
+            upsert_env_if_present GA4_PRIVATE_KEY '${{ secrets.GA4_PRIVATE_KEY }}'
 
             docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" config >/dev/null
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
+            sudo journalctl --vacuum-size=100M 2>/dev/null || true
             docker image prune -af >/dev/null 2>&1 || true
             docker builder prune -af >/dev/null 2>&1 || true
 

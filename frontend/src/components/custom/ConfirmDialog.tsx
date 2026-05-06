@@ -1,7 +1,7 @@
 'use client';
 
-import { PrimaryButton } from '@/components/ui/primary-button';
-import { Dialog } from '@/components/ui/dialog';
+import { PrimaryButton } from '@/components/custom/primary-button';
+import { Dialog } from '@/components/custom/dialog';
 
 interface ConfirmDialogProps {
   open: boolean;

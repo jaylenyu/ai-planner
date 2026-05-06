@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { MONTHLY_AMOUNT } from "@/config/billing";
+import { PageLayout } from "@/components/custom/PageLayout";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -13,8 +14,8 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
-import { AppCard } from "@/components/ui/app-card";
-import { PrimaryButton } from "@/components/ui/primary-button";
+import { AppCard } from "@/components/custom/app-card";
+import { PrimaryButton } from "@/components/custom/primary-button";
 import { useNotifications } from "@/hooks/useNotifications";
 import { usePlanList } from "@/hooks/usePlanList";
 import { useSubscriptionStatus } from "@/hooks/useSubscriptionStatus";
@@ -103,9 +104,8 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="bg-[var(--background)]">
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-12">
-        <div className="space-y-6">
+    <PageLayout>
+      <div className="space-y-6">
           <div className="space-y-2">
             <p className="text-sm font-semibold text-orange-600">Dashboard</p>
             <h1 className="text-3xl font-bold text-stone-900">
@@ -382,8 +382,7 @@ export default function DashboardPage() {
               </AppCard>
             </div>
           </div>
-        </div>
-      </main>
-    </div>
+      </div>
+    </PageLayout>
   );
 }

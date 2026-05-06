@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { AppCard } from '@/components/ui/app-card';
-import { PrimaryButton } from '@/components/ui/primary-button';
+import { AppCard } from '@/components/custom/app-card';
+import { PrimaryButton } from '@/components/custom/primary-button';
 import { workspaceApi } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 

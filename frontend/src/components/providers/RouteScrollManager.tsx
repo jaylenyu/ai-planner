@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
+import { pageview } from '@/lib/ga4';
 
 export function RouteScrollManager() {
   const pathname = usePathname();
@@ -27,6 +28,9 @@ export function RouteScrollManager() {
       return;
     }
 
+    const url = pathname + (searchParams.toString() ? `?${searchParams.toString()}` : '');
+    pageview(url);
+
     if (isPopStateRef.current) {
       isPopStateRef.current = false;
       return;
@@ -35,7 +39,7 @@ export function RouteScrollManager() {
     window.requestAnimationFrame(() => {
       window.scrollTo({ top: 0, behavior: 'auto' });
     });
-  }, [routeKey]);
+  }, [routeKey, pathname, searchParams]);
 
   return null;
 }

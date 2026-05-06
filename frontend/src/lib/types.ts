@@ -430,6 +430,29 @@ export interface AdminSentryResponse {
   }>;
 }
 
+export interface AdminGa4Response {
+  configured: boolean;
+  available: boolean;
+  error?: string;
+  summary: {
+    todayActiveUsers: number;
+    sevenDaySessions: number;
+    thirtyDayBounceRate: number;
+  };
+  trend: Array<{
+    date: string;
+    activeUsers: number;
+  }>;
+  topPages: Array<{
+    path: string;
+    views: number;
+  }>;
+  acquisition: Array<{
+    channel: string;
+    sessions: number;
+  }>;
+}
+
 export interface AdminLogsResponse {
   configured: boolean;
   available: boolean;

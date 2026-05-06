@@ -10,7 +10,7 @@ interface PrimaryButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 const sizeMap: Record<NonNullable<PrimaryButtonProps['size']>, string> = {
-  sm: 'h-9 px-5 text-sm gap-1.5',
+  sm: 'h-10 px-5 text-sm gap-1.5',
   md: 'h-11 px-6 text-sm gap-2',
   lg: 'h-13 px-8 text-base gap-2.5',
 };

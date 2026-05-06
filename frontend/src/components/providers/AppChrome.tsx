@@ -2,8 +2,8 @@
 
 import type React from "react";
 import { usePathname } from "next/navigation";
-import { Footer } from "@/components/ui/Footer";
-import { GlobalNav } from "@/components/ui/GlobalNav";
+import { Footer } from "@/components/custom/Footer";
+import { GlobalNav } from "@/components/custom/GlobalNav";
 
 export function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

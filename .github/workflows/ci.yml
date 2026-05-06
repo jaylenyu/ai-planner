@@ -131,7 +131,5 @@ jobs:
           build-args: |
             NEXT_PUBLIC_API_URL=http://localhost:4000
             NEXT_PUBLIC_NAVER_MAP_CLIENT_ID=dummy
-            NEXT_PUBLIC_POSTHOG_KEY=dummy
-            NEXT_PUBLIC_POSTHOG_HOST=https://app.posthog.com
           cache-from: type=gha,scope=frontend-ci
           cache-to: type=gha,scope=frontend-ci,mode=max
