@@ -127,12 +127,12 @@ export class GA4Service {
     });
     const [sevenDayResponse] = await ga4.client.runReport({
       property: ga4.property,
-      dateRanges: [{ startDate: '7daysAgo', endDate: 'today' }],
+      dateRanges: [{ startDate: '6daysAgo', endDate: 'today' }],
       metrics: [{ name: 'sessions' }],
     });
     const [thirtyDayResponse] = await ga4.client.runReport({
       property: ga4.property,
-      dateRanges: [{ startDate: '30daysAgo', endDate: 'today' }],
+      dateRanges: [{ startDate: '29daysAgo', endDate: 'today' }],
       metrics: [{ name: 'bounceRate' }],
     });
 
@@ -160,7 +160,7 @@ export class GA4Service {
 
     const [response] = await ga4.client.runReport({
       property: ga4.property,
-      dateRanges: [{ startDate: '30daysAgo', endDate: 'today' }],
+      dateRanges: [{ startDate: '29daysAgo', endDate: 'today' }],
       dimensions: [{ name: 'date' }],
       metrics: [{ name: 'activeUsers' }],
       orderBys: [{ dimension: { dimensionName: 'date' } }],
@@ -190,7 +190,7 @@ export class GA4Service {
 
     const [response] = await ga4.client.runReport({
       property: ga4.property,
-      dateRanges: [{ startDate: '30daysAgo', endDate: 'today' }],
+      dateRanges: [{ startDate: '29daysAgo', endDate: 'today' }],
       dimensions: [{ name: 'pagePath' }],
       metrics: [{ name: 'screenPageViews' }],
       limit: 10,
@@ -221,7 +221,7 @@ export class GA4Service {
 
     const [response] = await ga4.client.runReport({
       property: ga4.property,
-      dateRanges: [{ startDate: '30daysAgo', endDate: 'today' }],
+      dateRanges: [{ startDate: '29daysAgo', endDate: 'today' }],
       dimensions: [{ name: 'sessionDefaultChannelGroup' }],
       metrics: [{ name: 'sessions' }],
       limit: 10,

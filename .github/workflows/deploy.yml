@@ -192,10 +192,14 @@ jobs:
             upsert_env_if_present EMAIL_USER '${{ secrets.EMAIL_USER }}'
             upsert_env_if_present EMAIL_PASS '${{ secrets.EMAIL_PASS }}'
             upsert_env_if_present EMAIL_FROM '${{ secrets.EMAIL_FROM }}'
+            upsert_env_if_present GA4_PROPERTY_ID '${{ secrets.GA4_PROPERTY_ID }}'
+            upsert_env_if_present GA4_CLIENT_EMAIL '${{ secrets.GA4_CLIENT_EMAIL }}'
+            upsert_env_if_present GA4_PRIVATE_KEY '${{ secrets.GA4_PRIVATE_KEY }}'
 
             docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" config >/dev/null
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
+            sudo journalctl --vacuum-size=100M 2>/dev/null || true
             docker image prune -af >/dev/null 2>&1 || true
             docker builder prune -af >/dev/null 2>&1 || true
 
