@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
+import { PageLayout } from "@/components/custom/PageLayout";
 import { PlanInputForm } from "@/components/plan/PlanInputForm";
 import { ScheduleList } from "@/components/plan/ScheduleList";
 import { ScheduleSkeleton } from "@/components/plan/ScheduleSkeleton";
@@ -326,7 +327,9 @@ function PlanPageContent() {
         <div className="text-5xl animate-pulse-soft">🗓</div>
         <div className="space-y-1.5">
           <p className="text-base font-semibold text-stone-600">
-            왼쪽에서 일정을 입력하면 여기에 결과가 나타나요
+            <span className="lg:hidden">위에서</span>
+            <span className="hidden lg:inline">왼쪽에서</span>
+            {" "}일정을 입력하면 여기에 결과가 나타나요
           </p>
           <p className="text-sm text-stone-400">
             데이트 코스부터 당일치기 여행까지 AI가 설계해드려요
@@ -337,7 +340,7 @@ function PlanPageContent() {
   };
 
   return (
-    <div className="bg-[var(--background)] overflow-x-clip">
+    <div className="overflow-x-clip">
       <PlaceMapDialog
         open={!!selectedPlace}
         item={selectedPlace}
@@ -345,7 +348,7 @@ function PlanPageContent() {
           if (!open) setSelectedPlace(null);
         }}
       />
-      <main id="main" className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+      <PageLayout>
         <section
           ref={resultsRef}
           className="grid grid-cols-1 gap-6 lg:grid-cols-[0.88fr_1.12fr] lg:items-start"
@@ -372,12 +375,12 @@ function PlanPageContent() {
             </AppCard>
           </div>
 
-          {/* Results panel */}
-          <AppCard padding="lg" className="min-w-0">
+          {/* Results panel: min-h prevents CLS when result mounts */}
+          <AppCard padding="lg" className="min-w-0 min-h-[300px]">
             {renderResultsPanel()}
           </AppCard>
         </section>
-      </main>
+      </PageLayout>
     </div>
   );
 }

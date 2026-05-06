@@ -82,12 +82,12 @@ function MobileTab({ href, icon, label }: MobileTabProps) {
   return (
     <Link
       href={href}
-      className={`flex flex-col items-center gap-0.5 min-w-[48px] min-h-[44px] justify-center transition-colors ${
+      className={`flex flex-col items-center gap-0.5 min-w-[48px] min-h-[48px] justify-center transition-colors ${
         isActive ? "text-orange-600" : "text-stone-400"
       }`}
     >
       {icon}
-      <span className="text-[10px] font-medium leading-tight">{label}</span>
+      <span className="text-[11px] font-medium leading-tight">{label}</span>
     </Link>
   );
 }
@@ -116,25 +116,32 @@ export function GlobalNav() {
           <AppLogo size="md" showSubtitle />
 
           {/* 모바일: 알림 + 마이페이지 + 로그아웃 */}
-          <div className="flex items-center gap-3 sm:hidden">
-            {!hydrated ? null : isLoggedIn ? (
+          <div className="flex items-center gap-1 sm:hidden">
+            {/* CLS 방지: hydration 전에 동일한 크기의 placeholder 렌더링 */}
+            {!hydrated ? (
+              <>
+                <div className="h-11 w-11" />
+                <div className="h-11 w-11" />
+                <div className="h-11 w-11" />
+              </>
+            ) : isLoggedIn ? (
               <>
                 <NotificationBell />
                 <button
                   type="button"
                   onClick={() => router.push('/mypage')}
-                  className="flex items-center justify-center h-9 w-9 rounded-full text-stone-400 active:bg-stone-100 transition-colors"
+                  className="flex items-center justify-center h-11 w-11 rounded-full text-stone-400 active:bg-stone-100 transition-colors"
                   aria-label="마이페이지"
                 >
-                  <User className="h-4 w-4" />
+                  <User className="h-5 w-5" />
                 </button>
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="flex items-center justify-center h-9 w-9 rounded-full text-stone-400 active:bg-stone-100 transition-colors"
+                  className="flex items-center justify-center h-11 w-11 rounded-full text-stone-400 active:bg-stone-100 transition-colors"
                   aria-label="로그아웃"
                 >
-                  <LogOut className="h-4 w-4" />
+                  <LogOut className="h-5 w-5" />
                 </button>
               </>
             ) : (
@@ -142,14 +149,14 @@ export function GlobalNav() {
                 {showMarketingLinks && (
                   <Link
                     href="/#features"
-                    className="text-sm font-medium text-stone-500 active:text-stone-800 transition-colors"
+                    className="flex items-center px-3 h-11 text-sm font-medium text-stone-500 active:text-stone-800 transition-colors"
                   >
                     기능
                   </Link>
                 )}
                 <Link
                   href="/login"
-                  className="text-sm font-medium text-stone-500 active:text-stone-800 transition-colors"
+                  className="flex items-center px-3 h-11 text-sm font-medium text-stone-500 active:text-stone-800 transition-colors"
                 >
                   로그인
                 </Link>
