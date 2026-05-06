@@ -28,12 +28,13 @@ export function RouteScrollManager() {
       return;
     }
 
+    const url = pathname + (searchParams.toString() ? `?${searchParams.toString()}` : '');
+    pageview(url);
+
     if (isPopStateRef.current) {
       isPopStateRef.current = false;
       return;
     }
-
-    pageview(pathname + (searchParams.toString() ? `?${searchParams.toString()}` : ''));
 
     window.requestAnimationFrame(() => {
       window.scrollTo({ top: 0, behavior: 'auto' });
