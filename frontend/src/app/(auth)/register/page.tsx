@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Turnstile } from "@marsidev/react-turnstile";
-import { CheckCircle2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { LegalPolicyDialog } from "@/components/legal/LegalPolicyDialog";
 import { Spinner } from "@/components/custom/Spinner";
@@ -515,6 +515,61 @@ function RegisterPageContent() {
     }
   });
 
+  const clearRegisterTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    setTimeLeft(0);
+    setResendCooldown(0);
+  };
+
+  const resetRegisterState = () => {
+    clearRegisterTimer();
+    sessionStorage.removeItem(SESSION_KEY);
+    emailForm.reset();
+    codeForm.reset();
+    nicknameForm.reset();
+    pwForm.reset();
+    autoSubmitRef.current = false;
+    lastAutoSubmittedCodeRef.current = "";
+    confettiFiredRef.current = false;
+    setStep(1);
+    setEmail("");
+    setNickname("");
+    setRegisteredAt("");
+    setCaptchaToken("");
+    setCaptchaInstanceKey((key) => key + 1);
+    setError("");
+    setFormLoading(false);
+    setEmailCheckLoading(false);
+    setEmailCheckMessage("");
+    setEmailChecked(false);
+    setCheckedEmail("");
+    setResendLoading(false);
+    setCodeSubmitState("idle");
+  };
+
+  const goBackToEmailStep = () => {
+    clearRegisterTimer();
+    sessionStorage.removeItem(SESSION_KEY);
+    codeForm.reset();
+    autoSubmitRef.current = false;
+    lastAutoSubmittedCodeRef.current = "";
+    setStep(1);
+    setError("");
+    setFormLoading(false);
+    setResendLoading(false);
+    setCodeSubmitState("idle");
+    setCaptchaToken("");
+    setCaptchaInstanceKey((key) => key + 1);
+    setEmailCheckLoading(false);
+    setEmailChecked(false);
+    setCheckedEmail("");
+    setEmailCheckMessage("");
+    emailForm.reset({ email });
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center hero-pattern">
       <div className="w-full max-w-md mx-4">
@@ -656,6 +711,15 @@ function RegisterPageContent() {
                 <span className="font-medium text-stone-700">{email}</span>로
                 전송된 6자리 코드를 입력해주세요.
               </p>
+              <button
+                type="button"
+                onClick={goBackToEmailStep}
+                disabled={codeSubmitState === "loading"}
+                className="mb-5 inline-flex items-center gap-1.5 text-sm font-semibold text-stone-500 transition-colors hover:text-orange-600 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                이메일 다시 입력
+              </button>
               <form onSubmit={onStep2Submit} className="flex flex-col gap-5">
                 <div className="relative pb-1">
                   <div className="relative">
@@ -910,6 +974,7 @@ function RegisterPageContent() {
             이미 계정이 있으신가요?{" "}
             <Link
               href={`/login${redirectPath ? `?redirect=${encodeURIComponent(redirectPath)}` : ""}`}
+              onClick={resetRegisterState}
               className="font-semibold text-orange-600 hover:text-orange-700 underline underline-offset-2 transition-colors"
             >
               로그인
