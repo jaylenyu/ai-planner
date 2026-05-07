@@ -14,6 +14,7 @@ import { PrimaryButton } from '@/components/custom/primary-button';
 import { adminApi } from '@/lib/api';
 import { AdminPageHeader } from '../../_components/AdminPageHeader';
 import { AdminSectionCard } from '../../_components/AdminSectionCard';
+import { AdminLoading } from '../../_components/AdminLoading';
 
 const PALETTE = [
   '#e07b39',
@@ -93,6 +94,10 @@ export default function AdminCostPage() {
           </PrimaryButton>
         }
       >
+        {query.isLoading ? (
+          <AdminLoading label="비용 데이터 불러오는 중..." />
+        ) : (
+          <>
         {query.data?.source === 'fallback' ? (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             {query.data.error ??
@@ -105,13 +110,17 @@ export default function AdminCostPage() {
             ${(query.data?.monthly ?? 0).toFixed(2)}
           </p>
         </div>
+          </>
+        )}
       </AdminSectionCard>
 
       <AdminSectionCard
         title="서비스별 분해"
         description="비용 비중이 높은 영역을 빠르게 확인합니다."
       >
-        {chartData.length === 0 ? (
+        {query.isLoading ? (
+          <AdminLoading />
+        ) : chartData.length === 0 ? (
           <p className="text-sm text-stone-400">
             표시할 비용 데이터가 없습니다.
           </p>

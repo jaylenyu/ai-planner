@@ -6,6 +6,7 @@ on:
     paths:
       - 'backend/**'
       - 'frontend/**'
+      - 'infra/docker-compose.ai-planner.prod.yml'
       - '.github/workflows/deploy.yml'
 
 env:
@@ -135,6 +136,71 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Prepare GA4 service account file
+        id: ga4_credentials
+        env:
+          GA4_SA_JSON: ${{ secrets.GA4_SA_JSON }}
+          GA4_CLIENT_EMAIL: ${{ secrets.GA4_CLIENT_EMAIL }}
+          GA4_PRIVATE_KEY: ${{ secrets.GA4_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p .deploy-secrets
+          if node <<'NODE'
+          const fs = require('fs');
+          const outputPath = '.deploy-secrets/ga4-sa.json';
+          const rawJson = process.env.GA4_SA_JSON?.trim();
+          const clientEmail = process.env.GA4_CLIENT_EMAIL?.trim();
+          const privateKey = process.env.GA4_PRIVATE_KEY;
+
+          if (rawJson) {
+            JSON.parse(rawJson);
+            fs.writeFileSync(outputPath, rawJson.endsWith('\n') ? rawJson : `${rawJson}\n`, { mode: 0o600 });
+            process.exit(0);
+          }
+
+          if (clientEmail && privateKey) {
+            const credentials = {
+              type: 'service_account',
+              client_email: clientEmail,
+              private_key: privateKey.replace(/\\n/g, '\n'),
+            };
+            fs.writeFileSync(outputPath, `${JSON.stringify(credentials, null, 2)}\n`, { mode: 0o600 });
+            process.exit(0);
+          }
+
+          process.exit(1);
+          NODE
+          then
+            echo "created=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "created=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Ensure prod secret directory exists
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          timeout: 60s
+          script: |
+            set -euo pipefail
+            mkdir -p /srv/apps/ai-planner/secrets
+
+      - name: Sync GA4 service account to EC2
+        if: steps.ga4_credentials.outputs.created == 'true'
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          source: .deploy-secrets/ga4-sa.json
+          target: /srv/apps/ai-planner/secrets/
+          strip_components: 1
+          overwrite: true
+
       - name: Sync prod compose.yml to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -182,11 +248,15 @@ jobs:
             upsert_env() {
               local key="$1"
               local value="$2"
-              if grep -q "^${key}=" "$ENV_FILE"; then
-                sed -i "s|^${key}=.*|${key}=${value}|" "$ENV_FILE"
-              else
-                printf '%s=%s\n' "$key" "$value" >> "$ENV_FILE"
-              fi
+              local tmp="${ENV_FILE}.tmp"
+              touch "$ENV_FILE"
+              awk -v key="$key" -v value="$value" -F= '
+                BEGIN { found = 0 }
+                $1 == key { print key "=" value; found = 1; next }
+                { print }
+                END { if (!found) print key "=" value }
+              ' "$ENV_FILE" > "$tmp"
+              mv "$tmp" "$ENV_FILE"
             }
 
             upsert_env_if_present() {
@@ -197,6 +267,32 @@ jobs:
               else
                 echo "[env] $key secret is empty; preserving existing env file value"
               fi
+            }
+
+            remove_env() {
+              local key="$1"
+              local tmp="${ENV_FILE}.tmp"
+              touch "$ENV_FILE"
+              grep -v "^${key}=" "$ENV_FILE" > "$tmp" || true
+              mv "$tmp" "$ENV_FILE"
+            }
+
+            remove_multiline_env() {
+              local key="$1"
+              local tmp="${ENV_FILE}.tmp"
+              touch "$ENV_FILE"
+              awk -v key="$key" '
+                index($0, key "=") == 1 {
+                  skipping = ($0 ~ /-----BEGIN .*PRIVATE KEY-----/ && $0 !~ /-----END .*PRIVATE KEY-----/)
+                  next
+                }
+                skipping {
+                  if ($0 ~ /-----END .*PRIVATE KEY-----/) skipping = 0
+                  next
+                }
+                { print }
+              ' "$ENV_FILE" > "$tmp"
+              mv "$tmp" "$ENV_FILE"
             }
 
             upsert_env NEXT_PUBLIC_TOSS_CLIENT_KEY '${{ secrets.NEXT_PUBLIC_TOSS_CLIENT_KEY }}'
@@ -224,8 +320,12 @@ jobs:
             upsert_env_if_present EMAIL_PASS '${{ secrets.EMAIL_PASS }}'
             upsert_env_if_present EMAIL_FROM '${{ secrets.EMAIL_FROM }}'
             upsert_env_if_present GA4_PROPERTY_ID '${{ secrets.GA4_PROPERTY_ID }}'
-            upsert_env_if_present GA4_CLIENT_EMAIL '${{ secrets.GA4_CLIENT_EMAIL }}'
-            upsert_env_if_present GA4_PRIVATE_KEY '${{ secrets.GA4_PRIVATE_KEY }}'
+            remove_env GA4_CLIENT_EMAIL
+            remove_multiline_env GA4_PRIVATE_KEY
+
+            mkdir -p "$STACK_DIR/secrets"
+            touch "$STACK_DIR/secrets/ga4-sa.json"
+            chmod 400 "$STACK_DIR/secrets/ga4-sa.json" || true
 
             docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" config >/dev/null
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin

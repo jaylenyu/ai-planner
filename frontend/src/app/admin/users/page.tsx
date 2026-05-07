@@ -228,36 +228,40 @@ export default function AdminUsersPage() {
               <PrimaryButton asChild variant="outline" size="sm">
                 <Link href={`/admin/users/${user.id}`}>상세</Link>
               </PrimaryButton>
-              <PrimaryButton
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={!canMutate || roleMutation.isPending}
-                title={mutationDisabledReason}
-                onClick={() =>
-                  void roleMutation.mutateAsync({
-                    id: user.id,
-                    role: user.role === 'ADMIN' ? 'USER' : 'ADMIN',
-                  })
-                }
-              >
-                {user.role === 'ADMIN' ? 'USER로 변경' : 'ADMIN으로 변경'}
-              </PrimaryButton>
-              <PrimaryButton
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={!canMutate || suspendMutation.isPending}
-                title={mutationDisabledReason}
-                onClick={() =>
-                  void suspendMutation.mutateAsync({
-                    id: user.id,
-                    suspended: !user.isSuspended,
-                  })
-                }
-              >
-                {user.isSuspended ? '정지 해제' : '정지'}
-              </PrimaryButton>
+              {!isReadOnlyAdmin && (
+                <>
+                  <PrimaryButton
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!canMutate || roleMutation.isPending}
+                    title={mutationDisabledReason}
+                    onClick={() =>
+                      void roleMutation.mutateAsync({
+                        id: user.id,
+                        role: user.role === 'ADMIN' ? 'USER' : 'ADMIN',
+                      })
+                    }
+                  >
+                    {user.role === 'ADMIN' ? 'USER로 변경' : 'ADMIN으로 변경'}
+                  </PrimaryButton>
+                  <PrimaryButton
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!canMutate || suspendMutation.isPending}
+                    title={mutationDisabledReason}
+                    onClick={() =>
+                      void suspendMutation.mutateAsync({
+                        id: user.id,
+                        suspended: !user.isSuspended,
+                      })
+                    }
+                  >
+                    {user.isSuspended ? '정지 해제' : '정지'}
+                  </PrimaryButton>
+                </>
+              )}
             </div>
           );
         },
@@ -265,6 +269,7 @@ export default function AdminUsersPage() {
     ],
     [
       canMutate,
+      isReadOnlyAdmin,
       mutationDisabledReason,
       roleMutation,
       suspendMutation,
@@ -417,24 +422,28 @@ export default function AdminUsersPage() {
                 <PrimaryButton asChild variant="outline" size="sm">
                   <Link href={`/admin/users/${user.id}`}>상세</Link>
                 </PrimaryButton>
-                <PrimaryButton
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled
-                  title={mutationDisabledReason}
-                >
-                  역할 변경
-                </PrimaryButton>
-                <PrimaryButton
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled
-                  title={mutationDisabledReason}
-                >
-                  정지
-                </PrimaryButton>
+                {!isReadOnlyAdmin && (
+                  <>
+                    <PrimaryButton
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled
+                      title={mutationDisabledReason}
+                    >
+                      역할 변경
+                    </PrimaryButton>
+                    <PrimaryButton
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled
+                      title={mutationDisabledReason}
+                    >
+                      정지
+                    </PrimaryButton>
+                  </>
+                )}
               </div>
             </AppCard>
           ))}

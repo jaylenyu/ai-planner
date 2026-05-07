@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { adminApi } from '@/lib/api';
 import { AdminPageHeader } from '../../_components/AdminPageHeader';
 import { AdminSectionCard } from '../../_components/AdminSectionCard';
+import { AdminLoading } from '../../_components/AdminLoading';
 
 export default function AdminSentryPage() {
   const query = useQuery({
@@ -24,6 +25,10 @@ export default function AdminSentryPage() {
         title="최근 unresolved 이슈"
         description="설정이 있으면 Sentry 최근 이슈를 읽고, 없으면 빈 상태를 유지합니다."
       >
+        {query.isLoading ? (
+          <AdminLoading label="Sentry 이슈 불러오는 중..." />
+        ) : (
+          <>
         {query.data?.available ? (
           <p className="text-sm text-green-700">Sentry 연결됨</p>
         ) : (
@@ -50,6 +55,8 @@ export default function AdminSentryPage() {
             </div>
           ))}
         </div>
+          </>
+        )}
       </AdminSectionCard>
     </div>
   );
