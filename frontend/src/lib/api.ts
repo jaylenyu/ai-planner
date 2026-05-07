@@ -171,7 +171,7 @@ async function requestWithAuth<T>(
 
   const res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
 
-  if (res.status === 401 && retry) {
+  if (res.status === 401 && retry && token) {
     const refreshed = await tryRefresh(auth);
     if (refreshed) {
       return requestWithAuth<T>(auth, loginPath, path, options, false);

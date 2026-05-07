@@ -1,0 +1,116 @@
+name: ai-planner
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai-planner-postgres
+    restart: unless-stopped
+    mem_limit: 160m
+    mem_reservation: 64m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    command:
+      - postgres
+      - -c
+      - shared_buffers=32MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=32MB
+      - -c
+      - effective_cache_size=96MB
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-net
+
+  backend:
+    image: ghcr.io/jaylenyu/ai-planner-backend:latest
+    container_name: ai-planner-backend
+    env_file: .env
+    restart: unless-stopped
+    pull_policy: always
+    init: true
+    mem_limit: 128m
+    mem_reservation: 64m
+    cpus: "0.35"
+    pids_limit: 256
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      PORT: 4000
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=128
+    command: ["sh", "-c", "./node_modules/.bin/prisma migrate deploy && exec node dist/src/main.js"]
+    volumes:
+      - ./regions.json:/app/dist/src/shared/region/regions.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+    networks:
+      - app-net
+      - proxy-net
+
+  frontend:
+    image: ghcr.io/jaylenyu/ai-planner-frontend:latest
+    container_name: ai-planner-frontend
+    env_file: .env
+    restart: unless-stopped
+    pull_policy: always
+    init: true
+    mem_limit: 96m
+    mem_reservation: 48m
+    cpus: "0.25"
+    pids_limit: 128
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=96
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+    networks:
+      - app-net
+      - proxy-net
+
+volumes:
+  postgres_data:
+
+networks:
+  app-net:
+    driver: bridge
+  proxy-net:
+    external: true

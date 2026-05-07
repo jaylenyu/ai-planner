@@ -1,14 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { api, ApiError } from '../lib/api';
+import { api, authApi, ApiError } from '../lib/api';
 import { event } from '../lib/ga4';
 import {
   useAuthStore,
   selectIsLoggedIn,
   selectHydrated,
 } from '../stores/authStore';
-import { AuthResponse } from '../lib/types';
 
 export function useAuth() {
   const [loading, setLoading] = useState(false);
@@ -22,7 +21,7 @@ export function useAuth() {
     setError(null);
     setErrorStatus(null);
     try {
-      const res = await api.post<AuthResponse>('/auth/login', { email, password });
+      const res = await authApi.login(email, password);
       useAuthStore.getState().setTokens(res.access_token, res.refresh_token);
       event('login', { method: 'email' });
       return true;
