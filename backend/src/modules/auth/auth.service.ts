@@ -219,7 +219,8 @@ export class AuthService {
     options: LoginOptions = {},
   ) {
     const namespace = options.namespace ?? 'user';
-    const { lockKey, failKey } = this.getLoginKeys(dto.email, namespace);
+    const email = dto.email.trim().toLowerCase();
+    const { lockKey, failKey } = this.getLoginKeys(email, namespace);
 
     const locked = await this.redis.get(lockKey);
     if (locked) {
@@ -231,7 +232,7 @@ export class AuthService {
     }
 
     const user = await this.prisma.user.findUnique({
-      where: { email: dto.email },
+      where: { email },
     });
 
     if (!user || !user.password) {
