@@ -132,6 +132,37 @@ jobs:
       !contains(needs.*.result, 'cancelled') &&
       (needs.changes.outputs.frontend_changed == 'true' || needs.changes.outputs.backend_changed == 'true')
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sync prod compose.yml to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          source: infra/docker-compose.ai-planner.prod.yml
+          target: /srv/apps/ai-planner/
+          strip_components: 1
+          overwrite: true
+
+      - name: Rename synced compose to compose.yml
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          timeout: 60s
+          script: |
+            set -euo pipefail
+            cd /srv/apps/ai-planner
+            if [ -f docker-compose.ai-planner.prod.yml ]; then
+              cp -f docker-compose.ai-planner.prod.yml compose.yml
+              rm -f docker-compose.ai-planner.prod.yml
+            fi
+
       - name: Pull images and restart containers
         uses: appleboy/ssh-action@v1
         with:
