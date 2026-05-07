@@ -6,6 +6,7 @@ import { PrimaryButton } from '@/components/custom/primary-button';
 import { adminApi } from '@/lib/api';
 import { AdminPageHeader } from '../../_components/AdminPageHeader';
 import { AdminSectionCard } from '../../_components/AdminSectionCard';
+import { AdminLoading } from '../../_components/AdminLoading';
 
 export default function AdminLogsPage() {
   const [container, setContainer] = useState<'backend' | 'frontend'>('backend');
@@ -32,7 +33,8 @@ export default function AdminLogsPage() {
           </PrimaryButton>
         }
       >
-        {query.data?.source === 'fallback' ? (
+        {query.isLoading ? <AdminLoading label="로그 불러오는 중..." /> : null}
+        {!query.isLoading && query.data?.source === 'fallback' ? (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             {query.data.error ?? 'CloudWatch 로그가 설정되지 않아 DB 기반 액세스 로그를 보여줍니다.'}
           </div>

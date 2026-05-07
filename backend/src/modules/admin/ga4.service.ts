@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { BetaAnalyticsDataClient } from '@google-analytics/data';
+import { statSync } from 'fs';
 
 type Ga4Summary = {
   todayActiveUsers: number;
@@ -96,20 +97,44 @@ export class GA4Service {
     };
   }
 
+  private get credentialsFile() {
+    const filePath = process.env.GOOGLE_APPLICATION_CREDENTIALS?.trim();
+    if (!filePath) return undefined;
+
+    try {
+      const stat = statSync(filePath);
+      return stat.isFile() && stat.size > 0 ? filePath : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   private get configured() {
-    return Boolean(this.propertyId && this.getCredentials());
+    return Boolean(
+      this.propertyId && (this.getCredentials() || this.credentialsFile),
+    );
   }
 
   private createClient() {
     const credentials = this.getCredentials();
+    const credentialsFile = this.credentialsFile;
     const property = this.propertyId;
 
-    if (!credentials || !property) return null;
+    if (!property) return null;
+    if (credentialsFile) {
+      return {
+        property,
+        client: new BetaAnalyticsDataClient({ keyFilename: credentialsFile }),
+      };
+    }
+    if (credentials) {
+      return {
+        property,
+        client: new BetaAnalyticsDataClient({ credentials }),
+      };
+    }
 
-    return {
-      property,
-      client: new BetaAnalyticsDataClient({ credentials }),
-    };
+    return null;
   }
 
   async getSummary(): Promise<Ga4Summary> {

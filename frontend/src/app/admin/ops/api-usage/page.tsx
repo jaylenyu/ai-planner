@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { adminApi } from '@/lib/api';
 import { AdminPageHeader } from '../../_components/AdminPageHeader';
 import { AdminSectionCard } from '../../_components/AdminSectionCard';
+import { AdminLoading } from '../../_components/AdminLoading';
 
 export default function AdminApiUsagePage() {
   const query = useQuery({
@@ -26,7 +27,9 @@ export default function AdminApiUsagePage() {
         title="OpenRouter 실제 지출"
         description="OPENROUTER_API_KEY 기준 누적 크레딧 사용액입니다."
       >
-        {!or ? (
+        {query.isLoading ? (
+          <AdminLoading />
+        ) : !or ? (
           <p className="text-sm text-stone-400">로딩 중...</p>
         ) : !or.configured ? (
           <p className="text-sm text-stone-400">OPENROUTER_API_KEY가 설정되지 않았습니다.</p>
@@ -44,6 +47,7 @@ export default function AdminApiUsagePage() {
         title="Top 10 사용자"
         description="요청 수와 비용 기준 상위 사용자를 빠르게 찾습니다."
       >
+        {query.isLoading ? <AdminLoading /> : null}
         <div className="space-y-2">
           {query.data?.topUsers.map((item) => (
             <div key={item.userId} className="flex items-center justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm">
@@ -63,6 +67,7 @@ export default function AdminApiUsagePage() {
         title="일별 집계"
         description="최근 일자별 요청 수와 비용을 요약합니다."
       >
+        {query.isLoading ? <AdminLoading /> : null}
         <div className="grid gap-2 md:grid-cols-3">
           {Object.entries(query.data?.totalsByDay ?? {}).slice(-9).map(([date, value]) => (
             <div key={date} className="rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm">

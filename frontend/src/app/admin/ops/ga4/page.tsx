@@ -15,6 +15,7 @@ import {
 import { adminApi } from '@/lib/api';
 import { AdminPageHeader } from '../../_components/AdminPageHeader';
 import { AdminSectionCard } from '../../_components/AdminSectionCard';
+import { AdminLoading } from '../../_components/AdminLoading';
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat('ko-KR').format(Math.round(value));
@@ -62,12 +63,16 @@ export default function AdminGa4Page() {
         description="마케팅 유입, 활성 사용자, 인기 페이지를 GA4 Data API에서 조회합니다."
       />
 
-      {!data?.available ? (
+      {query.isLoading ? <AdminLoading label="GA4 데이터 불러오는 중..." /> : null}
+
+      {!query.isLoading && !data?.available ? (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {data?.error ?? 'GA4 데이터를 불러오는 중입니다.'}
+          {data?.error ?? 'GA4 데이터를 불러오지 못했습니다.'}
         </div>
       ) : null}
 
+      {!query.isLoading ? (
+        <>
       <AdminSectionCard
         title="30일 DAU 트렌드"
         description="일자별 활성 사용자 추이를 확인합니다."
@@ -175,6 +180,8 @@ export default function AdminGa4Page() {
           <p className="text-sm text-stone-400">표시할 페이지 데이터가 없습니다.</p>
         )}
       </AdminSectionCard>
+        </>
+      ) : null}
     </div>
   );
 }

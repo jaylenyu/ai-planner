@@ -7,20 +7,20 @@ services:
     mem_reservation: 100m
     cpus: "0.5"
     logging:
-      driver: "awslogs"
+      driver: "json-file"
       options:
-        awslogs-region: "${AWS_REGION}"
-        awslogs-group: "/ai-planner-test/backend"
-        awslogs-stream: "test-backend"
-        awslogs-create-group: "false"
+        max-size: "10m"
+        max-file: "3"
     env_file: /srv/apps/ai-planner-test/.env
     environment:
       NODE_ENV: production
       PORT: "4000"
       NODE_OPTIONS: --max-old-space-size=128
+      GOOGLE_APPLICATION_CREDENTIALS: /app/secrets/ga4-sa.json
     command: ["sh", "-c", "./node_modules/.bin/prisma migrate deploy && exec node dist/src/main.js"]
     volumes:
       - /home/ec2-user/infra/regions.json:/app/dist/src/shared/region/regions.json:ro
+      - /srv/apps/ai-planner-test/secrets/ga4-sa.json:/app/secrets/ga4-sa.json:ro
     ports:
       - "4100:4000"
     healthcheck:
@@ -41,12 +41,10 @@ services:
     mem_reservation: 48m
     cpus: "0.25"
     logging:
-      driver: "awslogs"
+      driver: "json-file"
       options:
-        awslogs-region: "${AWS_REGION}"
-        awslogs-group: "/ai-planner-test/frontend"
-        awslogs-stream: "test-frontend"
-        awslogs-create-group: "false"
+        max-size: "10m"
+        max-file: "3"
     env_file: /srv/apps/ai-planner-test/.env
     environment:
       NODE_ENV: production

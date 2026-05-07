@@ -59,9 +59,11 @@ services:
       PORT: 4000
       NODE_ENV: production
       NODE_OPTIONS: --max-old-space-size=128
+      GOOGLE_APPLICATION_CREDENTIALS: /app/secrets/ga4-sa.json
     command: ["sh", "-c", "./node_modules/.bin/prisma migrate deploy && exec node dist/src/main.js"]
     volumes:
       - ./regions.json:/app/dist/src/shared/region/regions.json:ro
+      - ./secrets/ga4-sa.json:/app/secrets/ga4-sa.json:ro
     depends_on:
       postgres:
         condition: service_healthy
