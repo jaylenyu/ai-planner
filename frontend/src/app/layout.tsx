@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { AppChrome } from "@/components/providers/AppChrome";
 import { QueryProvider } from "@/components/providers/QueryProvider";
@@ -24,11 +24,7 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/",
   },
-  icons: {
-    icon: [{ url: "/ai-planner-favicon.ico", type: "image/x-icon" }],
-    shortcut: ["/ai-planner-favicon.ico"],
-    apple: [{ url: "/ai-planner-icon.png", type: "image/png" }],
-  },
+  manifest: "/manifest.webmanifest",
   openGraph: {
     type: "website",
     url: siteUrl,
@@ -48,6 +44,10 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#e07b39",
 };
 
 export default async function RootLayout({
