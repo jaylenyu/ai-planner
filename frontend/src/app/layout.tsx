@@ -24,6 +24,11 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/",
   },
+  icons: {
+    icon: [{ url: "/ai-planner-favicon.ico", type: "image/x-icon" }],
+    shortcut: ["/ai-planner-favicon.ico"],
+    apple: [{ url: "/ai-planner-icon.png", type: "image/png" }],
+  },
   openGraph: {
     type: "website",
     url: siteUrl,
