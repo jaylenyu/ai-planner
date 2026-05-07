@@ -5,6 +5,24 @@ import { Bell } from 'lucide-react';
 import { useNotifications } from '@/hooks/useNotifications';
 import { Dialog } from '@/components/custom/dialog';
 
+const NOTIFICATION_TYPE_LABEL: Record<string, string> = {
+  plan_created: '플랜 생성됨',
+  plan_edited: '플랜 수정됨',
+  plan_shared: '플랜 공유됨',
+  plan_deleted: '플랜 삭제됨',
+  plan_item_added: '일정 추가됨',
+  plan_item_updated: '일정 수정됨',
+  plan_item_deleted: '일정 삭제됨',
+  memo_added: '메모 추가됨',
+  invite_received: '초대 받음',
+  workspace_joined: '커플플랜 합류',
+  workspace_dissolved: '커플플랜 해체됨',
+};
+
+function formatType(type: string) {
+  return NOTIFICATION_TYPE_LABEL[type] ?? '알림';
+}
+
 function formatPayload(payload: Record<string, unknown>) {
   if (typeof payload.summary === 'string' && payload.summary) return payload.summary;
   if (typeof payload.itemName === 'string' && payload.itemName) return payload.itemName;
@@ -69,7 +87,7 @@ export function NotificationBell() {
                   onClick={() => void markRead(item.id)}
                   className="block w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-left transition-colors hover:border-orange-200"
                 >
-                  <p className="text-sm font-semibold text-stone-900">{item.type}</p>
+                  <p className="text-sm font-semibold text-stone-900">{formatType(item.type)}</p>
                   <p className="mt-1 text-sm text-stone-600">
                     {formatPayload(item.payload)}
                   </p>
