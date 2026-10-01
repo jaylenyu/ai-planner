@@ -142,6 +142,19 @@ export function PlanHistory({
                 )}
               </div>
               <div className="flex flex-col items-end gap-2">
+                {onDeletePlan && (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setPendingDeletePlanId(plan.id);
+                    }}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-400 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500"
+                    aria-label="일정 삭제"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
                 {onSharePlan && !plan.workspace && (
                   <div onClick={(e) => e.stopPropagation()}>
                   <PrimaryButton
@@ -172,19 +185,6 @@ export function PlanHistory({
                     {shareDisabled ? shareDisabledLabel : shareButtonLabel}
                   </PrimaryButton>
                   </div>
-                )}
-                {onDeletePlan && (
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setPendingDeletePlanId(plan.id);
-                    }}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-400 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500"
-                    aria-label="일정 삭제"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
                 )}
               </div>
             </div>

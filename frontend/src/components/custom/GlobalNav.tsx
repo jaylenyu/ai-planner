@@ -95,10 +95,8 @@ function MobileTab({ href, icon, label }: MobileTabProps) {
 export function GlobalNav() {
   const router = useRouter();
   const { isLoggedIn, hydrated, logout } = useAuth();
-  const pathname = usePathname();
   const authUser = getAuthUser();
   const isAdmin = authUser?.role === 'ADMIN';
-  const showMarketingLinks = !isLoggedIn && pathname === "/";
 
   const handleLogout = async () => {
     await logout();
@@ -145,22 +143,12 @@ export function GlobalNav() {
                 </button>
               </>
             ) : (
-              <>
-                {showMarketingLinks && (
-                  <Link
-                    href="/#features"
-                    className="flex items-center px-3 h-11 text-sm font-medium text-stone-500 active:text-stone-800 transition-colors"
-                  >
-                    기능
-                  </Link>
-                )}
-                <Link
-                  href="/login"
-                  className="flex items-center px-3 h-11 text-sm font-medium text-stone-500 active:text-stone-800 transition-colors"
-                >
-                  로그인
-                </Link>
-              </>
+              <Link
+                href="/login"
+                className="flex items-center px-3 h-11 text-sm font-medium text-stone-500 active:text-stone-800 transition-colors"
+              >
+                로그인
+              </Link>
             )}
           </div>
 
@@ -176,21 +164,6 @@ export function GlobalNav() {
                 <NavLink href="/workspace/settings">공유설정</NavLink>
                 {isAdmin && <NavLink href="/admin">관리자</NavLink>}
                 <NavLink href="/subscribe">구독</NavLink>
-              </>
-            ) : showMarketingLinks ? (
-              <>
-                <Link
-                  href="/#features"
-                  className="text-sm font-medium text-stone-500 hover:text-stone-800 transition-colors"
-                >
-                  기능 소개
-                </Link>
-                <Link
-                  href="/#workflow"
-                  className="text-sm font-medium text-stone-500 hover:text-stone-800 transition-colors"
-                >
-                  작동 방식
-                </Link>
               </>
             ) : null}
             {!hydrated ? null : isLoggedIn ? (
