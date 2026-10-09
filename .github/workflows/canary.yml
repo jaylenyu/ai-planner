@@ -123,230 +123,10 @@ jobs:
           cache-from: type=gha,scope=frontend-canary
           cache-to: type=gha,scope=frontend-canary,mode=max
 
-  deploy:
-    name: Deploy Canary Containers
-    runs-on: ubuntu-latest
-    needs: [changes, build-backend, build-frontend]
-    if: |
-      always() &&
-      !contains(needs.*.result, 'failure') &&
-      !contains(needs.*.result, 'cancelled') &&
-      (needs.changes.outputs.frontend_changed == 'true' || needs.changes.outputs.backend_changed == 'true')
-    steps:
-      - name: Deploy canary backend/frontend
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          port: 22
-          timeout: 180s
-          script: |
-            set -euo pipefail
-            STACK_DIR=/srv/apps/ai-planner-canary
-            ENV_FILE=$STACK_DIR/.env
-            PROD_ENV_FILE=/srv/apps/ai-planner/.env
-            BACKEND_CHANGED=${{ needs.changes.outputs.backend_changed }}
-            FRONTEND_CHANGED=${{ needs.changes.outputs.frontend_changed }}
-            BACKEND_CONTAINER=ai-planner-canary-backend
-            FRONTEND_CONTAINER=ai-planner-canary-frontend
-            BACKEND_PORT=4101
-            FRONTEND_PORT=3101
-
-            mkdir -p "$STACK_DIR"
-            if [ ! -f "$ENV_FILE" ]; then
-              cp /srv/apps/ai-planner/.env "$ENV_FILE"
-            fi
-
-            upsert_env() {
-              local key="$1"
-              local value="$2"
-              local tmp="${ENV_FILE}.tmp"
-              touch "$ENV_FILE"
-              awk -v key="$key" -v value="$value" -F= '
-                BEGIN { found = 0 }
-                $1 == key { print key "=" value; found = 1; next }
-                { print }
-                END { if (!found) print key "=" value }
-              ' "$ENV_FILE" > "$tmp"
-              mv "$tmp" "$ENV_FILE"
-            }
-
-            upsert_env_from_secret_or_file() {
-              local key="$1"
-              local value="$2"
-              local fallback_file="$3"
-              if [ -n "$value" ]; then
-                upsert_env "$key" "$value"
-                return
-              fi
-              if [ -f "$fallback_file" ]; then
-                local fallback
-                fallback=$(grep -m1 "^${key}=" "$fallback_file" | cut -d= -f2- || true)
-                if [ -n "$fallback" ]; then
-                  upsert_env "$key" "$fallback"
-                  echo "[env] $key restored from fallback env file"
-                  return
-                fi
-              fi
-              echo "[env] $key secret is empty; preserving existing env file value"
-            }
-
-            remove_env() {
-              local key="$1"
-              local tmp="${ENV_FILE}.tmp"
-              touch "$ENV_FILE"
-              grep -v "^${key}=" "$ENV_FILE" > "$tmp" || true
-              mv "$tmp" "$ENV_FILE"
-            }
-
-            remove_multiline_env() {
-              local key="$1"
-              local tmp="${ENV_FILE}.tmp"
-              touch "$ENV_FILE"
-              awk -v key="$key" '
-                index($0, key "=") == 1 {
-                  skipping = ($0 ~ /-----BEGIN .*PRIVATE KEY-----/ && $0 !~ /-----END .*PRIVATE KEY-----/)
-                  next
-                }
-                skipping {
-                  if ($0 ~ /-----END .*PRIVATE KEY-----/) skipping = 0
-                  next
-                }
-                { print }
-              ' "$ENV_FILE" > "$tmp"
-              mv "$tmp" "$ENV_FILE"
-            }
-
-            upsert_env NEXT_PUBLIC_TOSS_CLIENT_KEY '${{ secrets.NEXT_PUBLIC_TOSS_CLIENT_KEY }}'
-            upsert_env TOSS_SECRET_KEY '${{ secrets.TOSS_SECRET_KEY }}'
-            upsert_env TOSS_WEBHOOK_SECRET '${{ secrets.TOSS_WEBHOOK_SECRET }}'
-            upsert_env_from_secret_or_file EMAIL_HOST '${{ secrets.EMAIL_HOST }}' "$PROD_ENV_FILE"
-            upsert_env_from_secret_or_file EMAIL_PORT '${{ secrets.EMAIL_PORT }}' "$PROD_ENV_FILE"
-            upsert_env_from_secret_or_file EMAIL_USER '${{ secrets.EMAIL_USER }}' "$PROD_ENV_FILE"
-            upsert_env_from_secret_or_file EMAIL_PASS '${{ secrets.EMAIL_PASS }}' "$PROD_ENV_FILE"
-            upsert_env_from_secret_or_file EMAIL_FROM '${{ secrets.EMAIL_FROM }}' "$PROD_ENV_FILE"
-            upsert_env APP_URL "http://localhost:${BACKEND_PORT}"
-            upsert_env FRONTEND_URL "http://localhost:${FRONTEND_PORT}"
-            upsert_env CORS_ORIGIN "http://localhost:${FRONTEND_PORT}"
-            remove_env GA4_CLIENT_EMAIL
-            remove_multiline_env GA4_PRIVATE_KEY
-
-            DB_NETWORK=$(docker inspect ai-planner-postgres --format '{{range $k, $v := .NetworkSettings.Networks}}{{println $k}}{{end}}' | head -n1 | tr -d '[:space:]')
-            if [ -z "$DB_NETWORK" ]; then
-              echo "Failed to detect production database network"
-              exit 1
-            fi
-
-            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-            sudo journalctl --vacuum-size=100M 2>/dev/null || true
-            docker image prune -af >/dev/null 2>&1 || true
-            docker builder prune -af >/dev/null 2>&1 || true
-
-            if [ "$BACKEND_CHANGED" = "true" ]; then
-              docker pull ${{ env.IMAGE_BACKEND }}:canary
-              docker rm -f "$BACKEND_CONTAINER" >/dev/null 2>&1 || true
-              docker run -d \
-                --name "$BACKEND_CONTAINER" \
-                --restart unless-stopped \
-                --env-file "$ENV_FILE" \
-                -p "${BACKEND_PORT}:4000" \
-                --network "$DB_NETWORK" \
-                ${{ env.IMAGE_BACKEND }}:canary
-            fi
-
-            if [ "$FRONTEND_CHANGED" = "true" ]; then
-              docker pull ${{ env.IMAGE_FRONTEND }}:canary
-              docker rm -f "$FRONTEND_CONTAINER" >/dev/null 2>&1 || true
-              docker run -d \
-                --name "$FRONTEND_CONTAINER" \
-                --restart unless-stopped \
-                --env-file "$ENV_FILE" \
-                -p "${FRONTEND_PORT}:3000" \
-                ${{ env.IMAGE_FRONTEND }}:canary
-            fi
-
-      - name: Canary health check
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          port: 22
-          timeout: 180s
-          script: |
-            set -euo pipefail
-            BACKEND_CHANGED=${{ needs.changes.outputs.backend_changed }}
-            FRONTEND_CHANGED=${{ needs.changes.outputs.frontend_changed }}
-            BACKEND_PORT=4101
-            FRONTEND_PORT=3101
-            MAX_RETRY=30
-
-            wait_for_http() {
-              local url="$1"
-              local label="$2"
-              local count=0
-              until curl -fsS "$url" >/dev/null; do
-                count=$((count + 1))
-                if [ "$count" -ge "$MAX_RETRY" ]; then
-                  echo "$label failed to respond"
-                  exit 1
-                fi
-                echo "Waiting for $label... ($count/$MAX_RETRY)"
-                sleep 3
-              done
-              echo "$label healthy!"
-            }
-
-            if [ "$BACKEND_CHANGED" = "true" ]; then
-              wait_for_http "http://localhost:${BACKEND_PORT}/health" "canary backend"
-              for KEY in EMAIL_HOST EMAIL_PORT EMAIL_USER EMAIL_PASS EMAIL_FROM; do
-                if docker exec ai-planner-canary-backend printenv "$KEY" 2>/dev/null | grep -q .; then
-                  echo "[verify] $KEY: OK in canary backend container"
-                else
-                  echo "[verify] $KEY: MISSING in canary backend container"
-                  exit 1
-                fi
-              done
-            fi
-
-            if [ "$FRONTEND_CHANGED" = "true" ]; then
-              wait_for_http "http://localhost:${FRONTEND_PORT}" "canary frontend"
-            fi
-
-      - name: Canary smoke test
-        if: needs.changes.outputs.backend_changed == 'true'
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          port: 22
-          timeout: 180s
-          script: |
-            set -euo pipefail
-            START_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-            BACKEND_CONTAINER=ai-planner-canary-backend
-
-            TOKEN=$(docker exec "$BACKEND_CONTAINER" node -e "const {PrismaClient}=require('@prisma/client'); const jwt=require('jsonwebtoken'); (async()=>{ const prisma=new PrismaClient(); const user=await prisma.user.findFirst({select:{id:true,email:true}}); if(!user){console.error('NO_USER'); process.exit(2);} if(!process.env.JWT_SECRET){console.error('NO_JWT_SECRET'); process.exit(3);} const token=jwt.sign({sub:user.id,email:user.email}, process.env.JWT_SECRET, {expiresIn:'10m'}); console.log(token); await prisma.\$disconnect(); })().catch(async(e)=>{console.error(e?.message||e); process.exit(4);});")
-            if [ -z "$TOKEN" ]; then
-              echo "[canary] token generation failed"
-              exit 1
-            fi
-
-            curl -fsS \
-              -H "Authorization: Bearer $TOKEN" \
-              http://localhost:4101/api/subscription/status >/tmp/canary-subscription.json
-
-            cat /tmp/canary-subscription.json
-            LOGS=$(docker logs --since "$START_TS" "$BACKEND_CONTAINER" 2>&1 || true)
-            echo "$LOGS" | tail -80
-
   deploy-test:
     name: Deploy Test Stack
     runs-on: ubuntu-latest
-    needs: [changes, build-backend, build-frontend, deploy]
+    needs: [changes, build-backend, build-frontend]
     if: |
       always() &&
       !contains(needs.*.result, 'failure') &&
@@ -456,7 +236,7 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
-          timeout: 120s
+          timeout: 300s
           script: |
             set -euo pipefail
             STACK_DIR=/srv/apps/ai-planner-test
@@ -563,8 +343,19 @@ jobs:
 
             docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" config >/dev/null
 
-            # 이미지 pull/prune은 앞선 deploy 잡에서 이미 수행됨 (같은 EC2).
-            # 여기서는 캐시된 이미지로 test 스택만 기동.
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            sudo journalctl --vacuum-size=100M 2>/dev/null || true
+            docker image prune -af >/dev/null 2>&1 || true
+            docker builder prune -af >/dev/null 2>&1 || true
+
+            if [ "$BACKEND_CHANGED" = "true" ]; then
+              docker pull ${{ env.IMAGE_BACKEND }}:canary
+            fi
+            if [ "$FRONTEND_CHANGED" = "true" ]; then
+              docker pull ${{ env.IMAGE_FRONTEND }}:canary
+            fi
+
             SERVICES=""
             if [ "$BACKEND_CHANGED" = "true" ]; then
               SERVICES="$SERVICES backend"
