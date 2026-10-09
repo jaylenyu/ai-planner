@@ -319,9 +319,8 @@ develop ──PR──▶ canary ──PR──▶ main
 
 1. `develop`에서 작업한 뒤 `canary`로 PR을 엽니다. PR마다 CI가 실행됩니다.
 2. `canary`에 머지하면 `:canary` 이미지를 빌드해 test 스택에 배포합니다.
-3. 머지와 동시에 `canary → main` PR이 자동으로 생성됩니다.
-4. test 환경에서 검증한 뒤 `main`에 머지하면 `:latest` 이미지를 빌드해 운영에 배포합니다.
-5. 머지된 PR의 `release:*` 라벨로 SemVer 태그와 GitHub Release를 만듭니다. 라벨이 없으면 patch입니다.
+3. test 환경에서 검증한 뒤 `canary → main` PR을 열고, `main`에 머지하면 `:latest` 이미지를 빌드해 운영에 배포합니다.
+4. 머지된 PR의 `release:*` 라벨로 SemVer 태그와 GitHub Release를 만듭니다. 라벨이 없으면 patch입니다.
 
 자세한 정책은 [docs/release-versioning.md](./docs/release-versioning.md)를 참고하세요.
 
@@ -332,7 +331,6 @@ develop ──PR──▶ canary ──PR──▶ main
 | `ci.yml` | PR | 변경 영역별 typecheck, lint, Docker dry-run build. job 이름 `Backend CI`/`Frontend CI`는 main 필수 체크 |
 | `canary.yml` | `canary` push | `:canary` 이미지 build/push, test 스택 배포, 관리자 seed |
 | `deploy-test.yml` | `Deploy Canary` 완료 | test 스택 배포 |
-| `release-pr.yml` | `canary` push | 열린 `canary → main` PR이 없으면 생성 (`RELEASE_PR_TOKEN` 필요) |
 | `deploy.yml` | `main` push | `:latest` 이미지 build/push, 운영 배포 |
 | `auto-tag.yml` | `main` PR 머지 | 라벨 기반 SemVer 태그와 GitHub Release 생성 |
 | `auto-assign.yml` | PR 생성 | assignee가 없으면 기본 지정 |
@@ -369,7 +367,6 @@ develop ──PR──▶ canary ──PR──▶ main
 | 관리자 Sentry/GA4가 비어 있음 | `SENTRY_AUTH_TOKEN`/`ORG`/`PROJECT`, `GA4_PROPERTY_ID`와 서비스 계정 파일 |
 | 스케줄러가 중복 실행됨 | 테스트 `.env`의 `SCHEDULER_ENABLED=false` |
 | 배포 후 env가 반영되지 않음 | 서버 `.env`, Compose `environment`, 빌드 시점 `NEXT_PUBLIC_*` |
-| `canary → main` PR이 자동 생성되지 않음 | `RELEASE_PR_TOKEN` 시크릿 |
 
 ## 라이선스
 
