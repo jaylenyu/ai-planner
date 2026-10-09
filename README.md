@@ -1,389 +1,375 @@
 # ai-planner
 
-자연어 일정 요청을 받아 실제 장소 후보, 이동 동선, 시간표를 생성하는 풀스택 AI 일정 플래너입니다. 서비스 도메인은 `https://date-planner.us`, 테스트 도메인은 `https://test.date-planner.us`입니다.
+자연어 일정 요청을 받아 실제 장소 후보, 이동 동선, 시간표를 생성하는 풀스택 AI 일정 플래너입니다.
 
-## 프로젝트 개요
+- 서비스: `https://date-planner.us`
+- 테스트: `https://test.date-planner.us`
 
-이 저장소는 두 애플리케이션과 배포 인프라 설정으로 구성됩니다.
+## 목차
 
-- `backend/`: NestJS 11 API 서버
-- `frontend/`: Next.js 16 App Router 웹 앱
-- `infra/`: 테스트 환경 Compose/Nginx/서버 초기화 스크립트
-- `.github/workflows/`: CI, canary/test/production 배포, 릴리즈 자동화
+- [주요 기능](#주요-기능)
+- [아키텍처](#아키텍처)
+- [기술 스택](#기술-스택)
+- [저장소 구조](#저장소-구조)
+- [백엔드](#백엔드)
+- [프론트엔드](#프론트엔드)
+- [로컬 개발](#로컬-개발)
+- [환경 변수](#환경-변수)
+- [배포](#배포)
+- [트러블슈팅](#트러블슈팅)
 
-핵심 사용자 흐름은 다음과 같습니다.
+## 주요 기능
 
-1. 사용자가 프론트엔드에서 자연어 일정 요청을 입력합니다.
-2. 프론트엔드가 인증 상태로 `POST /api/plan/generate`를 호출합니다.
-3. 백엔드 AI 파이프라인이 입력을 구조화하고 장소 후보를 검색합니다.
-4. 후보 장소를 선별하고 이동 동선을 정렬한 뒤 시간표를 생성합니다.
-5. 생성 결과를 DB에 저장하고 프론트엔드가 지도/카드 UI로 렌더링합니다.
+- 자연어 입력 기반 일정 생성 (미리보기 → 저장)
+- Naver/Kakao 장소 검색 통합과 동선 최적화
+- 플랜 편집, 일정 항목/메모, 카테고리, 공유
+- 워크스페이스(커플 플랜) 초대와 공유 플랜
+- 인앱 알림, Toss 구독 결제
+- 관리자 콘솔: 사용자/플랜/청구, 운영 로그·비용·Sentry·GA4·API 사용량
 
-현재 앱은 일정 생성 외에도 카테고리, 플랜 편집/메모, 워크스페이스 초대, 알림, 구독 결제, 관리자 운영 화면을 포함합니다.
+## 아키텍처
+
+```text
+브라우저
+  │ HTTPS
+  ▼
+Nginx (TLS 종료, 도메인/경로 라우팅)
+  ├─ /api/admin/*  ─▶ frontend (Next.js route handler)
+  ├─ /api/*        ─▶ backend  (NestJS) ─▶ PostgreSQL
+  │                                      ─▶ OpenRouter(LLM), Naver/Kakao 검색
+  └─ /*            ─▶ frontend (Next.js)
+```
+
+일정 생성 흐름:
+
+1. 프론트엔드가 `POST /api/plan/preview`로 자연어 요청을 보냅니다.
+2. 백엔드 AI 파이프라인이 입력 해석 → 장소 검색 → 후보 선택 → 동선 정렬 → 시간표 생성을 수행하고, 결과를 draft로 반환합니다. draft는 서버 메모리에 20분간 보관됩니다.
+3. 사용자가 저장하면 `POST /api/plan/save`가 draft를 개인 또는 워크스페이스 플랜으로 DB에 저장합니다.
 
 ## 기술 스택
 
 | 영역 | 기술 |
 | --- | --- |
-| Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS 4, TanStack Query/Table, Zustand |
-| Backend | NestJS 11, TypeScript, Passport, JWT, Schedule, Sentry |
-| Database | PostgreSQL, Prisma 5 |
-| Cache/Rate limit | Redis optional |
-| AI | OpenRouter 기반 LLM 호출 |
-| 지도/검색 | NAVER Maps JS SDK, NAVER Local Search API, Kakao 장소 검색 |
-| 인증 | 이메일/비밀번호, Google OAuth, Kakao OAuth, Naver OAuth |
-| 결제 | Toss Payments 구독 결제 |
-| 분석/보안 | GA4, Cloudflare Turnstile, Sentry |
-| Infra | Docker, Docker Compose, GHCR, Nginx, AWS EC2/CloudWatch |
+| Frontend | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, TanStack Query/Table, Zustand |
+| Backend | NestJS 11, TypeScript, Passport, JWT, `@nestjs/schedule` |
+| Database | PostgreSQL 16, Prisma 5 |
+| Cache | Redis (선택, `ioredis`) |
+| AI | OpenRouter (OpenAI SDK 호환 호출) |
+| 지도/검색 | NAVER Maps JS SDK, NAVER Local Search API, Kakao Local API |
+| 인증 | 이메일/비밀번호(이메일 인증), Google·Kakao·Naver OAuth |
+| 결제 | Toss Payments 구독 |
+| 분석/모니터링 | GA4, Sentry, AWS CloudWatch/Cost Explorer |
+| 보안 | Cloudflare Turnstile |
+| Infra | Docker Compose, GHCR, Nginx, AWS EC2 |
 | CI/CD | GitHub Actions |
 
 ## 저장소 구조
 
 ```text
 ai-planner/
-├── .github/workflows/
-│   ├── auto-tag.yml
-│   ├── canary.yml
-│   ├── ci.yml
-│   ├── deploy-test.yml
-│   ├── deploy.yml
-│   └── release.yml
+├── .github/workflows/        # CI, 배포, 릴리스 자동화
 ├── backend/
-│   ├── prisma/
-│   ├── scripts/
-│   └── src/
-│       ├── modules/
-│       ├── shared/
-│       └── services/
-├── docs/
+│   ├── data/                 # 법정동/지하철역 원본 CSV
+│   ├── prisma/               # schema, migrations, seed
+│   ├── scripts/              # regions.json 생성 등 데이터 스크립트
+│   ├── src/
+│   │   ├── modules/          # 도메인 모듈
+│   │   ├── shared/           # region, redis, captcha, utils
+│   │   ├── services/         # API 예산 서비스
+│   │   └── middleware/       # API 예산 미들웨어
+│   └── test/                 # e2e
 ├── frontend/
 │   └── src/
-│       ├── app/
-│       ├── components/
+│       ├── app/              # App Router 페이지, admin API route
+│       ├── components/       # custom(공통), ui, plan, payment, notification 등
 │       ├── hooks/
-│       ├── lib/
-│       └── stores/
-├── infra/
+│       ├── lib/              # API client, 세션, 타입, 서버 유틸
+│       ├── stores/           # Zustand (authStore)
+│       └── proxy.ts          # 보호 경로 인증 리다이렉트
+├── infra/                    # prod/test Compose, Nginx 설정, 테스트 서버 초기화
+├── scripts/                  # 서버 유틸 (CloudWatch agent 설치)
+├── docs/                     # 릴리스/버저닝 정책
 ├── .env.production.template
-├── .env.test.template
-└── README.md
+└── .env.test.template
 ```
-
-### 주요 디렉터리
-
-| 경로 | 설명 |
-| --- | --- |
-| `backend/src/modules/ai/` | 자연어 입력 해석, 장소 검색, 후보 선택, 경로 최적화, 일정 생성 |
-| `backend/src/modules/auth/` | 로컬 로그인, refresh token, OAuth, 계정 설정, 계정 삭제 |
-| `backend/src/modules/plan/` | 플랜 생성/조회/수정/삭제, 일정 항목, 플랜 메모 |
-| `backend/src/modules/category/` | 사용자별 플랜 카테고리 |
-| `backend/src/modules/workspace/` | 워크스페이스 생성, 초대, 참여, 삭제 |
-| `backend/src/modules/payment/` | Toss 결제 준비/승인/웹훅, 구독 상태/해지/재구독 |
-| `backend/src/modules/admin/` | 관리자 대시보드, 사용자/플랜/청구/운영 로그/비용/Sentry 조회 |
-| `backend/src/shared/region/` | 지역 정규화와 별칭 학습 |
-| `frontend/src/app/` | App Router 페이지, API route, 레이아웃 |
-| `frontend/src/components/plan/` | 플랜 입력, 지도, 일정 목록, 히스토리, 메모 UI |
-| `frontend/src/components/payment/` | Toss 결제 위젯 |
-| `frontend/src/components/notification/` | 인앱 알림 UI |
-| `frontend/src/lib/` | API client, 인증/세션, 타입, 서버 유틸 |
-| `infra/` | 테스트 서버용 Compose, Nginx server block, 초기화 스크립트 |
-| `docs/release-versioning.md` | 브랜치 운영/릴리즈/버저닝 정책 |
 
 ## 백엔드
 
-### 모듈 구성
+### 모듈
 
-`backend/src/app.module.ts` 기준 주요 모듈은 다음과 같습니다.
+`backend/src/app.module.ts` 기준입니다.
 
-- `AuthModule`: 이메일 로그인, 이메일 인증, OAuth, refresh/logout, 비밀번호 재설정, 계정 설정
-- `PlacesModule`: Naver/Kakao 장소 검색 통합
-- `AiModule`: 자연어 입력 해석, 후보 선택, 경로 최적화, 일정 생성
-- `PlanModule`: 생성 결과 저장, 플랜 편집, 일정 항목, 메모
-- `CategoryModule`: 사용자별 카테고리 관리
-- `WorkspaceModule`: 공유 워크스페이스와 초대 링크
-- `NotificationModule`: 인앱 알림
-- `PaymentModule`: Toss 결제와 구독 상태 관리
-- `ApiBudgetModule`: 일정 생성 API 사용량/비용 제한
-- `AdminModule`: 운영 대시보드 API
-- `UserModule`: 사용자 정리 스케줄러
+| 모듈 | 역할 |
+| --- | --- |
+| `AuthModule` | 이메일 가입/인증, 로그인, refresh/logout, OAuth, 비밀번호 설정·재설정, 닉네임·계정 설정, 탈퇴 |
+| `PlacesModule` | Naver/Kakao 장소 검색, 지오코딩 |
+| `AiModule` | 일정 생성 파이프라인 |
+| `PlanModule` | draft 미리보기/저장, 플랜 CRUD, 일정 항목, 메모, 공유 |
+| `CategoryModule` | 사용자별 카테고리 |
+| `WorkspaceModule` | 워크스페이스, 초대 링크, 참여 |
+| `NotificationModule` | 인앱 알림 |
+| `PaymentModule` | Toss 결제 준비/승인/웹훅, 구독 상태/해지/재구독 |
+| `ApiBudgetModule` | 일정 생성 API 일/월 사용량 제한 |
+| `AdminModule` | 관리자 API (사용자/플랜/청구/운영 지표) |
+| `UserModule` | 탈퇴 30일 경과 사용자 hard delete 스케줄러 |
 
-`ApiBudgetMiddleware`는 `POST /api/plan/generate` 요청에 적용됩니다. `main.ts`에서 전역 prefix는 `/api`이고, `/health`만 prefix에서 제외됩니다.
+- 전역 prefix는 `/api`이고 `/health`만 제외됩니다.
+- `ApiBudgetMiddleware`는 `POST /api/plan/generate`, `POST /api/plan/preview`에 적용됩니다.
+
+### AI 일정 생성 파이프라인
+
+`backend/src/modules/ai/steps/`
+
+```text
+ParseInputStep → ExtractIntentStep → SearchPlacesStep
+  → SelectCandidatesStep → OptimizeRouteStep → GenerateScheduleStep
+```
+
+| 단계 | 역할 |
+| --- | --- |
+| `ParseInputStep` | LLM으로 지역, 활동, 시간대, 선호를 구조화. 지역은 `regions.json` 기반 결정적 스캔을 우선 사용 |
+| `ExtractIntentStep` | 지역명 정규화, 좌표 해석, 활동별 검색 intent 생성 |
+| `SearchPlacesStep` | Naver/Kakao 검색 결과 병합, 이름 기준 중복 제거 |
+| `SelectCandidatesStep` | 거리, 활동 적합도, 체인 패널티 등으로 후보 압축 |
+| `OptimizeRouteStep` | 이동 거리를 줄이는 순서로 동선 정렬 |
+| `GenerateScheduleStep` | 시간표, 요약, 지도 표시용 데이터 생성 |
+
+### 지역 데이터
+
+- `backend/src/shared/region/regions.json`: 국토부 법정동 코드(`backend/data/legal_dong.csv`)로 생성한 지역 사전입니다. 앱 시작 시 메모리에 로드합니다.
+- 재생성: `npm run regions:build` (`scripts/generate_regions.py`)
+- 사전에 없는 지역 토큰은 Redis에 기록하고, 5회 이상 나오면 alias로 승격합니다. Redis가 없으면 이 학습 기능은 꺼집니다.
 
 ### 주요 API
 
 | 영역 | 엔드포인트 |
 | --- | --- |
-| Health/version | `GET /health`, `GET /api/version` |
-| Auth | `POST /api/auth/email/request-code`, `POST /api/auth/email/verify-code`, `POST /api/auth/email/check`, `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/admin/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `POST /api/auth/logout-all`, `POST /api/auth/forgot-password`, `POST /api/auth/reset-password`, `GET /api/auth/me`, `PATCH /api/auth/password`, `PATCH /api/auth/settings`, `DELETE /api/auth/me` |
-| OAuth | `GET /api/auth/google`, `GET /api/auth/google/callback`, `GET /api/auth/kakao`, `GET /api/auth/kakao/callback`, `GET /api/auth/naver`, `GET /api/auth/naver/callback`, `POST /api/auth/oauth/:provider/link-token`, `DELETE /api/auth/oauth/:provider` |
-| Plan | `GET /api/plan/list`, `GET /api/plan/:id`, `POST /api/plan/generate`, `PATCH /api/plan/:id`, `DELETE /api/plan/:id`, item CRUD, memo CRUD |
-| Category | `GET /api/category/list`, `POST /api/category`, `PATCH /api/category/:id`, `DELETE /api/category/:id` |
+| Health | `GET /health`, `GET /api/version` |
+| Auth | `POST /api/auth/email/{request-code,verify-code,check}`, `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/admin/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `POST /api/auth/logout-all`, `POST /api/auth/forgot-password`, `POST /api/auth/reset-password`, `POST /api/auth/password/{setup-request,setup-verify}`, `PATCH /api/auth/{password,email,nickname,settings}`, `GET·DELETE /api/auth/me` |
+| OAuth | `GET /api/auth/{google,kakao,naver}`, `GET /api/auth/{provider}/callback`, `POST /api/auth/oauth/complete`, `POST /api/auth/oauth/:provider/link-token`, `DELETE /api/auth/oauth/:provider` |
+| Plan | `POST /api/plan/preview`, `POST /api/plan/save`, `POST /api/plan/generate`, `GET /api/plan/list`, `GET·PATCH·DELETE /api/plan/:id`, `POST /api/plan/:id/share`, `/api/plan/:id/items[/:itemId]`, `/api/plan/:id/memos[/:memoId]` |
+| Category | `GET /api/category/list`, `POST /api/category`, `PATCH·DELETE /api/category/:id` |
 | Workspace | `POST /api/workspace`, `GET /api/workspace/mine`, `POST /api/workspace/:id/invite`, `POST /api/workspace/join/:token`, `DELETE /api/workspace/:id` |
 | Notification | `GET /api/notification/unread`, `PATCH /api/notification/read-all`, `PATCH /api/notification/:id/read` |
-| Payment/subscription | `POST /api/payment/prepare`, `POST /api/payment/confirm`, `POST /api/payment/webhook`, `GET /api/subscription/status`, `DELETE /api/subscription/cancel`, `POST /api/subscription/resubscribe` |
+| Payment | `POST /api/payment/{prepare,confirm,webhook}`, `GET /api/subscription/status`, `DELETE /api/subscription/cancel`, `POST /api/subscription/resubscribe` |
 | Budget | `GET /api/budget/usage`, `GET /api/budget/limits` |
-| Admin | `GET /api/admin/summary`, users, billing, plans, workspace plans, CloudWatch logs, cost, Sentry, API usage |
-
-### AI 일정 생성 파이프라인
-
-구현은 `backend/src/modules/ai/steps/`에 있습니다.
-
-```text
-사용자 자연어 입력
-  -> ParseInputStep
-  -> ExtractIntentStep
-  -> SearchPlacesStep
-  -> SelectCandidatesStep
-  -> OptimizeRouteStep
-  -> GenerateScheduleStep
-```
-
-- `ParseInputStep`: 지역, 분위기, 제약 조건, 활동 의도를 구조화합니다.
-- `ExtractIntentStep`: 지역/활동 정보를 내부 검색 가능한 intent로 정규화합니다.
-- `SearchPlacesStep`: Naver/Kakao 등 외부 장소 검색 API를 호출해 후보를 수집합니다.
-- `SelectCandidatesStep`: 거리, 활동 적합도, 체인 패널티 등을 고려해 후보를 압축합니다.
-- `OptimizeRouteStep`: 이동 거리를 줄이는 순서로 동선을 정렬합니다.
-- `GenerateScheduleStep`: 시간표, 요약, 지도 표시용 데이터를 생성합니다.
+| Admin | `GET /api/admin/summary`, `/api/admin/users[/:id]`(role/suspend), `/api/admin/plans`, `/api/admin/billing`, `/api/admin/ops/{logs,cost,sentry,ga4,api-usage}` |
 
 ### 데이터 모델
 
-`backend/prisma/schema.prisma`의 주요 모델은 다음과 같습니다.
+`backend/prisma/schema.prisma`
 
-- `User`: 로컬/OAuth 계정, 관리자 권한, 알림 설정, 소프트 삭제
-- `RefreshToken`, `PasswordResetToken`: 세션 재발급과 비밀번호 재설정
-- `Plan`, `PlanItem`, `PlanMemo`: 일정, 일정 항목, 협업 메모
-- `Category`: 사용자별 일정 분류
+- `User`: 로컬/OAuth 계정, 역할(`Role`), 알림 설정, 소프트 삭제
+- `RefreshToken`, `PasswordResetToken`: 세션 재발급, 비밀번호 재설정
+- `Plan`, `PlanItem`, `PlanMemo`: 일정, 일정 항목, 메모
+- `Category`: 사용자별 분류
 - `Workspace`, `WorkspaceMember`, `WorkspaceInvite`: 공유 워크스페이스
 - `Subscription`, `Payment`: Toss 구독 결제
 - `Notification`: 인앱 알림
-- `ApiUsage`: API 비용/호출량 추적
+- `ApiUsage`: API 호출량/비용 추적
 
 ## 프론트엔드
 
 ### 라우팅
 
-`frontend/src/app/`는 Next.js App Router를 사용합니다.
+| 경로 | 설명 |
+| --- | --- |
+| `/` | 서비스 소개 |
+| `/plan` | 일정 생성 |
+| `/plans/[id]`, `/library`, `/library/plans/[id]` | 저장된 일정 |
+| `/workspace`, `/workspace/plans/[id]`, `/workspace/settings`, `/workspace/join/[token]` | 워크스페이스, 공유 플랜, 초대 수락 |
+| `/dashboard`, `/mypage`, `/settings` | 사용자 홈, 계정 설정 |
+| `/subscribe`, `/subscribe/{success,fail}` | 구독 결제 |
+| `/login`, `/register`, `/forgot-password`, `/reset-password`, `/auth/callback`, `/auth/oauth/complete` | 인증 |
+| `/admin`, `/admin/{users,plans,billing,board,ops/*}`, `/admin/login` | 관리자 콘솔 |
+| `/privacy`, `/terms` | 정책 |
 
-- `/`: 서비스 소개 및 시작 화면
-- `/plan`: 일정 생성 화면
-- `/plans/[id]`, `/library`, `/library/plans/[id]`: 저장된 일정 조회
-- `/dashboard`, `/mypage`, `/settings`: 사용자 홈/계정 설정
-- `/workspace`, `/workspace/join/[token]`: 워크스페이스와 초대 수락
-- `/subscribe`, `/subscribe/success`, `/subscribe/fail`: 구독 결제 플로우
-- `/admin`, `/admin/*`: 관리자 대시보드
-- `/login`, `/register`, `/forgot-password`, `/reset-password`, `/auth/callback`: 인증 플로우
-- `/privacy`, `/terms`: 정책 페이지
+- 존재하지 않는 경로는 `app/not-found.tsx`에서 `/`로 리다이렉트합니다.
+- `src/proxy.ts`가 보호 경로(`/plan`, `/library`, `/workspace`, `/admin` 등)의 인증 여부를 확인해 로그인 화면으로 보냅니다.
 
 ### 클라이언트 구조
 
-- `frontend/src/lib/api.ts`는 `NEXT_PUBLIC_API_URL`을 기준으로 API base URL을 정규화하고, access token 첨부와 `401` refresh 재시도를 처리합니다.
-- `frontend/src/stores/authStore.ts`와 `frontend/src/hooks/useAuth.ts`가 클라이언트 인증 상태를 관리합니다.
-- `frontend/src/components/providers/QueryProvider.tsx`가 TanStack Query client를 주입합니다.
-- `frontend/src/app/api/admin/*`는 관리자 화면에서 사용하는 Next.js API route 프록시/세션 처리를 담당합니다.
-
-## 환경 변수
-
-로컬 개발에서는 보통 `backend/.env`와 `frontend/.env.local`을 사용합니다. 배포 기준 예시는 `.env.production.template`, 테스트 기준 예시는 `.env.test.template`에 있습니다.
-
-### Backend
-
-| 변수 | 설명 |
-| --- | --- |
-| `DATABASE_URL` | PostgreSQL 연결 문자열 |
-| `PORT` | API 서버 포트. 기본값 `4000` |
-| `APP_URL` | 백엔드 공개 URL |
-| `FRONTEND_URL` | 프론트엔드 공개 URL과 OAuth 리다이렉트 기준 |
-| `CORS_ORIGIN` | 허용할 프론트엔드 origin. 쉼표로 여러 개 지정 가능 |
-| `JWT_SECRET` | JWT 서명 키 |
-| `JWT_EXPIRES_IN` | access token 만료 시간 |
-| `REFRESH_TOKEN_EXPIRES_DAYS` | refresh token 보관 기간 |
-| `LINK_TOKEN_SECRET` | OAuth 계정 연결 토큰 서명 키. 없으면 `JWT_SECRET` 사용 |
-| `OPENROUTER_API_KEY` | LLM 호출용 API 키 |
-| `DAILY_API_LIMIT`, `MONTHLY_API_BUDGET` | 일정 생성 API 예산 제한 |
-| `NAVER_SEARCH_CLIENT_ID`, `NAVER_SEARCH_CLIENT_SECRET` | Naver 지역 검색 API |
-| `KAKAO_REST_API_KEY` | Kakao 장소 검색 API |
-| `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`, `REDIS_TLS` | Redis 캐시/제한 설정 |
-| `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile secret |
-| `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN`, `SENTRY_ENVIRONMENT` | Sentry 수집/관리자 조회 설정 |
-| `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | 관리자 운영 조회용 AWS 인증 |
-| `CLOUDWATCH_LOG_GROUP_BACKEND`, `CLOUDWATCH_LOG_GROUP_FRONTEND` | CloudWatch 로그 그룹 |
-| `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASS`, `EMAIL_FROM`, `SUPPORT_EMAIL` | 이메일 발송 설정 |
-| `TOSS_SECRET_KEY`, `TOSS_WEBHOOK_SECRET`, `SUBSCRIPTION_MONTHLY_AMOUNT` | Toss 결제/구독 설정 |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL` | Google OAuth |
-| `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`, `KAKAO_CALLBACK_URL` | Kakao OAuth |
-| `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, `NAVER_CALLBACK_URL` | Naver OAuth |
-| `SCHEDULER_ENABLED` | `false`면 정리 스케줄러 비활성화. 테스트 환경 중복 cron 방지용 |
-
-### Frontend
-
-| 변수 | 설명 |
-| --- | --- |
-| `NEXT_PUBLIC_API_URL` | 백엔드 API 루트. `/api`가 있어도 되고 없어도 됩니다 |
-| `BACKEND_URL` | 서버 사이드 API route가 직접 호출할 백엔드 URL |
-| `NEXT_PUBLIC_SITE_URL` | canonical/sitemap/robots 기준 사이트 URL |
-| `NEXT_PUBLIC_NAVER_MAP_CLIENT_ID` | Naver Maps JS SDK 키 |
-| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | GA4 Measurement ID |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Turnstile 사이트 키 |
-| `NEXT_PUBLIC_SENTRY_DSN` | 프론트엔드 Sentry DSN |
-| `NEXT_PUBLIC_TOSS_CLIENT_KEY` | Toss Payments client key |
-| `NEXT_PUBLIC_ADMIN_PUBLIC_LOGIN_ENABLED` | 관리자 공개 로그인 UI 노출 여부 |
-| `ADMIN_PUBLIC_LOGIN_ENABLED`, `SEED_PUBLIC_ADMIN_EMAIL`, `SEED_PUBLIC_ADMIN_PASSWORD` | Next.js admin public-login API route 설정 |
-| `JWT_SECRET`, `FRONTEND_URL`, `APP_URL` | 관리자 세션/서버 API route에서 사용 |
-
-주의사항:
-
-- `NAVER_SEARCH_*`와 `NAVER_CLIENT_*`는 서로 다른 용도의 키입니다.
-- OAuth callback URL은 백엔드 도메인의 `/api/auth/{provider}/callback`이어야 합니다.
-- `NEXT_PUBLIC_*` 값은 프론트엔드 이미지 빌드 시점에 반영됩니다.
+- `lib/api.ts`: `NEXT_PUBLIC_API_URL` 기준 API client. access token 첨부와 `401` 시 refresh 재시도를 처리합니다.
+- `stores/authStore.ts`, `hooks/useAuth.ts`: 클라이언트 인증 상태
+- `components/providers/QueryProvider.tsx`: TanStack Query client
+- `app/api/admin/*`: 관리자 세션 쿠키와 백엔드 프록시를 처리하는 Next.js route handler
+- 서버 사이드 요청은 Nginx를 거치지 않고 `BACKEND_URL`로 백엔드를 직접 호출합니다.
 
 ## 로컬 개발
 
 ### 요구사항
 
-- Node.js 22.x
-- npm 10+
-- Docker / Docker Compose
-- PostgreSQL 또는 Docker 기반 DB
+- Node.js 22.x, npm 10+
+- PostgreSQL (로컬 또는 Docker)
+- Python 3 (`regions.json` 재생성 시에만)
 
-### 설치
+### 설치와 실행
 
 ```bash
+# backend
 cd backend
 npm ci
 npx prisma generate
+npx prisma migrate dev
+npm run start:dev        # http://localhost:4000
 
-cd ../frontend
-npm ci
-```
-
-### 개발 서버 실행
-
-```bash
-# terminal 1
-cd backend
-npm run start:dev
-
-# terminal 2
+# frontend
 cd frontend
-npm run dev
+npm ci
+npm run dev              # http://localhost:3000
 ```
 
-기본 포트는 다음과 같습니다.
+로컬 env 파일은 `backend/.env`와 `frontend/.env.local`을 사용합니다. 항목은 [환경 변수](#환경-변수)를 참고하세요.
 
-- backend: `http://localhost:4000`
-- frontend: `http://localhost:3000`
-
-### Prisma 작업
+### Prisma
 
 ```bash
 cd backend
-
-# schema 변경 후 개발 마이그레이션 생성/적용
-npx prisma migrate dev --name <migration_name>
-
-# 배포 환경 마이그레이션 적용
-npx prisma migrate deploy
-
-# Prisma client 재생성
-npx prisma generate
-
-# seed 실행
-npm run seed
+npx prisma migrate dev --name <migration_name>   # 마이그레이션 생성/적용
+npx prisma migrate deploy                        # 배포 환경 적용 (컨테이너 기동 시 자동 실행)
+npx prisma generate                              # client 재생성
+npm run seed                                     # 관리자 계정 seed
 ```
 
-## 품질 검증
-
-### Backend
+### 품질 검증
 
 ```bash
+# backend
 cd backend
 npm run lint:check
 npx tsc -p tsconfig.build.json --noEmit
 npm run test
 npm run test:e2e
-npm run test:cov
-```
 
-참고: `npm run lint`는 `--fix`를 실행하므로 CI와 같은 검사만 필요하면 `npm run lint:check`를 사용합니다.
-
-### Frontend
-
-```bash
+# frontend
 cd frontend
 npm run lint:check
 npx tsc --noEmit
 npm run build
 ```
 
-## Docker 및 배포
+`npm run lint`는 `--fix`를 실행합니다. CI와 같은 검사만 하려면 `lint:check`를 사용하세요.
 
-### 이미지
+## 환경 변수
 
-GHCR 이미지를 사용합니다.
+배포 기준 예시는 `.env.production.template`, 테스트 기준 예시는 `.env.test.template`에 있습니다.
 
-- production: `ghcr.io/<owner>/ai-planner-backend:latest`, `ghcr.io/<owner>/ai-planner-frontend:latest`
-- canary/test: `ghcr.io/<owner>/ai-planner-backend:canary`, `ghcr.io/<owner>/ai-planner-frontend:canary`
-- 각 배포는 commit SHA 태그도 함께 생성합니다.
+### Backend
+
+| 변수 | 설명 |
+| --- | --- |
+| `DATABASE_URL` | PostgreSQL 연결 문자열 |
+| `PORT` | API 포트. 기본 `4000` |
+| `FRONTEND_URL` | 프론트엔드 URL. OAuth 리다이렉트 기준 |
+| `CORS_ORIGIN` | 허용 origin. 쉼표로 여러 개 지정 |
+| `JWT_SECRET`, `JWT_EXPIRES_IN` | JWT 서명 키, access token 만료 |
+| `LINK_TOKEN_SECRET` | OAuth 계정 연결 토큰 키. 없으면 `JWT_SECRET` 사용 |
+| `OPENROUTER_API_KEY` | LLM 호출 키 |
+| `DAILY_API_LIMIT`, `MONTHLY_API_BUDGET` | 일정 생성 API 예산 |
+| `NAVER_SEARCH_CLIENT_ID`, `NAVER_SEARCH_CLIENT_SECRET` | Naver 지역 검색 |
+| `KAKAO_REST_API_KEY` | Kakao 장소 검색 |
+| `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`, `REDIS_TLS` | Redis. `REDIS_HOST`가 없으면 Redis 기능 전체 비활성화 |
+| `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile |
+| `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_SECURE`, `EMAIL_USER`, `EMAIL_PASS`, `EMAIL_FROM`, `SUPPORT_EMAIL` | 메일 발송 |
+| `TOSS_SECRET_KEY`, `TOSS_WEBHOOK_SECRET`, `SUBSCRIPTION_MONTHLY_AMOUNT` | Toss 결제/구독 |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL` | Google OAuth |
+| `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`, `KAKAO_CALLBACK_URL` | Kakao OAuth |
+| `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, `NAVER_CALLBACK_URL` | Naver OAuth |
+| `SENTRY_DSN`, `SENTRY_ENVIRONMENT`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` | Sentry 수집, 관리자 조회 |
+| `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | 관리자 운영 조회(CloudWatch, Cost Explorer) |
+| `CLOUDWATCH_LOG_GROUP_BACKEND`, `CLOUDWATCH_LOG_GROUP_FRONTEND` | CloudWatch 로그 그룹 |
+| `GA4_PROPERTY_ID`, `GOOGLE_APPLICATION_CREDENTIALS` | 관리자 GA4 조회. 서비스 계정 JSON 경로 (`GA4_CLIENT_EMAIL`/`GA4_PRIVATE_KEY`로 대체 가능) |
+| `SCHEDULER_ENABLED` | `false`면 스케줄러 비활성화. 테스트 환경 중복 실행 방지 |
+| `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | `npm run seed` 관리자 계정 |
+
+### Frontend
+
+| 변수 | 설명 |
+| --- | --- |
+| `NEXT_PUBLIC_API_URL` | 백엔드 API 루트. 끝의 `/api` 유무 무관 |
+| `BACKEND_URL` | 서버 사이드에서 직접 호출할 백엔드 URL |
+| `NEXT_PUBLIC_SITE_URL` | canonical/sitemap/robots 기준 URL |
+| `NEXT_PUBLIC_NAVER_MAP_CLIENT_ID` | Naver Maps JS SDK |
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | GA4 Measurement ID |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Turnstile 사이트 키 |
+| `NEXT_PUBLIC_SENTRY_DSN` | Sentry DSN |
+| `NEXT_PUBLIC_TOSS_CLIENT_KEY` | Toss client key |
+| `NEXT_PUBLIC_ADMIN_PUBLIC_LOGIN_ENABLED` | 관리자 공개 로그인 UI 노출 |
+| `ADMIN_PUBLIC_LOGIN_ENABLED`, `SEED_PUBLIC_ADMIN_EMAIL`, `SEED_PUBLIC_ADMIN_PASSWORD` | 관리자 공개 로그인 route 설정 |
+| `JWT_SECRET`, `FRONTEND_URL`, `APP_URL` | 관리자 세션/서버 route |
+
+주의:
+
+- `NAVER_SEARCH_*`(검색 API)와 `NAVER_CLIENT_*`(OAuth)는 서로 다른 키입니다.
+- OAuth callback URL은 `{백엔드 도메인}/api/auth/{provider}/callback`입니다.
+- `NEXT_PUBLIC_*`는 프론트엔드 이미지 빌드 시점에 고정됩니다. 값을 바꾸면 이미지를 다시 빌드해야 합니다.
+- 배포 서버에서는 `.env`에 추가하는 것만으로는 부족합니다. Compose 파일의 `environment`에도 등록해야 컨테이너에 전달됩니다.
+
+## 배포
+
+### 브랜치 흐름
+
+```text
+develop ──PR──▶ canary ──PR──▶ main
+                  │               │
+                  ▼               ▼
+        test.date-planner.us   date-planner.us
+                              + SemVer 태그 / GitHub Release
+```
+
+1. `develop`에서 작업한 뒤 `canary`로 PR을 엽니다. PR마다 CI가 실행됩니다.
+2. `canary`에 머지하면 `:canary` 이미지를 빌드해 test 스택에 배포합니다.
+3. 머지와 동시에 `canary → main` PR이 자동으로 생성됩니다.
+4. test 환경에서 검증한 뒤 `main`에 머지하면 `:latest` 이미지를 빌드해 운영에 배포합니다.
+5. 머지된 PR의 `release:*` 라벨로 SemVer 태그와 GitHub Release를 만듭니다. 라벨이 없으면 patch입니다.
+
+자세한 정책은 [docs/release-versioning.md](./docs/release-versioning.md)를 참고하세요.
+
+### GitHub Actions
+
+| 워크플로 | 트리거 | 역할 |
+| --- | --- | --- |
+| `ci.yml` | PR | 변경 영역별 typecheck, lint, Docker dry-run build. job 이름 `Backend CI`/`Frontend CI`는 main 필수 체크 |
+| `canary.yml` | `canary` push | `:canary` 이미지 build/push, test 스택 배포, 관리자 seed |
+| `deploy-test.yml` | `Deploy Canary` 완료 | test 스택 배포 |
+| `release-pr.yml` | `canary` push | 열린 `canary → main` PR이 없으면 생성 (`RELEASE_PR_TOKEN` 필요) |
+| `deploy.yml` | `main` push | `:latest` 이미지 build/push, 운영 배포 |
+| `auto-tag.yml` | `main` PR 머지 | 라벨 기반 SemVer 태그와 GitHub Release 생성 |
+| `auto-assign.yml` | PR 생성 | assignee가 없으면 기본 지정 |
+| `release.yml` | `v*` 태그 push | GitHub Release 생성 (수동 태그용) |
+
+- CI는 단위 테스트(`jest`)를 실행하지 않습니다. 테스트는 로컬에서 직접 실행해야 합니다.
+- 이미지 태그: 운영 `:latest`, `:<sha>` / 테스트 `:canary`, `:canary-<sha>` (`ghcr.io/<owner>/ai-planner-{backend,frontend}`)
 
 ### 런타임
 
-- production 도메인: `https://date-planner.us`
-- test 도메인: `https://test.date-planner.us`
-- production 앱 스택 기준 경로: `/srv/apps/ai-planner`
-- test 앱 스택 기준 경로: `/srv/apps/ai-planner-test`
-- reverse proxy: Nginx
-- 컨테이너 구성: backend, frontend, postgres. 테스트 Compose 예시는 `infra/docker-compose.ai-planner.test.yml`에 있습니다.
+단일 EC2 인스턴스에서 Docker로 운영합니다.
 
-## GitHub Actions
+| 구성 | 경로/컨테이너 |
+| --- | --- |
+| 운영 스택 | `/srv/apps/ai-planner` (`ai-planner-backend`, `ai-planner-frontend`) |
+| 테스트 스택 | `/srv/apps/ai-planner-test` (`ai-planner-backend-test`, `ai-planner-frontend-test`) |
+| DB | `ai-planner-postgres` 하나를 공유하고 DB만 분리 (`aiplanner`, `aiplanner_test`) |
+| Reverse proxy | `infra-nginx`. 설정 원본은 `infra/nginx-test-server-block.conf`, 서버 경로는 `/srv/infra/nginx/conf.d/` |
+| TLS | Let's Encrypt (certbot) |
 
-| 워크플로우 | 트리거 | 역할 |
-| --- | --- | --- |
-| `ci.yml` | PR | backend/frontend 변경 감지 후 typecheck, lint, Docker dry-run build |
-| `canary.yml` | `canary` push | 변경된 서비스의 canary 이미지 build/push |
-| `deploy-test.yml` | `Deploy Canary` 성공 | canary 이미지를 `test.date-planner.us` EC2 스택에 배포 |
-| `deploy.yml` | `main` push | production 이미지 build/push 및 EC2 배포 |
-| `auto-tag.yml` | `main` 대상 PR merge | `release:major/minor/patch` 라벨에 따라 SemVer 태그 생성 |
-| `release.yml` | `v*` tag push | GitHub Release 생성 |
-
-CI의 고정 job 이름은 `Backend CI`, `Frontend CI`입니다. 변경이 없는 영역은 성공 종료로 처리되므로 required checks와 연결하기 쉽습니다.
-
-## 브랜치/릴리즈 흐름
-
-```text
-feature branch
-  -> PR to canary
-  -> CI 통과
-  -> merge to canary
-  -> canary 이미지 빌드
-  -> test.date-planner.us 배포/검증
-  -> PR from canary to main
-  -> merge to main
-  -> production deploy
-  -> release label 기반 tag 생성
-  -> GitHub Release 생성
-```
-
-- `canary`: 통합 개발 및 테스트 배포 기준 브랜치
-- `main`: production release 브랜치
-- `release:major`, `release:minor`, `release:patch` 라벨이 `main` merge PR에 붙으면 `auto-tag.yml`이 다음 SemVer 태그를 생성합니다.
+- Compose 원본: `infra/docker-compose.ai-planner.prod.yml`, `infra/docker-compose.ai-planner.test.yml`. 배포할 때 서버에 `compose.yml`로 동기화됩니다.
+- 현재 Compose에는 Redis 서비스와 `REDIS_*` 환경변수가 없습니다. 운영과 테스트 모두 Redis 의존 기능(검색 캐시, 로그인 실패 잠금, 캡차 재사용 방지, alias 학습)이 꺼진 상태입니다.
 
 ## 트러블슈팅
 
 | 증상 | 점검 포인트 |
 | --- | --- |
-| 장소 검색 결과가 부정확하거나 비어 있음 | `NAVER_SEARCH_CLIENT_ID/SECRET`, `KAKAO_REST_API_KEY`, 지역 정규화 로직 확인 |
-| OAuth 로그인 후 프론트로 돌아오지 않음 | `FRONTEND_URL`, provider callback URL, OAuth 앱에 등록된 callback URL 일치 여부 확인 |
-| 프론트에서 계속 401 후 로그인 화면으로 이동 | access/refresh token 저장 상태와 `/api/auth/refresh` 응답 확인 |
-| 지도 대신 텍스트 fallback이 보임 | `NEXT_PUBLIC_NAVER_MAP_CLIENT_ID` 누락 여부 확인 |
-| 결제 위젯이 로드되지 않음 | `NEXT_PUBLIC_TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY`, 구독 금액 설정 확인 |
-| 관리자 운영 로그/비용 화면이 비어 있음 | AWS credential, CloudWatch log group, Cost Explorer 권한 확인 |
-| Sentry 관리자 화면이 비어 있음 | `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` 확인 |
-| 테스트 환경에서 스케줄러가 중복 실행됨 | `.env.test`의 `SCHEDULER_ENABLED=false` 확인 |
-| 배포 후 env가 반영되지 않음 | 서버 `.env`, Compose `environment`, 프론트 빌드 시점 `NEXT_PUBLIC_*` 값 확인 |
-
-## 관련 문서
-
-- [release-versioning.md](./docs/release-versioning.md)
+| 장소 검색 결과가 비거나 부정확함 | `NAVER_SEARCH_*`, `KAKAO_REST_API_KEY`, `regions.json` 지역 매칭 |
+| OAuth 후 프론트로 돌아오지 않음 | `FRONTEND_URL`, `*_CALLBACK_URL`, provider 콘솔에 등록한 callback URL |
+| 401 후 계속 로그인 화면으로 이동 | 토큰 저장 상태, `/api/auth/refresh` 응답 |
+| 지도 대신 텍스트가 보임 | `NEXT_PUBLIC_NAVER_MAP_CLIENT_ID` |
+| 결제 위젯이 뜨지 않음 | `NEXT_PUBLIC_TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY`, `SUBSCRIPTION_MONTHLY_AMOUNT` |
+| 관리자 운영 로그/비용이 비어 있음 | AWS 자격 증명, CloudWatch 로그 그룹, Cost Explorer 권한 |
+| 관리자 Sentry/GA4가 비어 있음 | `SENTRY_AUTH_TOKEN`/`ORG`/`PROJECT`, `GA4_PROPERTY_ID`와 서비스 계정 파일 |
+| 스케줄러가 중복 실행됨 | 테스트 `.env`의 `SCHEDULER_ENABLED=false` |
+| 배포 후 env가 반영되지 않음 | 서버 `.env`, Compose `environment`, 빌드 시점 `NEXT_PUBLIC_*` |
+| `canary → main` PR이 자동 생성되지 않음 | `RELEASE_PR_TOKEN` 시크릿 |
 
 ## 라이선스
 
