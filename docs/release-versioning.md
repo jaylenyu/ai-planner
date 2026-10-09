@@ -12,7 +12,7 @@
 2. `CI` validates backend/frontend changes on every PR.
 3. Merge validated PRs into `canary`.
 4. Deploy `canary` to the test environment.
-5. A `canary -> main` PR is opened automatically on each `canary` push (`release-pr.yml`, requires `RELEASE_PR_TOKEN`). Merge it when the test environment is stable.
+5. Promote `canary` to `main` with a PR when the test environment is stable.
 6. Merge into `main` to trigger `Deploy to Production`.
 7. Apply exactly one release label to the `canary -> main` PR:
    - `release:patch`
