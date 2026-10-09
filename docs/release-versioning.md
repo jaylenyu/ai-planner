@@ -2,12 +2,13 @@
 
 ## Branch Roles
 
-- `canary`: integration and staging branch. All day-to-day work lands here first.
+- `develop`: day-to-day working branch. Open PRs from here into `canary`.
+- `canary`: integration and staging branch, deployed to `test.date-planner.us`.
 - `main`: production release branch. Only tested changes from `canary` are promoted here.
 
 ## Delivery Flow
 
-1. Open feature PRs against `canary`.
+1. Open PRs from `develop` against `canary`.
 2. `CI` validates backend/frontend changes on every PR.
 3. Merge validated PRs into `canary`.
 4. Deploy `canary` to the test environment.
@@ -19,7 +20,7 @@
    - `release:major`
 8. Merge into `main` to trigger `Deploy to Production`.
 9. After merge, `Auto Tag Release` creates the next SemVer tag automatically.
-10. The `Release` workflow publishes GitHub Release notes from that tag.
+10. `Auto Tag Release` also publishes the GitHub Release. (`Release` only runs for manually pushed tags, since tags pushed with `GITHUB_TOKEN` do not trigger workflows.)
 
 ## Branch Protection
 
@@ -55,7 +56,7 @@ Use SemVer tags in the form `vMAJOR.MINOR.PATCH`.
 5. Add one release label to the `canary -> main` PR.
 6. Merge to `main`.
 7. Confirm the auto-tag workflow created the next SemVer tag.
-8. Let the `Release` workflow publish GitHub Release notes.
+8. Confirm the GitHub Release was published for that tag.
 
 ## Example Cadence
 
@@ -70,4 +71,5 @@ Use SemVer tags in the form `vMAJOR.MINOR.PATCH`.
 - `release:minor`: new backward-compatible user-facing features
 - `release:major`: breaking API, schema, or rollout changes
 
-Use exactly one release label on each `main` promotion PR. If no release label is present, auto-tagging is skipped.
+Use at most one release label on each `main` promotion PR. If no release label is present, the release defaults to `patch`.
+The label must be on the PR before it is merged; labels added after merge are ignored.
